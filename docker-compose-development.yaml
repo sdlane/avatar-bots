@@ -1,0 +1,24 @@
+version: "3.9"
+services:
+  db:
+    image: postgres:18.0-alpine
+    ports:
+      - 5433:5433
+    volumes:
+      - ./postgres-data:/var/lib/postgresql
+    environment:
+      - POSTGRES_PASSWORD=password
+      - POSTGRES_USER=AVATAR
+      - POSTGRES_DB=AVATAR
+
+  hawky-api:
+    image: avatar/hawky
+    build:
+      context: .
+      dockerfile: hawky/Dockerfile
+    depends_on:
+      - db
+    ports:
+      - 4242:5000
+    volumes:
+      - ./hawky:/usr/src/bot

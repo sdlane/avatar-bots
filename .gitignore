@@ -1,3 +1,11 @@
+*~
+*#*#
+.env.development
+.env.production
+/build
+/postgres-data
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
