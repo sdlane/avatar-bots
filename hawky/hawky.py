@@ -2,6 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 from helpers import *
+from views import *
 import os
 from dotenv import load_dotenv
 
@@ -46,10 +47,10 @@ async def send_letter(interaction: discord.Interaction, message: discord.Message
     channel = await channel
     user = await user
     start_str = f"{user.mention}\n" if user else ""
-    await channel.send(f"{start_str}{message.content}",
-                       files = [await attch.to_file() for attch in message.attachments])
+    message = await channel.send(f"{start_str}{message.content}",
+                                 files = [await attch.to_file() for attch in message.attachments])
     await interaction.response.send_message(
-        f"Confirm, message sent to {channel.name}", ephemeral=True)
+        f"Confirm, message sent to {channel.name} with id {message.id}", ephemeral=True)
     
 @tree.command(
     name="check-letter-limit",
@@ -94,5 +95,21 @@ async def assign_character(interaction: discord.Interaction, member: discord.Mem
     # For now, I'm using this to get info for testing other commands/figuring out datatypes, consider it a placeholder with a use
     await interaction.response.send_message(
         f'Member ID: {member.id}, Guild ID:  {interaction.guild_id}, Channel ID: {interaction.channel_id}, Category ID: {interaction.channel.category_id}', ephemeral=True)
+
+@tree.command(
+    name="config-server",
+    description="Start an interaction to set the server specific settings for this server"
+)
+async def config_server(interaction: discord.Interaction):
+    view = Confirm()
+    await interaction.response.send_message('Do you want to confirm?', view=view, ephemeral=True)
+    
+    await view.wait()
+    if view.value is None:
+        print('Timed out...')
+    elif view.value:
+        print('Confirmed...')
+    else:
+        print('Cancelled...')
 
 client.run(BOT_TOKEN)
