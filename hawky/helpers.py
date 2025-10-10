@@ -16,3 +16,6 @@ emote_texts = ["\"kreee!\"",
 
 def get_emote_text():
     return random.choice(emote_texts)
+
+def emotive_message(confirm_text: str):
+    return f'{get_emote_text()}\n({confirm_text})'

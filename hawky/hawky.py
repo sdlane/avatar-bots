@@ -50,7 +50,7 @@ async def send_letter(interaction: discord.Interaction, message: discord.Message
     message = await channel.send(f"{start_str}{message.content}",
                                  files = [await attch.to_file() for attch in message.attachments])
     await interaction.response.send_message(
-        f"Confirm, message sent to {channel.name} with id {message.id}", ephemeral=True)
+        emotive_message(f"Message sent to {channel.name}"), ephemeral=True)
     
 @tree.command(
     name="check-letter-limit",
@@ -60,7 +60,8 @@ async def whistle(interaction: discord.Interaction):
     remaining_letters = 2
     letter_limit = 2
     await interaction.response.send_message(
-        f'You have {remaining_letters} letters remaining out of a maximum of {letter_limit}', ephemeral=True)
+        emotive_message(f'You have {remaining_letters} letters remaining out of a maximum of {letter_limit}'),
+        ephemeral=True)
 
 
 # Member ID: 372159950576943116, Guild ID:  1229419428240822343
@@ -87,7 +88,7 @@ async def create_character(interaction: discord.Interaction, identifier: str):
 
     # Send confirmation that the character was created and start configure character interaction
     await interaction.response.send_message(
-        f'Creating character with identifier: {identifier}', ephemeral=True)
+        emotive_message(f'Created character with identifier: {identifier}'), ephemeral=True)
 
 
 @tree.command(

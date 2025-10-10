@@ -1,5 +1,6 @@
 import discord
 from discord import ui
+from helpers import *
 
 # Adapted from examples: https://github.com/Rapptz/discord.py/blob/v2.6.4/examples/views/settings.py
 
@@ -34,7 +35,7 @@ class ConfigServerModal(ui.Modal, title="Configure Server"):
         super().__init__()
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Thanks", ephemeral=True)
+        await interaction.response.send_message(emotive_message("Server Configuration Updated"), ephemeral=True)
         
 class ConfigCharacterModal(ui.Modal, title="Configure Character"):
     name = ui.TextInput(label='Public Character Name',  style=discord.TextStyle.short, required=False)
@@ -45,4 +46,4 @@ class ConfigCharacterModal(ui.Modal, title="Configure Character"):
         super().__init__()
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.send_message(f"Thanks", ephemeral=True)
+        await interaction.response.send_message(emotive_message("Character Confirmation Updated"), ephemeral=True)
