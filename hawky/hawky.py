@@ -68,7 +68,7 @@ async def whistle(interaction: discord.Interaction):
 # Admin Commands
 @tree.command(
     name="create-character",
-    description="Create a new character in the DB and then start a configuration meny for that character"
+    description="Create a new character in the DB and then start a configuration menu for that character"
 )
 @app_commands.describe(
     identifier="The identifier you want to use for the new character. Will be used as the channel name, must be unique for this server"
@@ -90,6 +90,17 @@ async def create_character(interaction: discord.Interaction, identifier: str):
         f'Creating character with identifier: {identifier}', ephemeral=True)
 
 
+@tree.command(
+    name="config-character",
+    description="Configure the specified character, updating its entry in the database"
+)
+@app_commands.describe(
+    identifier="The identifier of the character you want to configure"
+)
+async def create_character(interaction: discord.Interaction, identifier: str):
+    await interaction.response.send_modal(ConfigCharacterModal())
+    
+
 @tree.context_menu(name='Assign Character')
 async def assign_character(interaction: discord.Interaction, member: discord.Member):
     # For now, I'm using this to get info for testing other commands/figuring out datatypes, consider it a placeholder with a use
@@ -101,15 +112,6 @@ async def assign_character(interaction: discord.Interaction, member: discord.Mem
     description="Start an interaction to set the server specific settings for this server"
 )
 async def config_server(interaction: discord.Interaction):
-    view = Confirm()
-    await interaction.response.send_message('Do you want to confirm?', view=view, ephemeral=True)
-    
-    await view.wait()
-    if view.value is None:
-        print('Timed out...')
-    elif view.value:
-        print('Confirmed...')
-    else:
-        print('Cancelled...')
+    await interaction.response.send_modal(ConfigServerModal())
 
 client.run(BOT_TOKEN)
