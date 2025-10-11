@@ -157,6 +157,43 @@ async def create_character(interaction: discord.Interaction, identifier: str):
     await interaction.response.send_message(
         emotive_message(f'Created character with identifier: {identifier}'), ephemeral=True)
 
+@tree.command(
+    name="remove-character",
+    description="Remove a new character from the DB and its associated channel"
+)
+@app_commands.describe(
+    identifier="The identifier of the character you want to remove"
+)
+async def remove_character(interaction: discord.Interaction, identifier: str):
+    # Get the character from the database
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
+
+    # If that character doesn't exist, abort
+    if character is None:
+        await conn.close()
+        await interaction.response.send_message(
+            emotive_message(f"There is no character with the identifier {identifier} in the database"),
+            ephemeral = True)
+        return
+
+    # Delete the associated channel
+    delete_channel = interaction.guild.get_channel(character.channel_id).delete()
+    
+    # Delete the character from the database
+    delete_database = Character.delete(conn, character.id)
+
+    await delete_channel
+    await delete_database
+    
+    # Close connection
+    await conn.close()
+    
+    # Send confirmation
+    await interaction.response.send_message(
+        emotive_message(f"Successfully deleted {identifier}"),
+        ephemeral = True)
+    
 
 @tree.command(
     name="config-character",
