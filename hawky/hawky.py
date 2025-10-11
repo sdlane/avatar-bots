@@ -83,37 +83,77 @@ async def create_character(interaction: discord.Interaction, identifier: str):
 
     # If those don't exist, send error message and abort
     if server_config is None:
-        interaction.send_message(
+        await interaction.response.send_message(
             emotive_message("You need to set the server configuration before you can create a character"),
             ephemeral=True)
-        
-    if server_config.category_id is not None:
-        server_config.category = discord.utils.get(interaction.guild.categories, id=server_config.category_id)
-    else:
-        interaction.send_message(
-            emotive_message("You need to set the server configuration before you can create a character"),
-            ephemeral=True)
-    
-    
+        return
+
     # Use the category ID from server settings to get the actual category object
-    category = discord.utils.get(interaction.guild.categories, id=1425476275719377006)
+    category = None
+    if server_config.category_id is not None:
+        category = discord.utils.get(interaction.guild.categories, id=server_config.category_id)
+    else:
+        await interaction.response.send_message(
+            emotive_message("You need to set character channel in the server configuration before you can create a character"),
+            ephemeral=True)
+        return
 
+    # Check if the character already exists in the database
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
+    await conn.close()
+
+    if character is not None:
+        await interaction.response.send_message(
+            emotive_message(f"A character with the identifier {identifier} already exists in the database, aborting."),
+            ephemeral = True
+        )
+        return
     
-    # If it does exist, check if there's already a channel with this identifier
-
-    # If there is, send confirmation checking whether it shoud connect this character to that channel
-
-    # If not, make the channel
+    # Check if there's already a channel with this identifier in the specified category
+    channel = discord.utils.get(category.channels, name=identifier)
     
-    # Try to create entry in character table in database
-    # If entry already exists for identifier on this guild, abort with error message
+    if channel is None:
+        # If not, make the channel
+        channel = await interaction.guild.create_text_channel(identifier, category=category)
 
-    # Get the category ID that the characters should be created in from server settings
+    else:
+        # If there is, send confirmation checking whether it shoud connect this character to that channel
+        view = Confirm()
+        await interaction.response.send_message(
+            emotive_message(f"A channel called {identifier} already exists in the configured category. Would you like to connect this character to it?"),
+            view=view,
+            ephemeral = True)
+        await view.wait()
+        interaction = view.interaction
+        
+        if view.value is None:
+            # If not confirmed, abort
+            await interaction.response.send_message(
+                emotive_message("Character Creation Timed Out"),
+                ephemeral=True)
+            return
 
-    # Use that category object and the identifier to create a channel
-    channel = await interaction.guild.create_text_channel(identifier, category=category)
+        elif not view.value:
+            # If not confirmed, abort
+            await interaction.response.send_message(
+                emotive_message("Canceled Create Character"),
+                ephemeral=True)
+            return
 
-    # Send confirmation that the character was created and start configure character interaction
+
+    # Create the character object
+    character = Character(identifier=identifier,
+                          name=identifier,
+                          channel_id = channel.id,
+                          letter_limit = server_config.default_limit,
+                          guild_id = interaction.guild_id)
+
+    # Write character to the database
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    await character.upsert(conn)
+    await conn.close()
+    
     await interaction.response.send_message(
         emotive_message(f'Created character with identifier: {identifier}'), ephemeral=True)
 
@@ -210,6 +250,7 @@ async def config_server_callback(interaction: discord.Interaction,
                 # If confirmed, create category and get ID
                 new_category = await interaction.guild.create_category(channel_category)
                 category_id = new_category.id
+                interaction = view.interaction
                 
             else:
                 # If not confirmed, abort

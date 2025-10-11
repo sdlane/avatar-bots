@@ -12,7 +12,7 @@ class Character:
     channel_id: Optional[int] = None
     letter_limit: Optional[int] = None
     letter_count: int = 0
-    guild_id: int = 0
+    guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
         """
@@ -96,13 +96,26 @@ class Character:
             )
 
     @classmethod
-    async def delete(cls, conn: asyncpg.Connection, char_id: int):
+    async def delete(cls, conn: asyncpg.Connection, char_id: int) -> bool:
         """
         Delete a Character by ID.
         """
         result = await conn.execute("DELETE FROM Character WHERE id = $1;", char_id)
+        deleted = result.startswith("DELETE 1")
         print(f"🗑️ Deleted Character ID={char_id}. Result: {result}")
+        return deleted
 
+    @classmethod
+    async def delete_by_identifier(cls, conn: asyncpg.Connection, identifier: str) -> bool:
+        """
+        Delete a Character by its identifier (guild-independent).
+        Returns True if a row was deleted, False otherwise.
+        """
+        result = await conn.execute("DELETE FROM Character WHERE identifier = $1;", identifier)
+        deleted = result.startswith("DELETE 1")
+        print(f"🗑️ Deleted Character with identifier='{identifier}'. Result: {result}")
+        return deleted
+    
     @classmethod
     async def delete_all(cls, conn: asyncpg.Connection):
         """
@@ -110,35 +123,3 @@ class Character:
         """
         result = await conn.execute("DELETE FROM Character;")
         print(f"⚠️ All entries deleted from Character table. Result: {result}")
-
-
-# --- Example usage ---
-async def main():
-    conn = await asyncpg.connect("postgresql://GOBO:password@db:5432/GOBO")
-
-    # Create or update a character
-    char = Character(
-        identifier="Arcanist01",
-        name="Arcanist Vel Dray",
-        user_id=123456789012345678,
-        channel_id=987654321098765432,
-        letter_limit=5,
-        letter_count=1,
-        guild_id=111111111111111111
-    )
-    await char.upsert(conn)
-
-    # Print all characters
-    await Character.print_all(conn)
-
-    # Delete one
-    # await Character.delete(conn, 1)
-
-    # Delete all
-    # await Character.delete_all(conn)
-
-    await conn.close()
-
-
-if __name__ == "__main__":
-    asyncio.run(main())
