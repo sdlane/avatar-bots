@@ -202,7 +202,7 @@ async def remove_character(interaction: discord.Interaction, identifier: str):
 @app_commands.describe(
     identifier="The identifier of the character you want to configure"
 )
-async def create_character(interaction: discord.Interaction, identifier: str):
+async def config_character(interaction: discord.Interaction, identifier: str):
     # Get exisitng character entry w
     await interaction.response.send_modal(ConfigCharacterModal())
     
@@ -212,6 +212,22 @@ async def assign_character(interaction: discord.Interaction, member: discord.Mem
     # For now, I'm using this to get info for testing other commands/figuring out datatypes, consider it a placeholder with a use
     await interaction.response.send_message(
         f'Member ID: {member.id}, Guild ID:  {interaction.guild_id}, Channel ID: {interaction.channel_id}, Category ID: {interaction.channel.category_id}', ephemeral=True)
+
+    # Get the user's previous character
+    
+    # Send menu with dropdown to select un-selected characters
+
+    # Get the response
+
+    # When the response has been processed check if the value is the same as the previous value
+    # If so, we are done
+    # If not, check whether user had a character before
+    # If so, remove them from the associated channel
+
+    # Add them to the new channel
+
+    # Send confirmation
+    
 
     
 @tree.command(

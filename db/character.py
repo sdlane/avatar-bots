@@ -1,6 +1,6 @@
 import asyncpg
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, List
 
 
 @dataclass
@@ -67,6 +67,36 @@ class Character:
         """, identifier, guild_id)
         return cls(**row) if row else None
 
+    @classmethod
+    async def fetch_unowned(cls, conn: asyncpg.Connection, guild_id: int) -> List["Character"]:
+        """
+        Fetch all Characters in a guild that have no associated user (user_id IS NULL).
+        """
+        rows = await conn.fetch("""
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            FROM Character
+            WHERE guild_id = $1 AND user_id IS NULL
+            ORDER BY id;
+        """, guild_id)
+        return [cls(**row) for row in rows]
+
+    @classmethod
+    async def reset_letter_count(cls, conn: asyncpg.Connection, guild_id: int) -> int:
+        """
+        Reset letter_count to 0 for all Characters in the given guild.
+        Returns the number of rows affected.
+        """
+        result = await conn.execute("""
+            UPDATE Character
+            SET letter_count = 0
+            WHERE guild_id = $1;
+        """, guild_id)
+
+        # Result looks like "UPDATE X" — extract number of affected rows
+        updated_count = int(result.split()[-1]) if result.startswith("UPDATE") else 0
+        print(f"🔄 Reset letter_count for {updated_count} characters in guild {guild_id}.")
+        return updated_count
+    
     @classmethod
     async def print_all(cls, conn: asyncpg.Connection):
         """
