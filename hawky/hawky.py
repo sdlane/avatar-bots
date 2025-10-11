@@ -209,10 +209,6 @@ async def config_character(interaction: discord.Interaction, identifier: str):
     
 @tree.context_menu(name='Assign Character')
 async def assign_character(interaction: discord.Interaction, member: discord.Member):
-    # For now, I'm using this to get info for testing other commands/figuring out datatypes, consider it a placeholder with a use
-    #await interaction.response.send_message(
-    #    f'Member ID: {member.id}, Guild ID:  {interaction.guild_id}, Channel ID: {interaction.channel_id}, Category ID: {interaction.channel.category_id}', ephemeral=True)
-
     conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
     # Get the user's previous character
     old_character = Character.fetch_by_user(conn, member.id, interaction.guild_id)
@@ -227,7 +223,22 @@ async def assign_character(interaction: discord.Interaction, member: discord.Mem
     view = AssignCharacterView(old_character, unowned_characters, member.id)
     await interaction.response.send_message("Select a character", view=view, ephemeral=True)    
 
-    
+@tree.context_menu(name='View Character')
+async def view_character(interaction: discord.Interaction, member: discord.Member):
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    character = await Character.fetch_by_user(conn, member.id, interaction.guild_id)
+    await conn.close()
+
+    if character is None:
+        await interaction.response.send_message(
+            emotive_message("User has no character assigned"),
+            ephemeral = True)
+    else:
+        await interaction.response.send_message(
+            emotive_message(f"Identifier: {character.identifier},\nName: {character.name},\nLetter Limit: {character.letter_limit},\nLetter Count: {character.letter_count}"),
+            ephemeral = True)
+                        
+        
 @tree.command(
     name="config-server",
     description="Start an interaction to set the server specific settings for this server"
