@@ -1,0 +1,54 @@
+import discord
+from helpers import *
+import asyncpg
+from db import *
+
+async def assign_character_callback(interaction: discord.Interaction,
+                                    new_identifier: str,
+                                    old_character: Optional[Character],
+                                    user_id: int):
+    # When the response has been processed check if the value is the same as the previous value
+    # If so, we are done
+    # If not, check whether user had a character before
+    if new_identifier != old_character:
+        conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+        member = await interaction.guild.fetch_member(user_id)
+        if old_character is not None:
+            # If so, remove them from the associated channel
+            old_channel = await interaction.guild.fetch_channel(old_character.channel_id)
+            await old_channel.set_permissions(member, overwrite=None)
+            
+            # Update the old character to not have a user ID
+            old_character.user_id = None
+            await old_character.upsert(conn)
+
+        if new_identifier != "None":
+            # Get the new character
+            new_character = await Character.fetch_by_identifier(conn,
+                                                                new_identifier,
+                                                                interaction.guild_id)
+
+            # Add them to the new channel
+            overwrite = discord.PermissionOverwrite()
+            overwrite.send_messages = True
+            overwrite.read_messages = True
+            new_channel = await interaction.guild.fetch_channel(new_character.channel_id)
+            await new_channel.set_permissions(member, overwrite=overwrite)
+        
+            # Assign to this character in the database
+            # Add user to character
+            new_character.user_id = user_id
+        
+            # Write to Database
+            await new_character.upsert(conn)
+        await conn.close()
+        
+
+    # Send confirmation
+    if new_identifier == "None":        
+        await interaction.response.send_message(f"Removed character assignment",
+                                                ephemeral=True)
+    else:
+        await interaction.response.send_message(f"Assigned character with identifer: {new_identifier}",
+                                            ephemeral=True)
+

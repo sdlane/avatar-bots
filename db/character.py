@@ -68,6 +68,19 @@ class Character:
         return cls(**row) if row else None
 
     @classmethod
+    async def fetch_by_user(cls, conn: asyncpg.Connection, user_id: int, guild_id: int) -> Optional["Character"]:
+        """
+        Fetch a Character by its (identifier, guild_id) pair.
+        """
+        row = await conn.fetchrow("""
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            FROM Character
+            WHERE user_id = $1 AND guild_id = $2;
+        """, user_id, guild_id)
+        return cls(**row) if row else None
+
+    
+    @classmethod
     async def fetch_unowned(cls, conn: asyncpg.Connection, guild_id: int) -> List["Character"]:
         """
         Fetch all Characters in a guild that have no associated user (user_id IS NULL).

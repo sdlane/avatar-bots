@@ -1,6 +1,9 @@
 import discord
 from discord import ui
 from helpers import *
+from db import *
+from typing import Optional, List
+import handlers
 
 # Adapted from examples: https://github.com/Rapptz/discord.py/blob/v2.6.4/examples/views/settings.py
 
@@ -26,7 +29,35 @@ class Confirm(ui.View):
         self.interaction = interaction
         self.stop()
 
+class AssignCharacterDropdown(discord.ui.Select):
+    def __init__(self, old_character: Character, unowned_characters: List[Character], user_id: int):
+        options = []
+        self.old_character = old_character
+        self.user_id = user_id
+        if old_character is not None:
+            options.append(discord.SelectOption(label=old_character.identifier, default = True))
+            options.append(discord.SelectOption(label="None"))
+        else:
+            options.append(discord.SelectOption(label="None", default = True))
 
+        for character in unowned_characters:
+            options.append(discord.SelectOption(label=character.identifier))
+        
+        super().__init__(min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        await handlers.assign_character_callback(interaction,
+                                                 self.values[0],
+                                                 self.old_character,
+                                                 self.user_id)
+
+class AssignCharacterView(ui.View):
+    def __init__(self, old_character: Character, unowned_characters: List[Character], user_id: int):        
+        super().__init__()
+
+        self.add_item(AssignCharacterDropdown(old_character, unowned_characters, user_id))
+
+        
 class ConfigServerModal(ui.Modal, title="Configure Server"):
     default_limit = ui.TextInput(label='Default Limit', style=discord.TextStyle.short, required=False)
     letter_delay = ui.TextInput(label='Letter Delay', style=discord.TextStyle.short, required=False)
@@ -59,3 +90,6 @@ class ConfigCharacterModal(ui.Modal, title="Configure Character"):
 
     async def on_submit(self, interaction: discord.Interaction):
         await interaction.response.send_message(emotive_message("Character Confirmation Updated"), ephemeral=True)
+
+
+        

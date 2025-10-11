@@ -206,28 +206,26 @@ async def config_character(interaction: discord.Interaction, identifier: str):
     # Get exisitng character entry w
     await interaction.response.send_modal(ConfigCharacterModal())
     
-
+    
 @tree.context_menu(name='Assign Character')
 async def assign_character(interaction: discord.Interaction, member: discord.Member):
     # For now, I'm using this to get info for testing other commands/figuring out datatypes, consider it a placeholder with a use
-    await interaction.response.send_message(
-        f'Member ID: {member.id}, Guild ID:  {interaction.guild_id}, Channel ID: {interaction.channel_id}, Category ID: {interaction.channel.category_id}', ephemeral=True)
+    #await interaction.response.send_message(
+    #    f'Member ID: {member.id}, Guild ID:  {interaction.guild_id}, Channel ID: {interaction.channel_id}, Category ID: {interaction.channel.category_id}', ephemeral=True)
 
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
     # Get the user's previous character
+    old_character = Character.fetch_by_user(conn, member.id, interaction.guild_id)
     
     # Send menu with dropdown to select un-selected characters
+    unowned_characters = Character.fetch_unowned(conn, interaction.guild_id)
 
-    # Get the response
+    old_character = await old_character
+    unowned_characters = await unowned_characters
+    await conn.close()
 
-    # When the response has been processed check if the value is the same as the previous value
-    # If so, we are done
-    # If not, check whether user had a character before
-    # If so, remove them from the associated channel
-
-    # Add them to the new channel
-
-    # Send confirmation
-    
+    view = AssignCharacterView(old_character, unowned_characters, member.id)
+    await interaction.response.send_message("Select a character", view=view, ephemeral=True)    
 
     
 @tree.command(
