@@ -203,8 +203,19 @@ async def remove_character(interaction: discord.Interaction, identifier: str):
     identifier="The identifier of the character you want to configure"
 )
 async def config_character(interaction: discord.Interaction, identifier: str):
-    # Get exisitng character entry w
-    await interaction.response.send_modal(ConfigCharacterModal())
+    # Get exisitng character entry
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
+    await conn.close()
+    
+    # If it doesn't exist, send an error message
+    if character is None:
+        await interaction.response.send_message(
+            emotive_message(f"No character with the identifier {identifier} exists"),
+            ephemeral=True)
+    else:
+        # Otherwise, send the config
+        await interaction.response.send_modal(ConfigCharacterModal(character))
     
     
 @tree.context_menu(name='Assign Character')
@@ -260,7 +271,7 @@ async def config_server(interaction: discord.Interaction):
     await interaction.response.send_modal(ConfigServerModal(config_server_callback, server_config))    
 
 async def config_server_callback(interaction: discord.Interaction,
-                                 default_limit: Optionak[str],
+                                 default_limit: Optional[str],
                                  letter_delay: Optioal[str],
                                  channel_category: Optional[str]):
     limit = None

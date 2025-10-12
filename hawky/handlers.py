@@ -52,3 +52,47 @@ async def assign_character_callback(interaction: discord.Interaction,
         await interaction.response.send_message(f"Assigned character with identifer: {new_identifier}",
                                             ephemeral=True)
 
+async def config_character_callback(interaction: discord.Interaction,
+                                    character: Character,
+                                    limit_str: Optional[str],
+                                    count_str: Optional[str],
+                                    name: str):
+    limit = None
+    # Parse limit as an int
+    if limit_str is not None and len(limit_str) > 0:
+        try:
+            limit = int(limit_str)
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message('Invalid Limit. Please enter a non-negative number.'),
+                ephemeral=True)
+            return
+
+    count = None
+    if count_str is not None and len(count_str) > 0:
+        try:
+            count = int(count_str)
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message('Invalid Letter count. Please enter a non-negative number.'),
+                ephemeral=True)
+            return
+
+    # Update character
+    character.letter_limit = limit
+    character.letter_count = count
+    character.name = name
+    
+    # Verify values
+    ok, message = character.verify()
+
+    if not ok:
+        await interaction.response.send_message(emotive_message(message), ephemeral=True) 
+        return
+    
+    # Upsert result
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    await character.upsert(conn)
+    await conn.close()
+    await interaction.response.send_message(
+        emotive_message(f"Character {character.identifier} Updated"), ephemeral=True)

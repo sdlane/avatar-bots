@@ -81,15 +81,30 @@ class ConfigServerModal(ui.Modal, title="Configure Server"):
                             self.channel_category.value)
         
 class ConfigCharacterModal(ui.Modal, title="Configure Character"):
-    name = ui.TextInput(label='Public Character Name',  style=discord.TextStyle.short, required=False)
+    name = ui.TextInput(label='Public Character Name',  style=discord.TextStyle.short, required=True)
     limit = ui.TextInput(label='Daily Letter Limit', style=discord.TextStyle.short, required=False)
     count = ui.TextInput(label="Today's Letter Count", style=discord.TextStyle.short, required=False)
 
-    def __init__(self):
+    def __init__(self, character):
         super().__init__()
+        self.character = character
+
+        if self.character.name is not None:
+            self.name.default = str(self.character.name)
+        
+        if self.character.letter_limit is not None:
+            self.limit.default = str(self.character.letter_limit)
+
+        if self.character.letter_count is not None:
+            self.count.default = str(self.character.letter_count)
+            
 
     async def on_submit(self, interaction: discord.Interaction):
-        await interaction.response.send_message(emotive_message("Character Confirmation Updated"), ephemeral=True)
+        await handlers.config_character_callback(interaction,
+                                                 self.character,
+                                                 self.limit.value,
+                                                 self.count.value,
+                                                 self.name.value)
 
 
         

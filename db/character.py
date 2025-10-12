@@ -166,3 +166,28 @@ class Character:
         """
         result = await conn.execute("DELETE FROM Character;")
         print(f"⚠️ All entries deleted from Character table. Result: {result}")
+
+    def verify(self) -> tuple[bool, str]:
+        """
+        Verify that no numeric field that can be None is less than 0.
+        Returns (bool, message):
+          - (False, "<field> less than 0") if any value is negative.
+          - (True, "") if all checks pass.
+        """
+        numeric_fields = [
+            "letter_limit",
+            "letter_count",
+            "channel_id",
+            "user_id",
+            "guild_id"
+        ]
+
+        for field_name in numeric_fields:
+            value = getattr(self, field_name)
+            if value is not None and value < 0:
+                return False, f"Invalid input, {field} must be >= 0"
+
+        if len(self.name) == 0:
+            return False, f"Invalid input, name must not be empty"
+
+        return True, ""
