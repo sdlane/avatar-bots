@@ -96,3 +96,5 @@ async def config_character_callback(interaction: discord.Interaction,
     await conn.close()
     await interaction.response.send_message(
         emotive_message(f"Character {character.identifier} Updated"), ephemeral=True)
+
+

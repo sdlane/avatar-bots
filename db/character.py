@@ -89,10 +89,24 @@ class Character:
             SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
             FROM Character
             WHERE guild_id = $1 AND user_id IS NULL
-            ORDER BY id;
+            ORDER BY identifier;
         """, guild_id)
         return [cls(**row) for row in rows]
 
+    @classmethod
+    async def fetch_all(cls, conn: asyncpg.Connection, guild_id: int) -> List["Character"]:
+        """
+        Fetch all Characters in a guild
+        """
+        rows = await conn.fetch("""
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            FROM Character
+            WHERE guild_id = $1
+            ORDER BY identifier;
+        """, guild_id)
+        return [cls(**row) for row in rows]
+
+    
     @classmethod
     async def reset_letter_count(cls, conn: asyncpg.Connection, guild_id: int) -> int:
         """

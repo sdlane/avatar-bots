@@ -35,29 +35,84 @@ async def whistle(interaction: discord.Interaction):
     name="Send as Letter"
 )
 async def send_letter(interaction: discord.Interaction, message: discord.Message):
-    # Get Channel where it should be sent
-    # Get the channel ID
-    # Get the channel with discord bot
-    channel = client.fetch_channel(1425476551918485534)
+    # Get the characters for the sender
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    sender = Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+    characters = Character.fetch_all(conn, interaction.guild_id)
+    sender = await sender
+    characters = await characters
+    await conn.close()
 
+    if sender.letter_limit - sender.letter_count > 0:
+        view = SendLetterView(message, sender, characters, send_letter_callback)
+        await interaction.response.send_message(emotive_message("Select a character"),
+                                                view=view,
+                                                ephemeral=True)
+    else:
+        await interaction.response.send_message(
+            emotive_message("You have no letters remaining!"),
+            ephemeral = True)
+
+async def send_letter_callback(interaction: discord.Interaction,
+                               message: discord.Message,
+                               sender: Character,
+                               recipient_identifier: str):
+    # Get the characters for the sender and the recipient
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    recipient = await Character.fetch_by_identifier(conn, recipient_identifier, sender.guild_id)
+
+    # Confirm that the user wants to send a letter to this character
+    # If there is, send confirmation checking whether it shoud connect this character to that channel
+    view = Confirm()
+    await interaction.response.send_message(
+        emotive_message(f"You have {sender.letter_limit - sender.letter_count} letters remaining today. Are you sure you want to send this message to {recipient.name}?"),
+        view=view,
+        ephemeral = True)
+    await view.wait()
+    interaction = view.interaction
+
+    if view.value is None:
+        await interaction.response.send_message(
+            emotive_message("Send letter timed out"),
+            ephemeral = True)
+        await conn.close()
+        return
+    elif not view.value:
+        await interaction.response.send_message(
+            emotive_message("Canceled send letter"),
+            ephemeral=True)
+        await conn.close()
+        return
+     
+    # Get Channel where it should be sent
+    channel = client.fetch_channel(recipient.channel_id)
     # Get User who is supposed to be pinged
-    # Get the user ID
-    # Get the user object
-    user = client.fetch_user(372159950576943116)
+    user = None
+    if recipient.user_id is not None:
+        user = await client.fetch_user(recipient.user_id)
 
     channel = await channel
-    user = await user
+
+    # Send message
     start_str = f"{user.mention}\n" if user else ""
-    message = await channel.send(f"{start_str}{message.content}",
-                                 files = [await attch.to_file() for attch in message.attachments])
+    await channel.send(f"{start_str}{message.content}",
+                       files = [await attch.to_file() for attch in message.attachments])
+
+    # Update count
+    sender.letter_count += 1
+    await sender.upsert(conn)
+    await conn.close()
+
+    # Send confirmation
     await interaction.response.send_message(
         emotive_message(f"Message sent to {channel.name}"), ephemeral=True)
-    
+
+        
 @tree.command(
     name="check-letter-limit",
     description="Check your remaining daily letter allocation"
 )
-async def whistle(interaction: discord.Interaction):
+async def check_letter_limit(interaction: discord.Interaction):
     remaining_letters = 2
     letter_limit = 2
     await interaction.response.send_message(

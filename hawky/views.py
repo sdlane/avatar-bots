@@ -57,6 +57,34 @@ class AssignCharacterView(ui.View):
 
         self.add_item(AssignCharacterDropdown(old_character, unowned_characters, user_id))
 
+class SendLetterDropdown(discord.ui.Select):
+    def __init__(self,
+                 message: discord.Message,
+                 sender: Character,
+                 characters: List[Character],
+                 handler):
+        self.message = message
+        self.sender = sender
+        self.handler = handler
+        options = [discord.SelectOption(label=character.identifier) for character in characters]       
+        super().__init__(min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        await self.handler(interaction,
+                           self.message,
+                           self.sender,
+                           self.values[0])
+
+class SendLetterView(ui.View):
+    def __init__(self,
+                 message: discord.Message,
+                 sender: Character,
+                 characters: List[Character],
+                 handler):        
+        super().__init__()
+
+        self.add_item(SendLetterDropdown(message, sender, characters, handler))
+
         
 class ConfigServerModal(ui.Modal, title="Configure Server"):
     default_limit = ui.TextInput(label='Default Limit', style=discord.TextStyle.short, required=False)
