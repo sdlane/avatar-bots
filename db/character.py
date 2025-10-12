@@ -108,7 +108,7 @@ class Character:
 
     
     @classmethod
-    async def reset_letter_count(cls, conn: asyncpg.Connection, guild_id: int) -> int:
+    async def reset_letter_counts(cls, conn: asyncpg.Connection, guild_id: int) -> int:
         """
         Reset letter_count to 0 for all Characters in the given guild.
         Returns the number of rows affected.

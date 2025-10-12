@@ -408,4 +408,15 @@ async def config_server_callback(interaction: discord.Interaction,
     await conn.close()
     await interaction.response.send_message(emotive_message("Server Config Updated"), ephemeral=True)
 
+@tree.command(
+    name="reset-counts",
+    description="Reset daily counts for all characters manually"
+)
+async def reset_counts(interaction: discord.Interaction):
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    await Character.reset_letter_counts(conn, interaction.guild_id)
+    await conn.close()
+    await interaction.response.send_message(emotive_message("Reset daily letter counts"),
+                                            ephemeral=True)
+    
 client.run(BOT_TOKEN)
