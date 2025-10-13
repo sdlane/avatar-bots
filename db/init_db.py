@@ -36,19 +36,6 @@ async def ensure_tables():
 
     # --- Column Synchronization ---
 
-    # If the old column `limit` exists, rename it to `letter_limit`
-    await conn.execute("""
-    DO $$
-    BEGIN
-        IF EXISTS (
-            SELECT 1 FROM information_schema.columns
-            WHERE table_name = 'character' AND column_name = 'limit'
-        ) THEN
-            ALTER TABLE Character RENAME COLUMN "limit" TO letter_limit;
-        END IF;
-    END$$;
-    """)
-
     # Ensure all expected columns exist
     await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS identifier TEXT;")
     await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS name TEXT;")
@@ -88,7 +75,24 @@ async def ensure_tables():
     END$$;
     """)
 
-    print("✅ Schema verified and updated successfully.")
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS HawkyTask (
+        id SERIAL PRIMARY KEY,
+        task TEXT NOT NULL,
+        recipient_id BIGINT,
+        parameter TEXT,
+        scheduled_time TIMESTAMP
+    );
+    """)
+
+    # --- Ensure hawky_tasks columns match the desired schema ---
+    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;")
+    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS task TEXT NOT NULL;")
+    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS recipient_id BIGINT;")
+    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS parameter TEXT;")
+    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMP;")
+    
+    print("Schema verified and updated successfully.")
     await conn.close()
 
     
