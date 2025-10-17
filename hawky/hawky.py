@@ -6,6 +6,7 @@ from views import *
 import os
 from dotenv import load_dotenv
 from db import *
+from datetime import datetime, timedelta
 
 load_dotenv()
 
@@ -43,7 +44,7 @@ async def send_letter(interaction: discord.Interaction, message: discord.Message
     characters = await characters
     await conn.close()
 
-    if sender.letter_limit - sender.letter_count > 0:
+    if sender.letter_limit is None or sender.letter_limit - sender.letter_count > 0:
         view = SendLetterView(message, sender, characters, send_letter_callback)
         await interaction.response.send_message(emotive_message("Select a character"),
                                                 view=view,
@@ -61,11 +62,17 @@ async def send_letter_callback(interaction: discord.Interaction,
     conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
     recipient = await Character.fetch_by_identifier(conn, recipient_identifier, sender.guild_id)
 
+    # Get the ServerConfig for this server to get the letter delay
+    config = ServerConfig.fetch(conn, sender.guild_id)
+    
     # Confirm that the user wants to send a letter to this character
     # If there is, send confirmation checking whether it shoud connect this character to that channel
     view = Confirm()
+    message_content = f"Are you sure you want to send this message to {recipient.name}?"
+    if sender.letter_limit is not None:
+        message_content = f"You have {sender.letter_limit - sender.letter_count} letters remaining today. " + message_content 
     await interaction.response.send_message(
-        emotive_message(f"You have {sender.letter_limit - sender.letter_count} letters remaining today. Are you sure you want to send this message to {recipient.name}?"),
+        emotive_message(message_content),
         view=view,
         ephemeral = True)
     await view.wait()
@@ -83,21 +90,24 @@ async def send_letter_callback(interaction: discord.Interaction,
             ephemeral=True)
         await conn.close()
         return
-     
-    # Get Channel where it should be sent
-    channel = client.fetch_channel(recipient.channel_id)
-    # Get User who is supposed to be pinged
-    user = None
-    if recipient.user_id is not None:
-        user = await client.fetch_user(recipient.user_id)
 
-    channel = await channel
+    # Schedule Send Message Task
+    config = await config
+    if config is not None and config.letter_delay is not None:
+        scheduled_time = datetime.now() + timedelta(minutes=config.letter_delay)
+    else:
+        # If there is no letter delay, schedule it to go out with the next tick
+        scheduled_time = datetime.now()
+        
+    task = HawkyTask(task = "send_letter",
+                     recipient_identifier = recipient_identifier,
+                     sender_identifier = sender.identifier,
+                     parameter = f"{message.channel.id} {message.id}",
+                     scheduled_time = scheduled_time,
+                     guild_id = sender.guild_id)
 
-    # Send message
-    start_str = f"{user.mention}\n" if user else ""
-    await channel.send(f"{start_str}{message.content}",
-                       files = [await attch.to_file() for attch in message.attachments])
-
+    await task.insert(conn)
+    
     # Update count
     sender.letter_count += 1
     await sender.upsert(conn)
@@ -105,7 +115,7 @@ async def send_letter_callback(interaction: discord.Interaction,
 
     # Send confirmation
     await interaction.response.send_message(
-        emotive_message(f"Message sent to {channel.name}"), ephemeral=True)
+        emotive_message(f"Message queued to send to {recipient.name}"), ephemeral=True)
 
         
 @tree.command(

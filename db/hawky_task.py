@@ -8,31 +8,29 @@ from datetime import datetime
 class HawkyTask:
     id: Optional[int] = None
     task: str = ""
-    recipient_id: Optional[int] = None
+    recipient_identifier: Optional[str] = None
+    sender_identifier: Option[str] = None
     parameter: Optional[str] = None
     scheduled_time: Optional[datetime] = None
-
-    async def upsert(self, conn: asyncpg.Connection):
+    guild_id: int = 0
+    
+    async def insert(self, conn: asyncpg.Connection):
         """
         Inserts a new task or updates an existing one if ID already exists.
         """
         query = """
-        INSERT INTO HawkyTask (id, task, recipient_id, parameter, scheduled_time)
-        VALUES ($1, $2, $3, $4, $5)
-        ON CONFLICT (id) DO UPDATE
-        SET task = EXCLUDED.task,
-            recipient_id = EXCLUDED.recipient_id,
-            parameter = EXCLUDED.parameter,
-            scheduled_time = EXCLUDED.scheduled_time
+        INSERT INTO HawkyTask (task, recipient_identifier, sender_identifier, parameter, scheduled_time, guild_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id;
         """
         row = await conn.fetchrow(
             query,
-            self.id,
             self.task,
-            self.recipient_id,
+            self.recipient_identifier,
+            self.sender_identifier,
             self.parameter,
             self.scheduled_time,
+            self.guild_id
         )
         self.id = row["id"]
         return self.id
@@ -42,7 +40,7 @@ class HawkyTask:
         """
         Retrieve all tasks.
         """
-        rows = await conn.fetch("SELECT id, task, recipient_id, parameter, scheduled_time FROM HawkyTask ORDER BY scheduled_time;")
+        rows = await conn.fetch("SELECT id, task, recipient_identifier, sender_identifier, parameter, scheduled_time FROM HawkyTask ORDER BY scheduled_time;")
         return [cls(**row) for row in rows]
 
     @classmethod
@@ -53,7 +51,7 @@ class HawkyTask:
         """
         async with conn.transaction():
             row = await conn.fetchrow("""
-                SELECT id, task, recipient_id, parameter, scheduled_time
+                SELECT id, task, recipient_identifier, sender_identifier, parameter, scheduled_time, guild_id
                 FROM HawkyTask
                 WHERE scheduled_time <= $1
                 ORDER BY scheduled_time ASC
@@ -85,13 +83,29 @@ class HawkyTask:
         """
         await conn.execute("DELETE FROM HawkyTask;")
 
-    def verify(self) -> tuple[bool, str]:
+    @classmethod
+    async def print_all(cls, conn: asyncpg.Connection):
         """
-        Verify that no numeric field is less than 0.
-        Returns (True, "") if valid, otherwise (False, "field < 0").
+        Prints all tasks in the table in a readable format.
         """
-        for field_name in ["recipient_id"]:
-            value = getattr(self, field_name)
-            if value is not None and value < 0:
-                return False, f"{field_name} less than 0"
-        return True, ""
+        rows = await conn.fetch("""
+            SELECT *
+            FROM HawkyTask
+            ORDER BY scheduled_time;
+        """)
+
+        if not rows:
+            print("📭 No tasks found in hawky_task.")
+            return
+
+        print("📋 Hawky Tasks:\n")
+        for row in rows:
+            print(
+                f"ID: {row['id']}\n"
+                f"   Task: {row['task']}\n"
+                f"   Recipient identifier: {row['recipient_identifier']}\n"
+                f"   Sender identifier: {row['sender_identifier']}\n"
+                f"   Parameter: {row['parameter']}\n"
+                f"   Scheduled Time: {row['scheduled_time']}\n"
+                f"   Guild ID: {row['guild_id']}\n"
+            )

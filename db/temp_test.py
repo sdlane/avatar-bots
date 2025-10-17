@@ -3,6 +3,7 @@ import asyncio
 
 from server_config import *
 from character import *
+from hawky_task import *
 
 async def main():
     conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
@@ -13,6 +14,9 @@ async def main():
     # Print all characters
     await Character.print_all(conn)
 
+    # Print all pending tasks
+    await HawkyTask.print_all(conn)
+    
     await conn.close()
 
 if __name__ == "__main__":

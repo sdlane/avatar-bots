@@ -79,18 +79,22 @@ async def ensure_tables():
     CREATE TABLE IF NOT EXISTS HawkyTask (
         id SERIAL PRIMARY KEY,
         task TEXT NOT NULL,
-        recipient_id BIGINT,
+        recipient_identifier TEXT,
+        sender_identifier TEXT,
         parameter TEXT,
-        scheduled_time TIMESTAMP
+        scheduled_time TIMESTAMP,
+        guild_int BIGINT NOT NULL
     );
     """)
 
     # --- Ensure hawky_tasks columns match the desired schema ---
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;")
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS task TEXT NOT NULL;")
-    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS recipient_id BIGINT;")
+    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS recipient_identifier TEXT;")
+    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS sender_identifier TEXT;")
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS parameter TEXT;")
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMP;")
+    await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS guild_id BIGINT NOT NULL;")
     
     print("Schema verified and updated successfully.")
     await conn.close()
