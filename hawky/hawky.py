@@ -8,6 +8,8 @@ from dotenv import load_dotenv
 from db import *
 from datetime import datetime, timedelta
 from tasks.send_letter import handle_send_letter
+from tasks.remind_me import handle_remind_me
+import re
 
 load_dotenv()
 
@@ -44,6 +46,12 @@ async def process_hawky_tasks():
                     print(f"Successfully reset letter counts for guild {task.guild_id}")
                 except Exception as e:
                     print(f"Error resetting counts (task {task.id}): {e}")
+            elif task.task == "remind_me":
+                try:
+                    await handle_remind_me(client, conn, task)
+                    print(f"Successfully sent reminder to user {task.recipient_identifier}")
+                except Exception as e:
+                    print(f"Error sending reminder (task {task.id}): {e}")
             else:
                 print(f"Unknown task type: {task.task}")
 
@@ -184,7 +192,66 @@ async def send_letter_callback(interaction: discord.Interaction,
     await interaction.response.send_message(
         emotive_message(f"Message queued to send to {recipient.name}"), ephemeral=True)
 
-        
+
+@tree.context_menu(
+    name="Remind Me"
+)
+async def remind_me(interaction: discord.Interaction, message: discord.Message):
+    await interaction.response.send_modal(RemindMeModal(remind_me_callback, message))
+
+
+async def remind_me_callback(interaction: discord.Interaction, message: discord.Message, time_str: str):
+    """
+    Parse the time string and schedule a reminder task.
+    Supports formats like: "30 minutes", "8 hours", "3 days"
+    """
+    # Parse the time string
+    pattern = r'(\d+)\s*(minute|minutes|min|hour|hours|hr|day|days|d)'
+    match = re.search(pattern, time_str.lower())
+
+    if not match:
+        await interaction.response.send_message(
+            emotive_message("Invalid time format. Please use format like '30 minutes', '8 hours', or '3 days'."),
+            ephemeral=True)
+        return
+
+    amount = int(match.group(1))
+    unit = match.group(2)
+
+    # Calculate the timedelta based on the unit
+    if unit.startswith('min'):
+        delta = timedelta(minutes=amount)
+    elif unit.startswith('hour') or unit.startswith('hr'):
+        delta = timedelta(hours=amount)
+    elif unit.startswith('day') or unit == 'd':
+        delta = timedelta(days=amount)
+    else:
+        await interaction.response.send_message(
+            emotive_message("Invalid time unit. Please use minutes, hours, or days."),
+            ephemeral=True)
+        return
+
+    # Calculate scheduled time
+    scheduled_time = datetime.now() + delta
+
+    # Create the task
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    task = HawkyTask(
+        task="remind_me",
+        recipient_identifier=str(interaction.user.id),
+        parameter=f"{message.guild.id} {message.channel.id} {message.id}",
+        scheduled_time=scheduled_time,
+        guild_id=interaction.guild_id
+    )
+    await task.insert(conn)
+    await conn.close()
+
+    # Send confirmation
+    await interaction.response.send_message(
+        emotive_message(f"Reminder set! I'll remind you about this message in {time_str}."),
+        ephemeral=True)
+
+
 @tree.command(
     name="check-letter-limit",
     description="Check your remaining daily letter allocation"

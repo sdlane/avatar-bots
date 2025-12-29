@@ -123,13 +123,13 @@ class ConfigCharacterModal(ui.Modal, title="Configure Character"):
 
         if self.character.name is not None:
             self.name.default = str(self.character.name)
-        
+
         if self.character.letter_limit is not None:
             self.limit.default = str(self.character.letter_limit)
 
         if self.character.letter_count is not None:
             self.count.default = str(self.character.letter_count)
-            
+
 
     async def on_submit(self, interaction: discord.Interaction):
         await handlers.config_character_callback(interaction,
@@ -139,4 +139,21 @@ class ConfigCharacterModal(ui.Modal, title="Configure Character"):
                                                  self.name.value)
 
 
-        
+class RemindMeModal(ui.Modal, title="Set Reminder"):
+    time_input = ui.TextInput(
+        label='Remind me in...',
+        style=discord.TextStyle.short,
+        placeholder='e.g., 30 minutes, 8 hours, 3 days',
+        required=True
+    )
+
+    def __init__(self, callback, message):
+        super().__init__()
+        self.callback = callback
+        self.message = message
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.callback(interaction, self.message, self.time_input.value)
+
+
+
