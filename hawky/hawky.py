@@ -1,12 +1,13 @@
 import discord
 from discord import app_commands
-from discord.ext import commands
+from discord.ext import commands, tasks
 from helpers import *
 from views import *
 import os
 from dotenv import load_dotenv
 from db import *
 from datetime import datetime, timedelta
+from tasks.send_letter import handle_send_letter
 
 load_dotenv()
 
@@ -14,15 +15,46 @@ BOT_TOKEN = os.getenv('BOT_TOKEN')
 
 intents = discord.Intents.default()
 intents.message_content = True
- 
+
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
+
+
+# Task Handler
+@tasks.loop(seconds=60)
+async def process_hawky_tasks():
+    """Process pending tasks from the HawkyTask table."""
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+
+    try:
+        # Get the next task that's due
+        task = await HawkyTask.pop_next_task(conn, datetime.now())
+
+        while task is not None:
+            # Handle different task types
+            if task.task == "send_letter":
+                try:
+                    await handle_send_letter(client, conn, task)
+                    print(f"Successfully sent letter from {task.sender_identifier} to {task.recipient_identifier}")
+                except Exception as e:
+                    print(f"Error sending letter (task {task.id}): {e}")
+            else:
+                print(f"Unknown task type: {task.task}")
+
+            # Get the next task
+            task = await HawkyTask.pop_next_task(conn, datetime.now())
+
+    except Exception as e:
+        print(f"Error processing tasks: {e}")
+    finally:
+        await conn.close()
 
 
 # Public Commands
 @client.event
 async def on_ready():
     await tree.sync()
+    process_hawky_tasks.start()  # Start the task processing loop
     print(f'We have logged in as {client.user}')
 
 @tree.command(
@@ -123,11 +155,25 @@ async def send_letter_callback(interaction: discord.Interaction,
     description="Check your remaining daily letter allocation"
 )
 async def check_letter_limit(interaction: discord.Interaction):
-    remaining_letters = 2
-    letter_limit = 2
-    await interaction.response.send_message(
-        emotive_message(f'You have {remaining_letters} letters remaining out of a maximum of {letter_limit}'),
-        ephemeral=True)
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+    await conn.close()
+
+    if character is None:
+        await interaction.response.send_message(
+            emotive_message("You don't have a character assigned yet"),
+            ephemeral=True)
+        return
+
+    if character.letter_limit is None:
+        await interaction.response.send_message(
+            emotive_message("You have unlimited letters"),
+            ephemeral=True)
+    else:
+        remaining_letters = character.letter_limit - character.letter_count
+        await interaction.response.send_message(
+            emotive_message(f'You have {remaining_letters} letters remaining out of a maximum of {character.letter_limit}'),
+            ephemeral=True)
 
 
 # Member ID: 372159950576943116, Guild ID:  1229419428240822343
