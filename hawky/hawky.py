@@ -38,6 +38,12 @@ async def process_hawky_tasks():
                     print(f"Successfully sent letter from {task.sender_identifier} to {task.recipient_identifier}")
                 except Exception as e:
                     print(f"Error sending letter (task {task.id}): {e}")
+            elif task.task == "reset_counts":
+                try:
+                    await handle_reset_counts(conn, task)
+                    print(f"Successfully reset letter counts for guild {task.guild_id}")
+                except Exception as e:
+                    print(f"Error resetting counts (task {task.id}): {e}")
             else:
                 print(f"Unknown task type: {task.task}")
 
@@ -48,6 +54,28 @@ async def process_hawky_tasks():
         print(f"Error processing tasks: {e}")
     finally:
         await conn.close()
+
+async def handle_reset_counts(conn: asyncpg.Connection, task: HawkyTask):
+    """
+    Handle a reset_counts task by resetting letter counts for a guild
+    and scheduling the next reset for midnight.
+    """
+    # Reset letter counts for the guild
+    await Character.reset_letter_counts(conn, task.guild_id)
+
+    # Calculate next midnight
+    now = datetime.now()
+    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Schedule the next reset task
+    next_task = HawkyTask(
+        task="reset_counts",
+        guild_id=task.guild_id,
+        scheduled_time=next_midnight
+    )
+    await next_task.insert(conn)
+
+    print(f"Scheduled next reset for guild {task.guild_id} at {next_midnight}")
 
 
 # Public Commands
@@ -470,9 +498,30 @@ async def config_server_callback(interaction: discord.Interaction,
 )
 async def reset_counts(interaction: discord.Interaction):
     conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+
+    # Reset letter counts
     await Character.reset_letter_counts(conn, interaction.guild_id)
+
+    # Check if a reset_counts task already exists for this guild
+    task_exists = await HawkyTask.exists_for_guild(conn, "reset_counts", interaction.guild_id)
+
+    message = "Reset daily letter counts"
+
+    if not task_exists:
+        # Schedule the next reset for midnight
+        now = datetime.now()
+        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+        reset_task = HawkyTask(
+            task="reset_counts",
+            guild_id=interaction.guild_id,
+            scheduled_time=next_midnight
+        )
+        await reset_task.insert(conn)
+        message += f" and scheduled automatic daily resets at midnight (next reset: {next_midnight.strftime('%Y-%m-%d %H:%M:%S')})"
+
     await conn.close()
-    await interaction.response.send_message(emotive_message("Reset daily letter counts"),
+    await interaction.response.send_message(emotive_message(message),
                                             ephemeral=True)
     
 client.run(BOT_TOKEN)
