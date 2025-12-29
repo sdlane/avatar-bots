@@ -84,6 +84,21 @@ class HawkyTask:
         await conn.execute("DELETE FROM HawkyTask;")
 
     @classmethod
+    async def exists_for_guild(cls, conn: asyncpg.Connection, task_type: str, guild_id: int) -> bool:
+        """
+        Check if a task of the given type exists for the specified guild.
+        Returns True if at least one task exists.
+        """
+        row = await conn.fetchrow("""
+            SELECT EXISTS(
+                SELECT 1
+                FROM HawkyTask
+                WHERE task = $1 AND guild_id = $2
+            );
+        """, task_type, guild_id)
+        return row['exists']
+
+    @classmethod
     async def print_all(cls, conn: asyncpg.Connection):
         """
         Prints all tasks in the table in a readable format.
