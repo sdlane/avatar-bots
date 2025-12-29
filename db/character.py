@@ -1,6 +1,9 @@
 import asyncpg
 from dataclasses import dataclass
 from typing import Optional, List
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -121,7 +124,7 @@ class Character:
 
         # Result looks like "UPDATE X" — extract number of affected rows
         updated_count = int(result.split()[-1]) if result.startswith("UPDATE") else 0
-        print(f"🔄 Reset letter_count for {updated_count} characters in guild {guild_id}.")
+        logger.info(f"🔄 Reset letter_count for {updated_count} characters in guild {guild_id}.")
         return updated_count
     
     @classmethod
@@ -136,12 +139,12 @@ class Character:
         """)
 
         if not rows:
-            print("📭 No entries found in Character table.")
+            logger.info("📭 No entries found in Character table.")
             return
 
-        print("📜 Character entries:\n")
+        logger.info("📜 Character entries:\n")
         for row in rows:
-            print(
+            logger.info(
                 f"🧙 ID: {row['id']}\n"
                 f"   • Identifier:   {row['identifier']}\n"
                 f"   • Name:         {row['name']}\n"
@@ -159,7 +162,7 @@ class Character:
         """
         result = await conn.execute("DELETE FROM Character WHERE id = $1;", char_id)
         deleted = result.startswith("DELETE 1")
-        print(f"🗑️ Deleted Character ID={char_id}. Result: {result}")
+        logger.info(f"🗑️ Deleted Character ID={char_id}. Result: {result}")
         return deleted
 
     @classmethod
@@ -170,16 +173,16 @@ class Character:
         """
         result = await conn.execute("DELETE FROM Character WHERE identifier = $1;", identifier)
         deleted = result.startswith("DELETE 1")
-        print(f"🗑️ Deleted Character with identifier='{identifier}'. Result: {result}")
+        logger.info(f"🗑️ Deleted Character with identifier='{identifier}'. Result: {result}")
         return deleted
-    
+
     @classmethod
     async def delete_all(cls, conn: asyncpg.Connection):
         """
         Delete all entries from the Character table.
         """
         result = await conn.execute("DELETE FROM Character;")
-        print(f"⚠️ All entries deleted from Character table. Result: {result}")
+        logger.warning(f"⚠️ All entries deleted from Character table. Result: {result}")
 
     def verify(self) -> tuple[bool, str]:
         """

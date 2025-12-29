@@ -11,8 +11,15 @@ sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 import asyncpg
+import logging
 from db.hawky_task import HawkyTask
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - Hawky Logging - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 async def main():
     """Connect to the database and print all tasks."""

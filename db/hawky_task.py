@@ -2,6 +2,9 @@ import asyncpg
 from dataclasses import dataclass
 from typing import Optional, List
 from datetime import datetime
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -123,13 +126,13 @@ class HawkyTask:
         """)
 
         if not rows:
-            print("📭 No tasks found in hawky_task.")
+            logger.info("📭 No tasks found in hawky_task.")
             return
 
-        print("📋 Hawky Tasks:\n")
+        logger.info("📋 Hawky Tasks:\n")
         for row in rows:
-            print(
-                f"ID: {row['id']}\n"
+            logger.info(
+                f"\n   ID: {row['id']}\n"
                 f"   Task: {row['task']}\n"
                 f"   Recipient identifier: {row['recipient_identifier']}\n"
                 f"   Sender identifier: {row['sender_identifier']}\n"

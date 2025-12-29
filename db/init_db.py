@@ -1,6 +1,9 @@
 import asyncpg
 import asyncio
+import logging
 from utils import *
+
+logger = logging.getLogger(__name__)
 
 async def ensure_tables():
     conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
@@ -97,8 +100,8 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS parameter TEXT;")
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMP;")
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS guild_id BIGINT NOT NULL;")
-    
-    print("Schema verified and updated successfully.")
+
+    logger.info("Schema verified and updated successfully.")
     await conn.close()
 
     

@@ -1,4 +1,7 @@
 import asyncpg
+import logging
+
+logger = logging.getLogger(__name__)
 
 async def inspect_database():
     # Connect to your database (use your own credentials or env vars)
@@ -12,10 +15,10 @@ async def inspect_database():
         ORDER BY table_name;
     """)
 
-    print("📋 Tables found in database:\n")
+    logger.info("📋 Tables found in database:\n")
     for t in tables:
         table_name = t["table_name"]
-        print(f"🧩 {table_name}")
+        logger.info(f"🧩 {table_name}")
 
         # --- Step 2: Get columns for each table ---
         columns = await conn.fetch("""
@@ -30,7 +33,7 @@ async def inspect_database():
             dtype = col["data_type"]
             nullable = col["is_nullable"]
             default = col["column_default"]
-            print(f"   • {col_name:<20} {dtype:<15} NULLABLE={nullable:<3} DEFAULT={default}")
-        print()
+            logger.info(f"   • {col_name:<20} {dtype:<15} NULLABLE={nullable:<3} DEFAULT={default}")
+        logger.info("")
 
     await conn.close()

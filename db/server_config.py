@@ -2,6 +2,9 @@ import asyncpg
 from dataclasses import dataclass
 from typing import Optional
 from datetime import time
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass
@@ -71,7 +74,7 @@ class ServerConfig:
         Delete a specific ServerConfig entry by guild_id.
         """
         result = await conn.execute("DELETE FROM ServerConfig WHERE guild_id = $1;", guild_id)
-        print(f"🗑️ Deleted entry for guild_id={guild_id}. Result: {result}")
+        logger.info(f"🗑️ Deleted entry for guild_id={guild_id}. Result: {result}")
 
     @classmethod
     async def delete_all(cls, conn: asyncpg.Connection):
@@ -79,7 +82,7 @@ class ServerConfig:
         Delete all entries from the ServerConfig table.
         """
         result = await conn.execute("DELETE FROM ServerConfig;")
-        print(f"⚠️ All entries deleted from ServerConfig. Result: {result}")
+        logger.warning(f"⚠️ All entries deleted from ServerConfig. Result: {result}")
     
     @classmethod
     async def print_all(cls, conn: asyncpg.Connection):
@@ -93,12 +96,12 @@ class ServerConfig:
         """)
 
         if not rows:
-            print("📭 No entries found in ServerConfig.")
+            logger.info("📭 No entries found in ServerConfig.")
             return
 
-        print("📋 ServerConfig entries:\n")
+        logger.info("📋 ServerConfig entries:\n")
         for row in rows:
-            print(
+            logger.info(
                 f"🧩 Guild ID: {row['guild_id']}\n"
                 f"   • Default Limit: {row['default_limit']}\n"
                 f"   • Letter Delay:  {row['letter_delay']}\n"

@@ -4,6 +4,7 @@ from discord.ext import commands, tasks
 from helpers import *
 from views import *
 import os
+import logging
 from dotenv import load_dotenv
 from db import *
 from datetime import datetime, timedelta
@@ -12,6 +13,13 @@ from tasks.remind_me import handle_remind_me
 import re
 
 load_dotenv()
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - Hawky Logging - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
 
@@ -37,29 +45,29 @@ async def process_hawky_tasks():
             if task.task == "send_letter":
                 try:
                     await handle_send_letter(client, conn, task)
-                    print(f"Successfully sent letter from {task.sender_identifier} to {task.recipient_identifier}")
+                    logger.info(f"Successfully sent letter from {task.sender_identifier} to {task.recipient_identifier}")
                 except Exception as e:
-                    print(f"Error sending letter (task {task.id}): {e}")
+                    logger.error(f"Error sending letter (task {task.id}): {e}", exc_info=True)
             elif task.task == "reset_counts":
                 try:
                     await handle_reset_counts(conn, task)
-                    print(f"Successfully reset letter counts for guild {task.guild_id}")
+                    logger.info(f"Successfully reset letter counts for guild {task.guild_id}")
                 except Exception as e:
-                    print(f"Error resetting counts (task {task.id}): {e}")
+                    logger.error(f"Error resetting counts (task {task.id}): {e}", exc_info=True)
             elif task.task == "remind_me":
                 try:
                     await handle_remind_me(client, conn, task)
-                    print(f"Successfully sent reminder to user {task.recipient_identifier}")
+                    logger.info(f"Successfully sent reminder to user {task.recipient_identifier}")
                 except Exception as e:
-                    print(f"Error sending reminder (task {task.id}): {e}")
+                    logger.error(f"Error sending reminder (task {task.id}): {e}", exc_info=True)
             else:
-                print(f"Unknown task type: {task.task}")
+                logger.warning(f"Unknown task type: {task.task}")
 
             # Get the next task
             task = await HawkyTask.pop_next_task(conn, datetime.now())
 
     except Exception as e:
-        print(f"Error processing tasks: {e}")
+        logger.error(f"Error processing tasks: {e}", exc_info=True)
     finally:
         await conn.close()
 
@@ -90,7 +98,7 @@ async def handle_reset_counts(conn: asyncpg.Connection, task: HawkyTask):
     )
     await next_task.insert(conn)
 
-    print(f"Scheduled next reset for guild {task.guild_id} at {next_reset}")
+    logger.info(f"Scheduled next reset for guild {task.guild_id} at {next_reset}")
 
 
 # Public Commands
@@ -98,7 +106,7 @@ async def handle_reset_counts(conn: asyncpg.Connection, task: HawkyTask):
 async def on_ready():
     await tree.sync()
     process_hawky_tasks.start()  # Start the task processing loop
-    print(f'We have logged in as {client.user}')
+    logger.info(f'We have logged in as {client.user}')
 
 @tree.command(
     name="whistle",
@@ -182,13 +190,14 @@ async def send_letter_callback(interaction: discord.Interaction,
                      guild_id = sender.guild_id)
 
     await task.insert(conn)
-    
+
     # Update count
     sender.letter_count += 1
     await sender.upsert(conn)
     await conn.close()
 
     # Send confirmation
+    logger.info(f"Letter queued from {sender.identifier} to {recipient.identifier} (scheduled: {scheduled_time})")
     await interaction.response.send_message(
         emotive_message(f"Message queued to send to {recipient.name}"), ephemeral=True)
 
@@ -247,6 +256,7 @@ async def remind_me_callback(interaction: discord.Interaction, message: discord.
     await conn.close()
 
     # Send confirmation
+    logger.info(f"Reminder set for user {interaction.user.id} in {time_str} (scheduled: {scheduled_time})")
     await interaction.response.send_message(
         emotive_message(f"Reminder set! I'll remind you about this message in {time_str}."),
         ephemeral=True)
@@ -612,11 +622,13 @@ async def config_server_callback(interaction: discord.Interaction,
         await reset_task.insert(conn)
 
         await conn.close()
+        logger.info(f"Server config updated for guild {interaction.guild_id}. Reset time: {reset_time_obj.strftime('%H:%M')} UTC, next reset: {next_reset}")
         await interaction.response.send_message(
             emotive_message(f"Server Config Updated. Reset time changed to {reset_time_obj.strftime('%H:%M')} UTC. Next reset scheduled for {next_reset.strftime('%Y-%m-%d %H:%M:%S')} UTC"),
             ephemeral=True)
     else:
         await conn.close()
+        logger.info(f"Server config updated for guild {interaction.guild_id}")
         await interaction.response.send_message(emotive_message("Server Config Updated"), ephemeral=True)
 
 @tree.command(
@@ -657,6 +669,9 @@ async def reset_counts(interaction: discord.Interaction):
         )
         await reset_task.insert(conn)
         message += f" and scheduled automatic daily resets at {reset_time.strftime('%H:%M')} UTC (next reset: {next_reset.strftime('%Y-%m-%d %H:%M:%S')})"
+        logger.info(f"Manual reset triggered for guild {interaction.guild_id}. Scheduled next reset at {next_reset}")
+    else:
+        logger.info(f"Manual reset triggered for guild {interaction.guild_id}. Auto-reset already scheduled")
 
     await conn.close()
     await interaction.response.send_message(emotive_message(message),
