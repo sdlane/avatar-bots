@@ -11,7 +11,8 @@ async def ensure_tables():
         guild_id BIGINT PRIMARY KEY,
         default_limit SMALLINT,
         letter_delay BIGINT,
-        category_id BIGINT
+        category_id BIGINT,
+        reset_time TIME
     );
     """)
 
@@ -19,6 +20,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE ServerConfig ADD COLUMN IF NOT EXISTS default_limit SMALLINT;")
     await conn.execute("ALTER TABLE ServerConfig ADD COLUMN IF NOT EXISTS letter_delay BIGINT;")
     await conn.execute("ALTER TABLE ServerConfig ADD COLUMN IF NOT EXISTS category_id BIGINT;")
+    await conn.execute("ALTER TABLE ServerConfig ADD COLUMN IF NOT EXISTS reset_time TIME;")
 
     # --- Character table ---
     await conn.execute("""

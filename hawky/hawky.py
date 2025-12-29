@@ -58,24 +58,31 @@ async def process_hawky_tasks():
 async def handle_reset_counts(conn: asyncpg.Connection, task: HawkyTask):
     """
     Handle a reset_counts task by resetting letter counts for a guild
-    and scheduling the next reset for midnight.
+    and scheduling the next reset based on the server's configured reset_time.
     """
     # Reset letter counts for the guild
     await Character.reset_letter_counts(conn, task.guild_id)
 
-    # Calculate next midnight
+    # Get the server config to find the reset time
+    server_config = await ServerConfig.fetch(conn, task.guild_id)
+
+    # Determine the reset time (default to midnight if not configured)
+    from datetime import time as time_type
+    reset_time = server_config.reset_time if server_config and server_config.reset_time else time_type(0, 0)
+
+    # Calculate next reset occurrence
     now = datetime.now()
-    next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+    next_reset = datetime.combine(now.date() + timedelta(days=1), reset_time)
 
     # Schedule the next reset task
     next_task = HawkyTask(
         task="reset_counts",
         guild_id=task.guild_id,
-        scheduled_time=next_midnight
+        scheduled_time=next_reset
     )
     await next_task.insert(conn)
 
-    print(f"Scheduled next reset for guild {task.guild_id} at {next_midnight}")
+    print(f"Scheduled next reset for guild {task.guild_id} at {next_reset}")
 
 
 # Public Commands
@@ -411,8 +418,9 @@ async def config_server(interaction: discord.Interaction):
 
 async def config_server_callback(interaction: discord.Interaction,
                                  default_limit: Optional[str],
-                                 letter_delay: Optioal[str],
-                                 channel_category: Optional[str]):
+                                 letter_delay: Optional[str],
+                                 channel_category: Optional[str],
+                                 reset_time_str: Optional[str]):
     limit = None
     # Parse default limit as an int
     if default_limit is not None and len(default_limit) > 0:
@@ -423,7 +431,7 @@ async def config_server_callback(interaction: discord.Interaction,
                 emotive_message('Invalid Default Limit. Please enter a number.'),
                 ephemeral=True)
             return
-        
+
     delay = None
     # Parse letter delay as an int
     if letter_delay is not None and len(letter_delay) > 0:
@@ -432,6 +440,25 @@ async def config_server_callback(interaction: discord.Interaction,
         except ValueError:
             await interaction.response.send_message(
                 emotive_message('Invalid Letter Delay. Please enter a number.'),
+                ephemeral=True)
+            return
+
+    # Parse reset time
+    reset_time_obj = None
+    if reset_time_str is not None and len(reset_time_str) > 0:
+        try:
+            from datetime import time as time_type
+            time_parts = reset_time_str.split(':')
+            if len(time_parts) != 2:
+                raise ValueError("Time must be in HH:MM format")
+            hour = int(time_parts[0])
+            minute = int(time_parts[1])
+            if not (0 <= hour <= 23 and 0 <= minute <= 59):
+                raise ValueError("Invalid time values")
+            reset_time_obj = time_type(hour=hour, minute=minute)
+        except (ValueError, IndexError) as e:
+            await interaction.response.send_message(
+                emotive_message('Invalid Reset Time. Please enter time in HH:MM format (e.g., 00:00).'),
                 ephemeral=True)
             return
 
@@ -476,21 +503,54 @@ async def config_server_callback(interaction: discord.Interaction,
         guild_id=interaction.guild_id,
         default_limit=limit,
         letter_delay=delay,
-        category_id=category_id
+        category_id=category_id,
+        reset_time=reset_time_obj
     )
 
     # Verify values
     ok, message = config.verify()
 
     if not ok:
-        await interaction.response.send_message(emotive_message(message), ephemeral=True) 
+        await interaction.response.send_message(emotive_message(message), ephemeral=True)
         return
-    
+
     # Upsert result
     conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+
+    # Check if reset_time was changed
+    old_config = await ServerConfig.fetch(conn, interaction.guild_id)
+    reset_time_changed = (old_config is None or old_config.reset_time != reset_time_obj)
+
     await config.upsert(conn)
-    await conn.close()
-    await interaction.response.send_message(emotive_message("Server Config Updated"), ephemeral=True)
+
+    # If reset_time was changed, cancel existing reset_counts tasks and schedule a new one
+    if reset_time_changed and reset_time_obj is not None:
+        # Delete all existing reset_counts tasks for this guild
+        deleted_count = await HawkyTask.delete_by_type_and_guild(conn, "reset_counts", interaction.guild_id)
+
+        # Calculate the next occurrence of the reset time
+        now = datetime.now()
+        next_reset = datetime.combine(now.date(), reset_time_obj)
+
+        # If the time has already passed today, schedule for tomorrow
+        if next_reset <= now:
+            next_reset = datetime.combine(now.date() + timedelta(days=1), reset_time_obj)
+
+        # Schedule the new reset task
+        reset_task = HawkyTask(
+            task="reset_counts",
+            guild_id=interaction.guild_id,
+            scheduled_time=next_reset
+        )
+        await reset_task.insert(conn)
+
+        await conn.close()
+        await interaction.response.send_message(
+            emotive_message(f"Server Config Updated. Reset time changed to {reset_time_obj.strftime('%H:%M')} UTC. Next reset scheduled for {next_reset.strftime('%Y-%m-%d %H:%M:%S')} UTC"),
+            ephemeral=True)
+    else:
+        await conn.close()
+        await interaction.response.send_message(emotive_message("Server Config Updated"), ephemeral=True)
 
 @tree.command(
     name="reset-counts",
@@ -508,17 +568,28 @@ async def reset_counts(interaction: discord.Interaction):
     message = "Reset daily letter counts"
 
     if not task_exists:
-        # Schedule the next reset for midnight
+        # Get the server config to find the reset time
+        server_config = await ServerConfig.fetch(conn, interaction.guild_id)
+
+        # Determine the reset time (default to midnight if not configured)
+        from datetime import time as time_type
+        reset_time = server_config.reset_time if server_config and server_config.reset_time else time_type(0, 0)
+
+        # Calculate the next occurrence of the reset time
         now = datetime.now()
-        next_midnight = (now + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        next_reset = datetime.combine(now.date(), reset_time)
+
+        # If the time has already passed today, schedule for tomorrow
+        if next_reset <= now:
+            next_reset = datetime.combine(now.date() + timedelta(days=1), reset_time)
 
         reset_task = HawkyTask(
             task="reset_counts",
             guild_id=interaction.guild_id,
-            scheduled_time=next_midnight
+            scheduled_time=next_reset
         )
         await reset_task.insert(conn)
-        message += f" and scheduled automatic daily resets at midnight (next reset: {next_midnight.strftime('%Y-%m-%d %H:%M:%S')})"
+        message += f" and scheduled automatic daily resets at {reset_time.strftime('%H:%M')} UTC (next reset: {next_reset.strftime('%Y-%m-%d %H:%M:%S')})"
 
     await conn.close()
     await interaction.response.send_message(emotive_message(message),

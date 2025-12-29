@@ -90,7 +90,8 @@ class ConfigServerModal(ui.Modal, title="Configure Server"):
     default_limit = ui.TextInput(label='Default Limit', style=discord.TextStyle.short, required=False)
     letter_delay = ui.TextInput(label='Letter Delay', style=discord.TextStyle.short, required=False)
     channel_category = ui.TextInput(label='Character Channel Category', style=discord.TextStyle.short, required=False)
-    
+    reset_time = ui.TextInput(label='Reset Time (HH:MM) UTC', style=discord.TextStyle.short, required=False, placeholder='00:00')
+
     def __init__(self, callback, server_config):
         super().__init__()
         self.callback = callback
@@ -101,12 +102,15 @@ class ConfigServerModal(ui.Modal, title="Configure Server"):
             self.letter_delay.default = str(self.server_config.letter_delay)
         if self.server_config.category is not None:
             self.channel_category.default = self.server_config.category.name
+        if self.server_config.reset_time is not None:
+            self.reset_time.default = self.server_config.reset_time.strftime('%H:%M')
 
     async def on_submit(self, interaction: discord.Interaction):
         await self.callback(interaction,
                             self.default_limit.value,
                             self.letter_delay.value,
-                            self.channel_category.value)
+                            self.channel_category.value,
+                            self.reset_time.value)
         
 class ConfigCharacterModal(ui.Modal, title="Configure Character"):
     name = ui.TextInput(label='Public Character Name',  style=discord.TextStyle.short, required=True)

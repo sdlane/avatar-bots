@@ -99,6 +99,19 @@ class HawkyTask:
         return row['exists']
 
     @classmethod
+    async def delete_by_type_and_guild(cls, conn: asyncpg.Connection, task_type: str, guild_id: int) -> int:
+        """
+        Delete all tasks of a given type for a specific guild.
+        Returns the number of tasks deleted.
+        """
+        result = await conn.execute("""
+            DELETE FROM HawkyTask
+            WHERE task = $1 AND guild_id = $2;
+        """, task_type, guild_id)
+        # Result format is "DELETE N" where N is the number of rows deleted
+        return int(result.split()[-1]) if result else 0
+
+    @classmethod
     async def print_all(cls, conn: asyncpg.Connection):
         """
         Prints all tasks in the table in a readable format.
