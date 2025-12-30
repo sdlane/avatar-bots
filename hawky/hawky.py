@@ -141,10 +141,25 @@ async def send_letter(interaction: discord.Interaction, message: discord.Message
     async with db_pool.acquire() as conn:
         sender = Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
         characters = Character.fetch_all(conn, interaction.guild_id)
+        server_config = ServerConfig.fetch(conn, interaction.guild_id)
         sender = await sender
         characters = await characters
+        server_config = await server_config
 
-    if sender.letter_limit is None or sender.letter_limit - sender.letter_count > 0:
+    # Check if user is an admin without a character
+    is_admin = interaction.user.guild_permissions.manage_guild
+    if sender is None and is_admin and server_config and server_config.admin_response_channel_id:
+        # Admin without character can send letters if admin response channel is configured
+        view = SendLetterView(message, None, characters, send_letter_callback)
+        await interaction.response.send_message(emotive_message("Select a character"),
+                                                view=view,
+                                                ephemeral=True)
+    elif sender is None:
+        # User has no character and isn't an admin or admin channel not configured
+        await interaction.response.send_message(
+            emotive_message("You don't have a character assigned!"),
+            ephemeral=True)
+    elif sender.letter_limit is None or sender.letter_limit - sender.letter_count > 0:
         view = SendLetterView(message, sender, characters, send_letter_callback)
         await interaction.response.send_message(emotive_message("Select a character"),
                                                 view=view,
@@ -160,16 +175,17 @@ async def send_letter_callback(interaction: discord.Interaction,
                                recipient_identifier: str):
     # Get the characters for the sender and the recipient
     async with db_pool.acquire() as conn:
-        recipient = await Character.fetch_by_identifier(conn, recipient_identifier, sender.guild_id)
+        guild_id = interaction.guild_id
+        recipient = await Character.fetch_by_identifier(conn, recipient_identifier, guild_id)
 
         # Get the ServerConfig for this server to get the letter delay
-        config = ServerConfig.fetch(conn, sender.guild_id)
+        config = ServerConfig.fetch(conn, guild_id)
 
         # Confirm that the user wants to send a letter to this character
         # Replace the dropdown with the confirmation view
         view = Confirm()
         message_content = f"Are you sure you want to send this message to {recipient.name}?"
-        if sender.letter_limit is not None:
+        if sender is not None and sender.letter_limit is not None:
             message_content = f"You have {sender.letter_limit - sender.letter_count} letters remaining today. " + message_content
         await interaction.response.edit_message(
             content=emotive_message(message_content),
@@ -196,21 +212,25 @@ async def send_letter_callback(interaction: discord.Interaction,
             # If there is no letter delay, schedule it to go out with the next tick
             scheduled_time = datetime.now()
 
+        # Use a special identifier for admin letters
+        sender_identifier = sender.identifier if sender else f"ADMIN:{interaction.user.id}"
+
         task = HawkyTask(task = "send_letter",
                          recipient_identifier = recipient_identifier,
-                         sender_identifier = sender.identifier,
+                         sender_identifier = sender_identifier,
                          parameter = f"{message.channel.id} {message.id}",
                          scheduled_time = scheduled_time,
-                         guild_id = sender.guild_id)
+                         guild_id = guild_id)
 
         await task.insert(conn)
 
-        # Update count
-        sender.letter_count += 1
-        await sender.upsert(conn)
+        # Update count only if sender is a character
+        if sender is not None:
+            sender.letter_count += 1
+            await sender.upsert(conn)
 
     # Send confirmation
-    logger.info(f"Letter queued from {sender.identifier} to {recipient.identifier} (scheduled: {scheduled_time})")
+    logger.info(f"Letter queued from {sender_identifier} to {recipient.identifier} (scheduled: {scheduled_time})")
     await interaction.response.edit_message(
         content=emotive_message(f"Message queued to send to {recipient.name}"), view=None)
 
@@ -393,12 +413,21 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
         config = await ServerConfig.fetch(conn, interaction.guild_id)
 
         # Confirm that the user wants to send this response
-        # Replace the dropdown with the confirmation view
         view = Confirm()
-        message_content = f"Are you sure you want to send this response to {selected_letter['sender_identifier']}?"
-        await interaction.response.edit_message(
-            content=emotive_message(message_content),
-            view=view)
+        message_content = f"Are you sure you want to send this response?"
+
+        # Check if the interaction has already been responded to (from dropdown)
+        # If so, edit the message; otherwise send a new one
+        if interaction.response.is_done():
+            await interaction.edit_original_response(
+                content=emotive_message(message_content),
+                view=view)
+        else:
+            await interaction.response.send_message(
+                content=emotive_message(message_content),
+                view=view,
+                ephemeral=True)
+
         await view.wait()
         interaction = view.interaction
 
@@ -438,7 +467,7 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
     # Send confirmation
     logger.info(f"Response queued from {sender.identifier} to {selected_letter['sender_identifier']} (scheduled: {scheduled_time})")
     await interaction.response.edit_message(
-        content=emotive_message(f"Response queued to send to {selected_letter['sender_identifier']}"),
+        content=emotive_message(f"Response queued"),
         view=None)
 
 
@@ -709,14 +738,20 @@ async def config_server(interaction: discord.Interaction):
         server_config.category = discord.utils.get(interaction.guild.categories, id=server_config.category_id)
     else:
         server_config.category = None
-    
+
+    if server_config.admin_response_channel_id is not None:
+        server_config.admin_response_channel = interaction.guild.get_channel(server_config.admin_response_channel_id)
+    else:
+        server_config.admin_response_channel = None
+
     await interaction.response.send_modal(ConfigServerModal(config_server_callback, server_config))    
 
 async def config_server_callback(interaction: discord.Interaction,
                                  default_limit: Optional[str],
                                  letter_delay: Optional[str],
                                  channel_category: Optional[str],
-                                 reset_time_str: Optional[str]):
+                                 reset_time_str: Optional[str],
+                                 admin_response_channel: Optional[str]):
     limit = None
     # Parse default limit as an int
     if default_limit is not None and len(default_limit) > 0:
@@ -795,13 +830,26 @@ async def config_server_callback(interaction: discord.Interaction,
                     view=None)
                 return
 
+    # Parse admin response channel
+    admin_response_channel_id = None
+    if admin_response_channel is not None and len(admin_response_channel) > 0:
+        channel = discord.utils.get(interaction.guild.text_channels, name=admin_response_channel)
+        if channel:
+            admin_response_channel_id = channel.id
+        else:
+            await interaction.response.send_message(
+                emotive_message(f'Admin Response Channel "{admin_response_channel}" not found. Please check the channel name.'),
+                ephemeral=True)
+            return
+
     # Create object
     config = ServerConfig(
         guild_id=interaction.guild_id,
         default_limit=limit,
         letter_delay=delay,
         category_id=category_id,
-        reset_time=reset_time_obj
+        reset_time=reset_time_obj,
+        admin_response_channel_id=admin_response_channel_id
     )
 
     # Verify values

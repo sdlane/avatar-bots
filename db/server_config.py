@@ -14,6 +14,7 @@ class ServerConfig:
     letter_delay: Optional[int] = None
     category_id: Optional[int] = None
     reset_time: Optional[time] = None
+    admin_response_channel_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
         """
@@ -21,13 +22,14 @@ class ServerConfig:
         If a row with the same guild_id exists, update it instead.
         """
         query = """
-        INSERT INTO ServerConfig (guild_id, default_limit, letter_delay, category_id, reset_time)
-        VALUES ($1, $2, $3, $4, $5)
+        INSERT INTO ServerConfig (guild_id, default_limit, letter_delay, category_id, reset_time, admin_response_channel_id)
+        VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (guild_id) DO UPDATE
         SET default_limit = EXCLUDED.default_limit,
             letter_delay  = EXCLUDED.letter_delay,
             category_id   = EXCLUDED.category_id,
-            reset_time    = EXCLUDED.reset_time;
+            reset_time    = EXCLUDED.reset_time,
+            admin_response_channel_id = EXCLUDED.admin_response_channel_id;
         """
 
         await conn.execute(
@@ -36,7 +38,8 @@ class ServerConfig:
             self.default_limit,
             self.letter_delay,
             self.category_id,
-            self.reset_time
+            self.reset_time,
+            self.admin_response_channel_id
         )
 
     def verify(self) -> Tuple[bool, str]:
@@ -59,7 +62,7 @@ class ServerConfig:
         Returns a ServerConfig instance or None if not found.
         """
         row = await conn.fetchrow("""
-            SELECT guild_id, default_limit, letter_delay, category_id, reset_time
+            SELECT guild_id, default_limit, letter_delay, category_id, reset_time, admin_response_channel_id
             FROM ServerConfig
             WHERE guild_id = $1;
         """, guild_id)
@@ -90,7 +93,7 @@ class ServerConfig:
         Fetch and print all entries from the ServerConfig table.
         """
         rows = await conn.fetch("""
-            SELECT guild_id, default_limit, letter_delay, category_id, reset_time
+            SELECT guild_id, default_limit, letter_delay, category_id, reset_time, admin_response_channel_id
             FROM ServerConfig
             ORDER BY guild_id;
         """)
@@ -107,5 +110,6 @@ class ServerConfig:
                 f"   • Letter Delay:  {row['letter_delay']}\n"
                 f"   • Category ID:   {row['category_id']}\n"
                 f"   • Reset Time:    {row['reset_time']}\n"
+                f"   • Admin Response Channel ID: {row['admin_response_channel_id']}\n"
             )
 

@@ -7,15 +7,30 @@ async def handle_send_response(client: discord.Client, conn: asyncpg.Connection,
     Handle a send_response task by fetching the response message and sending it to the original sender's channel.
     Similar to send_letter, but for replies to letters.
     """
-    # Get the original sender (who will receive the response)
-    original_sender = await Character.fetch_by_identifier(conn, task.recipient_identifier, task.guild_id)
-
     # Get the response message
     params = task.parameter.split(" ")
     response_channel_id = int(params[0])  # The channel where the response was written
     response_message_id = int(params[1])  # The ID of that message
     response_channel = await client.fetch_channel(response_channel_id)
     response_message = await response_channel.fetch_message(response_message_id)
+
+    # Check if the recipient is an admin (identified by ADMIN: prefix)
+    if task.recipient_identifier.startswith("ADMIN:"):
+        # This is a response to an admin letter, send to admin response channel
+        server_config = await ServerConfig.fetch(conn, task.guild_id)
+        if server_config and server_config.admin_response_channel_id:
+            channel = await client.fetch_channel(server_config.admin_response_channel_id)
+            # Extract user ID from the admin identifier
+            admin_user_id = int(task.recipient_identifier.split(":")[1])
+            user = await client.fetch_user(admin_user_id)
+            start_str = f"{user.mention}\n"
+            await channel.send(f"{start_str}{response_message.content}",
+                             files=[await attch.to_file() for attch in response_message.attachments])
+        # If no admin response channel configured, silently fail (or could log an error)
+        return
+
+    # Get the original sender (who will receive the response)
+    original_sender = await Character.fetch_by_identifier(conn, task.recipient_identifier, task.guild_id)
 
     # Get Channel where the response should be sent (original sender's channel)
     channel = await client.fetch_channel(original_sender.channel_id)
