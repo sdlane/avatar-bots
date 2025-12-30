@@ -166,15 +166,14 @@ async def send_letter_callback(interaction: discord.Interaction,
         config = ServerConfig.fetch(conn, sender.guild_id)
 
         # Confirm that the user wants to send a letter to this character
-        # If there is, send confirmation checking whether it shoud connect this character to that channel
+        # Replace the dropdown with the confirmation view
         view = Confirm()
         message_content = f"Are you sure you want to send this message to {recipient.name}?"
         if sender.letter_limit is not None:
             message_content = f"You have {sender.letter_limit - sender.letter_count} letters remaining today. " + message_content
-        await interaction.response.send_message(
-            emotive_message(message_content),
-            view=view,
-            ephemeral = True)
+        await interaction.response.edit_message(
+            content=emotive_message(message_content),
+            view=view)
         await view.wait()
         interaction = view.interaction
 
@@ -394,12 +393,12 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
         config = await ServerConfig.fetch(conn, interaction.guild_id)
 
         # Confirm that the user wants to send this response
+        # Replace the dropdown with the confirmation view
         view = Confirm()
         message_content = f"Are you sure you want to send this response to {selected_letter['sender_identifier']}?"
-        await interaction.response.send_message(
-            emotive_message(message_content),
-            view=view,
-            ephemeral=True)
+        await interaction.response.edit_message(
+            content=emotive_message(message_content),
+            view=view)
         await view.wait()
         interaction = view.interaction
 
@@ -512,6 +511,8 @@ async def create_character(interaction: discord.Interaction, identifier: str):
     # Check if there's already a channel with this identifier in the specified category
     channel = discord.utils.get(category.channels, name=identifier)
 
+    sent_confirmation = False
+
     if channel is None:
         # If not, make the channel in alphabetical order
         # Find the correct position based on alphabetical ordering
@@ -527,6 +528,7 @@ async def create_character(interaction: discord.Interaction, identifier: str):
 
     else:
         # If there is, send confirmation checking whether it should connect this character to that channel
+        sent_confirmation = True
         view = Confirm()
         await interaction.response.send_message(
             emotive_message(f"A channel called {identifier} already exists in the configured category. Would you like to connect this character to it?"),
@@ -562,8 +564,12 @@ async def create_character(interaction: discord.Interaction, identifier: str):
         await character.upsert(conn)
 
     logger.info(f"Created character with identifier: {identifier}")
-    await interaction.response.edit_message(
-        content=emotive_message(f'Created character with identifier: {identifier}'), view=None)
+    if sent_confirmation:
+        await interaction.response.edit_message(
+            content=emotive_message(f'Created character with identifier: {identifier}'), view=None)
+    else:
+        await interaction.response.send_message(
+            content=emotive_message(f'Created character with identifier: {identifier}'), ephemeral=True)
 
 @tree.command(
     name="remove-character",
