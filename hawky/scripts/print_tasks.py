@@ -8,7 +8,6 @@ import os
 
 # Add parent directories to the path so we can import db modules
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '../..')))
 
 import asyncpg
 import logging

@@ -5,6 +5,13 @@ from utils import *
 
 logger = logging.getLogger(__name__)
 
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - DB - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
 async def ensure_tables():
     conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
 
@@ -100,6 +107,34 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS parameter TEXT;")
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMP;")
     await conn.execute("ALTER TABLE HawkyTask ADD COLUMN IF NOT EXISTS guild_id BIGINT NOT NULL;")
+
+    # --- SentLetter table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS SentLetter (
+        id SERIAL PRIMARY KEY,
+        message_id BIGINT NOT NULL,
+        channel_id BIGINT NOT NULL,
+        sender_identifier TEXT NOT NULL,
+        recipient_identifier TEXT NOT NULL,
+        original_message_channel_id BIGINT NOT NULL,
+        original_message_id BIGINT NOT NULL,
+        has_response BOOLEAN NOT NULL DEFAULT FALSE,
+        guild_id BIGINT NOT NULL,
+        sent_time TIMESTAMP NOT NULL
+    );
+    """)
+
+    # --- Ensure SentLetter columns match the desired schema ---
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS id SERIAL PRIMARY KEY;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS message_id BIGINT NOT NULL;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS channel_id BIGINT NOT NULL;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS sender_identifier TEXT NOT NULL;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS recipient_identifier TEXT NOT NULL;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS original_message_channel_id BIGINT NOT NULL;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS original_message_id BIGINT NOT NULL;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS has_response BOOLEAN DEFAULT FALSE;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS guild_id BIGINT NOT NULL;")
+    await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS sent_time TIMESTAMP NOT NULL;")
 
     logger.info("Schema verified and updated successfully.")
     await conn.close()

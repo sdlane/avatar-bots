@@ -156,4 +156,74 @@ class RemindMeModal(ui.Modal, title="Set Reminder"):
         await self.callback(interaction, self.message, self.time_input.value)
 
 
+class SelectLetterDropdown(discord.ui.Select):
+    def __init__(self, message: discord.Message, sent_letters: List, handler):
+        self.message = message
+        self.sent_letters = sent_letters
+        self.handler = handler
+
+        # Create options from sent letters - truncate message content to fit in label
+        options = []
+        for i, letter in enumerate(sent_letters):
+            # Get the content and remove mention from the front
+            content = letter.get('content', '')
+            content = remove_mention(content) if content else ''
+
+            # Get attachment information
+            attachments = letter.get('attachments', [])
+
+            # Generate preview
+            if content:
+                # Get first 80 characters of the letter content for the description
+                letter_preview = content[:80]
+                if len(content) > 80:
+                    letter_preview += "..."
+            elif attachments:
+                # If no content but there are attachments, describe them
+                if len(attachments) == 1:
+                    att = attachments[0]
+                    filename = att.filename if hasattr(att, 'filename') else 'file'
+                    letter_preview = f"[Attachment: {filename}]"
+                else:
+                    letter_preview = f"[{len(attachments)} attachments]"
+            else:
+                letter_preview = "[No content]"
+
+            # Format the sent time for the label
+            sent_time = letter.get('sent_time')
+            if sent_time:
+                # Format as "MMM DD, HH:MM" (e.g., "14:30")
+                time_label = sent_time.strftime('%H:%M')
+            else:
+                time_label = "Unknown time"
+
+            # Use formatted time as label, preview as description
+            label = f"Letter received @{time_label} UTC"
+            description = letter_preview
+
+            options.append(discord.SelectOption(
+                label=label,
+                description=description,
+                value=str(i)  # Use index as value
+            ))
+
+        super().__init__(
+            placeholder="Select a letter to respond to",
+            min_values=1,
+            max_values=1,
+            options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        selected_index = int(self.values[0])
+        selected_letter = self.sent_letters[selected_index]
+        await self.handler(interaction, self.message, selected_letter)
+
+
+class SelectLetterView(ui.View):
+    def __init__(self, message: discord.Message, sent_letters: List, handler):
+        super().__init__()
+        self.add_item(SelectLetterDropdown(message, sent_letters, handler))
+
+
 

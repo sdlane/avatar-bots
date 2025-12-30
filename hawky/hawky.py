@@ -10,6 +10,7 @@ from db import *
 from datetime import datetime, timedelta
 from tasks.send_letter import handle_send_letter
 from tasks.remind_me import handle_remind_me
+from tasks.send_response import handle_send_response
 import re
 
 load_dotenv()
@@ -60,6 +61,12 @@ async def process_hawky_tasks():
                     logger.info(f"Successfully sent reminder to user {task.recipient_identifier}")
                 except Exception as e:
                     logger.error(f"Error sending reminder (task {task.id}): {e}", exc_info=True)
+            elif task.task == "send_response":
+                try:
+                    await handle_send_response(client, conn, task)
+                    logger.info(f"Successfully sent response from {task.sender_identifier} to {task.recipient_identifier}")
+                except Exception as e:
+                    logger.error(f"Error sending response (task {task.id}): {e}", exc_info=True)
             else:
                 logger.warning(f"Unknown task type: {task.task}")
 
@@ -259,6 +266,181 @@ async def remind_me_callback(interaction: discord.Interaction, message: discord.
     logger.info(f"Reminder set for user {interaction.user.id} in {time_str} (scheduled: {scheduled_time})")
     await interaction.response.send_message(
         emotive_message(f"Reminder set! I'll remind you about this message in {time_str}."),
+        ephemeral=True)
+
+@tree.context_menu(
+    name="Send as Response"
+)
+async def send_response(interaction: discord.Interaction, message: discord.Message):
+    """
+    Send a response to a letter. Fetches all unreplied letters from the last 8 hours.
+    If multiple letters exist, shows a selection dialog.
+    """
+    # Get the character of the sender
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+
+    if sender is None:
+        await interaction.response.send_message(
+            emotive_message("You don't have a character assigned!"),
+            ephemeral=True)
+        await conn.close()
+        return
+
+    # Check that the message was sent by the user in their own character channel
+    if message.author.id != interaction.user.id:
+        await interaction.response.send_message(
+            emotive_message("You can only send your own messages as responses!"),
+            ephemeral=True)
+        await conn.close()
+        return
+
+    if message.channel.id != sender.channel_id:
+        await interaction.response.send_message(
+            emotive_message("You can only send responses from your character's channel!"),
+            ephemeral=True)
+        await conn.close()
+        return
+
+    # Find all unresponded letters sent to this character within the last 8 hours
+    eight_hours_ago = datetime.now() - timedelta(hours=8)
+    sent_letter_rows = await conn.fetch("""
+        SELECT id, message_id, channel_id, sender_identifier, recipient_identifier,
+               original_message_channel_id, original_message_id, has_response,
+               guild_id, sent_time
+        FROM SentLetter
+        WHERE recipient_identifier = $1 AND guild_id = $2 AND has_response = FALSE
+          AND sent_time >= $3
+        ORDER BY sent_time DESC;
+    """, sender.identifier, interaction.guild_id, eight_hours_ago)
+
+    if not sent_letter_rows:
+        await interaction.response.send_message(
+            emotive_message("No unreplied letters found for your character in the last 8 hours!"),
+            ephemeral=True)
+        await conn.close()
+        return
+
+    # Fetch the actual message content for each letter
+    letters_with_content = []
+    for row in sent_letter_rows:
+        try:
+            # Fetch the original message that was sent
+            channel = await client.fetch_channel(row['channel_id'])
+            sent_message = await channel.fetch_message(row['message_id'])
+
+            letters_with_content.append({
+                'id': row['id'],
+                'message_id': row['message_id'],
+                'channel_id': row['channel_id'],
+                'sender_identifier': row['sender_identifier'],
+                'recipient_identifier': row['recipient_identifier'],
+                'original_message_channel_id': row['original_message_channel_id'],
+                'original_message_id': row['original_message_id'],
+                'has_response': row['has_response'],
+                'guild_id': row['guild_id'],
+                'sent_time': row['sent_time'],
+                'content': sent_message.content,
+                'attachments': sent_message.attachments
+            })
+        except Exception as e:
+            logger.error(f"Error fetching message content for letter {row['id']}: {e}")
+            # Include the letter anyway but with placeholder content
+            letters_with_content.append({
+                'id': row['id'],
+                'message_id': row['message_id'],
+                'channel_id': row['channel_id'],
+                'sender_identifier': row['sender_identifier'],
+                'recipient_identifier': row['recipient_identifier'],
+                'original_message_channel_id': row['original_message_channel_id'],
+                'original_message_id': row['original_message_id'],
+                'has_response': row['has_response'],
+                'guild_id': row['guild_id'],
+                'sent_time': row['sent_time'],
+                'content': '[Content unavailable]',
+                'attachments': []
+            })
+
+    # If there's only one letter, proceed directly to confirmation
+    if len(letters_with_content) == 1:
+        await send_response_confirmation(interaction, message, letters_with_content[0], sender, conn)
+    else:
+        # Multiple letters - show selection dialog
+        view = SelectLetterView(message, letters_with_content, send_response_selection_callback)
+        await interaction.response.send_message(
+            emotive_message(f"You have {len(letters_with_content)} unreplied letters. Please select which one to respond to:"),
+            view=view,
+            ephemeral=True)
+
+
+async def send_response_selection_callback(interaction: discord.Interaction, message: discord.Message, selected_letter: dict):
+    """
+    Callback after user selects which letter to respond to.
+    """
+    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+
+    await send_response_confirmation(interaction, message, selected_letter, sender, conn)
+
+
+async def send_response_confirmation(interaction: discord.Interaction, message: discord.Message, selected_letter: dict, sender: Character, conn):
+    """
+    Show confirmation dialog and schedule the response task.
+    """
+    # Get the ServerConfig for this server to get the letter delay
+    config = await ServerConfig.fetch(conn, interaction.guild_id)
+
+    # Confirm that the user wants to send this response
+    view = Confirm()
+    message_content = f"Are you sure you want to send this response to {selected_letter['sender_identifier']}?"
+    await interaction.response.send_message(
+        emotive_message(message_content),
+        view=view,
+        ephemeral=True)
+    await view.wait()
+    interaction = view.interaction
+
+    if view.value is None:
+        await interaction.response.send_message(
+            emotive_message("Send response timed out"),
+            ephemeral=True)
+        await conn.close()
+        return
+    elif not view.value:
+        await interaction.response.send_message(
+            emotive_message("Canceled send response"),
+            ephemeral=True)
+        await conn.close()
+        return
+
+    # Schedule Send Response Task
+    if config is not None and config.letter_delay is not None:
+        scheduled_time = datetime.now() + timedelta(minutes=config.letter_delay)
+    else:
+        # If there is no letter delay, schedule it to go out with the next tick
+        scheduled_time = datetime.now()
+
+    task = HawkyTask(
+        task="send_response",
+        recipient_identifier=selected_letter['sender_identifier'],
+        sender_identifier=sender.identifier,
+        parameter=f"{message.channel.id} {message.id}",
+        scheduled_time=scheduled_time,
+        guild_id=interaction.guild_id
+    )
+
+    await task.insert(conn)
+
+    # Mark the original letter as responded to
+    sent_letter = SentLetter(**{k: v for k, v in selected_letter.items() if k != 'content'})
+    await sent_letter.mark_responded(conn)
+
+    await conn.close()
+
+    # Send confirmation
+    logger.info(f"Response queued from {sender.identifier} to {selected_letter['sender_identifier']} (scheduled: {scheduled_time})")
+    await interaction.response.send_message(
+        emotive_message(f"Response queued to send to {selected_letter['sender_identifier']}"),
         ephemeral=True)
 
 
