@@ -585,15 +585,35 @@ async def remove_character(interaction: discord.Interaction, identifier: str):
                 ephemeral = True)
             return
 
+        # Show confirmation dialog before deleting
+        view = Confirm()
+        await interaction.response.send_message(
+            emotive_message(f"Are you sure you want to delete the character '{identifier}' and its associated channel? This action cannot be undone."),
+            view=view,
+            ephemeral=True)
+        await view.wait()
+        interaction = view.interaction
+
+        if view.value is None:
+            await interaction.response.send_message(
+                emotive_message("Character deletion timed out"),
+                ephemeral=True)
+            return
+        elif not view.value:
+            await interaction.response.send_message(
+                emotive_message("Canceled character deletion"),
+                ephemeral=True)
+            return
+
         # Delete the associated channel
         delete_channel = interaction.guild.get_channel(character.channel_id).delete()
-        
+
         # Delete the character from the database
         delete_database = Character.delete(conn, character.id)
 
         await delete_channel
         await delete_database
-     
+
     # Send confirmation
     logger.info(f"Successfully deleted {identifier}")
 
