@@ -44,13 +44,13 @@ async def assign_character_callback(interaction: discord.Interaction,
         await conn.close()
         
 
-    # Send confirmation
-    if new_identifier == "None":        
-        await interaction.response.send_message(f"Removed character assignment",
-                                                ephemeral=True)
+    # Send confirmation by editing the original message
+    if new_identifier == "None":
+        await interaction.response.edit_message(content=f"Removed character assignment",
+                                                view=None)
     else:
-        await interaction.response.send_message(f"Assigned character with identifer: {new_identifier}",
-                                            ephemeral=True)
+        await interaction.response.edit_message(content=f"Assigned character with identifer: {new_identifier}",
+                                            view=None)
 
 async def config_character_callback(interaction: discord.Interaction,
                                     character: Character,
