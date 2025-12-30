@@ -13,7 +13,7 @@ class TerritoryAdjacency:
     territory_b_id: int = 0
     guild_id: Optional[int] = None
 
-    async def insert(self, conn: asyncpg.Connection):
+    async def upsert(self, conn: asyncpg.Connection):
         """
         Insert this TerritoryAdjacency entry.
         Note: territory_a_id must be < territory_b_id due to CHECK constraint.
@@ -26,9 +26,20 @@ class TerritoryAdjacency:
             territory_a_id, territory_b_id, guild_id
         )
         VALUES ($1, $2, $3)
-        ON CONFLICT (territory_a_id, territory_b_id, guild_id) DO NOTHING;
+        ON CONFLICT (territory_a_id, territory_b_id, guild_id) DO NOTHING
+        RETURNING id;
         """
-        await conn.execute(query, a, b, self.guild_id)
+        result = await conn.fetchrow(query, a, b, self.guild_id)
+        if result:
+            self.id = result['id']
+
+    async def insert(self, conn: asyncpg.Connection):
+        """
+        Insert this TerritoryAdjacency entry.
+        Note: territory_a_id must be < territory_b_id due to CHECK constraint.
+        Alias for upsert() for backward compatibility.
+        """
+        await self.upsert(conn)
 
     @classmethod
     async def fetch_adjacent(cls, conn: asyncpg.Connection, territory_id: int, guild_id: int) -> List[int]:
