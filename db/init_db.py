@@ -74,6 +74,22 @@ async def ensure_tables():
     END$$;
     """)
 
+    # --- Alias table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Alias (
+        id SERIAL PRIMARY KEY,
+        character_id INTEGER NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
+        alias TEXT NOT NULL,
+        guild_id BIGINT NOT NULL,
+        UNIQUE (alias, guild_id)
+    );
+    """)
+
+    # Ensure all expected columns exist
+    await conn.execute("ALTER TABLE Alias ADD COLUMN IF NOT EXISTS character_id INTEGER;")
+    await conn.execute("ALTER TABLE Alias ADD COLUMN IF NOT EXISTS alias TEXT;")
+    await conn.execute("ALTER TABLE Alias ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
     # Foreign key constraint linking guild_id -> ServerConfig.guild_id
     await conn.execute("""
     DO $$

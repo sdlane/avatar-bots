@@ -167,9 +167,16 @@ async def send_letter_modal_callback(interaction: discord.Interaction,
     Callback for the SendLetterModal. Validates that the recipient exists,
     then calls send_letter_callback to show confirmation and send the letter.
     """
-    # Verify that a character with this identifier exists
+    # Verify that a character with this identifier exists (or an alias)
     async with db_pool.acquire() as conn:
         recipient = await Character.fetch_by_identifier(conn, recipient_identifier, interaction.guild_id)
+
+        # If not found, check if it's an alias
+        if recipient is None:
+            alias_entry = await Alias.fetch_by_alias(conn, recipient_identifier, interaction.guild_id)
+            if alias_entry is not None:
+                # Found an alias, get the actual character
+                recipient = await Character.fetch_by_id(conn, alias_entry.character_id)
 
     if recipient is None:
         await interaction.response.send_message(
@@ -180,24 +187,25 @@ async def send_letter_modal_callback(interaction: discord.Interaction,
     # Defer the response to acknowledge the modal submission
     await interaction.response.defer(ephemeral=True)
 
-    # Character exists, proceed with send_letter_callback
-    await send_letter_callback(interaction, message, sender, recipient_identifier)
+    # Character exists, proceed with send_letter_callback using the character's actual identifier
+    await send_letter_callback(interaction, message, sender, recipient, recipient_identifier)
 
 async def send_letter_callback(interaction: discord.Interaction,
                                message: discord.Message,
                                sender: Character,
+                               recipient: Character,
                                recipient_identifier: str):
     # Get the characters for the sender and the recipient
     async with db_pool.acquire() as conn:
         guild_id = interaction.guild_id
-        recipient = await Character.fetch_by_identifier(conn, recipient_identifier, guild_id)
+        # recipient = await Character.fetch_by_identifier(conn, recipient_identifier, guild_id)
 
         # Get the ServerConfig for this server to get the letter delay
         config = await ServerConfig.fetch(conn, guild_id)
 
         # Confirm that the user wants to send a letter to this character
         view = Confirm()
-        message_content = f"Are you sure you want to send this message to {recipient.name}?"
+        message_content = f"Are you sure you want to send this message to {recipient_identifier}?"
         if sender is not None and sender.letter_limit is not None:
             message_content = f"You have {sender.letter_limit - sender.letter_count} letters remaining today. " + message_content
         await interaction.followup.send(
@@ -229,7 +237,7 @@ async def send_letter_callback(interaction: discord.Interaction,
         sender_identifier = sender.identifier if sender else f"ADMIN:{interaction.user.id}"
 
         task = HawkyTask(task = "send_letter",
-                         recipient_identifier = recipient_identifier,
+                         recipient_identifier = recipient.identifier,
                          sender_identifier = sender_identifier,
                          parameter = f"{message.channel.id} {message.id}",
                          scheduled_time = scheduled_time,
@@ -715,18 +723,34 @@ async def view_character(interaction: discord.Interaction, member: discord.Membe
     async with db_pool.acquire() as conn:
         character = await Character.fetch_by_user(conn, member.id, interaction.guild_id)
 
+        # Check if the user is an admin
+        is_admin = interaction.user.guild_permissions.manage_guild
+
+        # Fetch aliases if admin
+        aliases = []
+        if is_admin and character is not None:
+            aliases = await Alias.fetch_by_character_id(conn, character.id)
+
     if character is None:
         await interaction.response.send_message(
             emotive_message("User has no character assigned"),
             ephemeral = True)
     else:
-        # Check if the user is an admin
-        is_admin = interaction.user.guild_permissions.manage_guild
-
         if is_admin:
-            # Show full information for admins
+            # Show full information for admins including aliases
+            message_parts = [
+                f"Identifier: {character.identifier}",
+                f"Name: {character.name}",
+                f"Letter Limit: {character.letter_limit}",
+                f"Letter Count: {character.letter_count}"
+            ]
+
+            if aliases:
+                alias_list = ", ".join([alias.alias for alias in aliases])
+                message_parts.append(f"Aliases: {alias_list}")
+
             await interaction.response.send_message(
-                emotive_message(f"Identifier: {character.identifier},\nName: {character.name},\nLetter Limit: {character.letter_limit},\nLetter Count: {character.letter_count}"),
+                emotive_message("\n".join(message_parts)),
                 ephemeral = True)
         else:
             # Show only identifier for non-admins
@@ -955,5 +979,84 @@ async def reset_counts(interaction: discord.Interaction):
 
     await interaction.response.send_message(emotive_message(message),
                                             ephemeral=True)
-    
+
+@tree.command(
+    name="add-alias",
+    description="Add an alias identifier for a character"
+)
+@app_commands.describe(
+    identifier="The identifier of the character to add an alias for",
+    alias="The alias identifier to add"
+)
+@app_commands.default_permissions(manage_guild=True)
+async def add_alias(interaction: discord.Interaction, identifier: str, alias: str):
+    async with db_pool.acquire() as conn:
+        # Get the character
+        character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
+
+        if character is None:
+            await interaction.response.send_message(
+                emotive_message(f"No character found with identifier '{identifier}'"),
+                ephemeral=True)
+            return
+
+        # Check if the alias already exists as a character identifier
+        existing_character = await Character.fetch_by_identifier(conn, alias, interaction.guild_id)
+        if existing_character is not None:
+            await interaction.response.send_message(
+                emotive_message(f"Cannot add alias '{alias}' because a character with that identifier already exists"),
+                ephemeral=True)
+            return
+
+        # Check if the alias already exists
+        existing_alias = await Alias.exists(conn, alias, interaction.guild_id)
+        if existing_alias:
+            await interaction.response.send_message(
+                emotive_message(f"Alias '{alias}' already exists"),
+                ephemeral=True)
+            return
+
+        # Create the alias
+        new_alias = Alias(
+            character_id=character.id,
+            alias=alias,
+            guild_id=interaction.guild_id
+        )
+        await new_alias.insert(conn)
+
+    logger.info(f"Added alias '{alias}' for character '{identifier}' in guild {interaction.guild_id}")
+    await interaction.response.send_message(
+        emotive_message(f"Added alias '{alias}' for character '{character.name}'"),
+        ephemeral=True)
+
+@tree.command(
+    name="remove-alias",
+    description="Remove an alias identifier"
+)
+@app_commands.describe(
+    alias="The alias identifier to remove"
+)
+@app_commands.default_permissions(manage_guild=True)
+async def remove_alias(interaction: discord.Interaction, alias: str):
+    async with db_pool.acquire() as conn:
+        # Check if the alias exists
+        alias_entry = await Alias.fetch_by_alias(conn, alias, interaction.guild_id)
+
+        if alias_entry is None:
+            await interaction.response.send_message(
+                emotive_message(f"No alias found with identifier '{alias}'"),
+                ephemeral=True)
+            return
+
+        # Get the character for logging purposes
+        character = await Character.fetch_by_id(conn, alias_entry.character_id)
+
+        # Delete the alias
+        await Alias.delete_by_alias(conn, alias, interaction.guild_id)
+
+    logger.info(f"Removed alias '{alias}' from character '{character.identifier}' in guild {interaction.guild_id}")
+    await interaction.response.send_message(
+        emotive_message(f"Removed alias '{alias}' from character '{character.name}'"),
+        ephemeral=True)
+
 client.run(BOT_TOKEN)
