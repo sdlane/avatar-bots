@@ -467,9 +467,6 @@ async def check_letter_limit(interaction: discord.Interaction):
             emotive_message(f'You have {remaining_letters} letters remaining out of a maximum of {character.letter_limit}'),
             ephemeral=True)
 
-
-# Member ID: 372159950576943116, Guild ID:  1229419428240822343
-
 # Admin Commands
 @tree.command(
     name="create-character",
@@ -478,6 +475,7 @@ async def check_letter_limit(interaction: discord.Interaction):
 @app_commands.describe(
     identifier="The identifier you want to use for the new character. Will be used as the channel name, must be unique for this server"
 )
+@app_commands.default_permissions(manage_guild=True)
 async def create_character(interaction: discord.Interaction, identifier: str):
     # Get server settings for this guild
     async with db_pool.acquire() as conn:
@@ -513,13 +511,22 @@ async def create_character(interaction: discord.Interaction, identifier: str):
     
     # Check if there's already a channel with this identifier in the specified category
     channel = discord.utils.get(category.channels, name=identifier)
-    
+
     if channel is None:
-        # If not, make the channel
-        channel = await interaction.guild.create_text_channel(identifier, category=category)
+        # If not, make the channel in alphabetical order
+        # Find the correct position based on alphabetical ordering
+        category_channels = sorted(category.channels, key=lambda c: c.name.lower())
+        position = 0
+        for i, ch in enumerate(category_channels):
+            if identifier.lower() < ch.name.lower():
+                position = ch.position - 1
+                break
+            position = ch.position
+
+        channel = await interaction.guild.create_text_channel(identifier, category=category, position=position)
 
     else:
-        # If there is, send confirmation checking whether it shoud connect this character to that channel
+        # If there is, send confirmation checking whether it should connect this character to that channel
         view = Confirm()
         await interaction.response.send_message(
             emotive_message(f"A channel called {identifier} already exists in the configured category. Would you like to connect this character to it?"),
@@ -554,6 +561,7 @@ async def create_character(interaction: discord.Interaction, identifier: str):
     async with db_pool.acquire() as conn:
         await character.upsert(conn)
     
+    logger.info(f"Created character with identifier: {identifier}")
     await interaction.response.send_message(
         emotive_message(f'Created character with identifier: {identifier}'), ephemeral=True)
 
@@ -564,6 +572,7 @@ async def create_character(interaction: discord.Interaction, identifier: str):
 @app_commands.describe(
     identifier="The identifier of the character you want to remove"
 )
+@app_commands.default_permissions(manage_guild=True)
 async def remove_character(interaction: discord.Interaction, identifier: str):
     # Get the character from the database
     async with db_pool.acquire() as conn:
@@ -586,6 +595,8 @@ async def remove_character(interaction: discord.Interaction, identifier: str):
         await delete_database
      
     # Send confirmation
+    logger.info(f"Successfully deleted {identifier}")
+
     await interaction.response.send_message(
         emotive_message(f"Successfully deleted {identifier}"),
         ephemeral = True)
@@ -598,6 +609,7 @@ async def remove_character(interaction: discord.Interaction, identifier: str):
 @app_commands.describe(
     identifier="The identifier of the character you want to configure"
 )
+@app_commands.default_permissions(manage_guild=True)
 async def config_character(interaction: discord.Interaction, identifier: str):
     # Get exisitng character entry
     async with db_pool.acquire() as conn:
@@ -614,6 +626,7 @@ async def config_character(interaction: discord.Interaction, identifier: str):
     
     
 @tree.context_menu(name='Assign Character')
+@app_commands.default_permissions(manage_guild=True)
 async def assign_character(interaction: discord.Interaction, member: discord.Member):
     async with db_pool.acquire() as conn:
         # Get the user's previous character
@@ -638,15 +651,26 @@ async def view_character(interaction: discord.Interaction, member: discord.Membe
             emotive_message("User has no character assigned"),
             ephemeral = True)
     else:
-        await interaction.response.send_message(
-            emotive_message(f"Identifier: {character.identifier},\nName: {character.name},\nLetter Limit: {character.letter_limit},\nLetter Count: {character.letter_count}"),
-            ephemeral = True)
+        # Check if the user is an admin
+        is_admin = interaction.user.guild_permissions.manage_guild
+
+        if is_admin:
+            # Show full information for admins
+            await interaction.response.send_message(
+                emotive_message(f"Identifier: {character.identifier},\nName: {character.name},\nLetter Limit: {character.letter_limit},\nLetter Count: {character.letter_count}"),
+                ephemeral = True)
+        else:
+            # Show only identifier for non-admins
+            await interaction.response.send_message(
+                emotive_message(f"Identifier: {character.identifier}"),
+                ephemeral = True)
                         
         
 @tree.command(
     name="config-server",
     description="Start an interaction to set the server specific settings for this server"
 )
+@app_commands.default_permissions(manage_guild=True)
 async def config_server(interaction: discord.Interaction):
     # Get the current settings, if any
     async with db_pool.acquire() as conn:
@@ -801,6 +825,7 @@ async def config_server_callback(interaction: discord.Interaction,
     name="reset-counts",
     description="Reset daily counts for all characters manually"
 )
+@app_commands.default_permissions(manage_guild=True)
 async def reset_counts(interaction: discord.Interaction):
     async with db_pool.acquire() as conn:
         # Reset letter counts
