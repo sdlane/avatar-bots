@@ -535,88 +535,25 @@ async def create_test_config(interaction: discord.Interaction):
     await interaction.response.defer()
 
     from config_manager import ConfigManager
+    import os
 
-    # Import sample config from test file
-    test_config = """
-wargame:
-  turn: 0
-  max_movement_stat: 4
-
-factions:
-  - faction_id: "fire-nation"
-    name: "Fire Nation"
-    members: []
-
-  - faction_id: "earth-kingdom"
-    name: "Earth Kingdom"
-    members: []
-
-territories:
-  - territory_id: 1
-    name: "Fire Nation Capital"
-    terrain_type: "plains"
-    original_nation: "fire-nation"
-    controller_faction_id: "fire-nation"
-    production:
-      ore: 5
-      lumber: 3
-      coal: 2
-      rations: 8
-      cloth: 4
-    adjacent_to: [2]
-
-  - territory_id: 2
-    name: "Earth Kingdom Territory"
-    terrain_type: "mountain"
-    original_nation: "earth-kingdom"
-    controller_faction_id: "earth-kingdom"
-    production:
-      ore: 10
-      lumber: 1
-      coal: 5
-      rations: 2
-      cloth: 0
-    adjacent_to: [1]
-
-unit_types:
-  - type_id: "infantry"
-    name: "Infantry Division"
-    nation: "fire-nation"
-    stats:
-      movement: 2
-      organization: 10
-      attack: 5
-      defense: 5
-      siege_attack: 2
-      siege_defense: 3
-    cost:
-      ore: 5
-      lumber: 2
-      rations: 10
-      cloth: 5
-    upkeep:
-      rations: 2
-      cloth: 1
-
-  - type_id: "cavalry"
-    name: "Cavalry Division"
-    nation: "earth-kingdom"
-    stats:
-      movement: 4
-      organization: 8
-      attack: 7
-      defense: 3
-      siege_attack: 1
-      siege_defense: 2
-    cost:
-      ore: 3
-      lumber: 5
-      rations: 15
-      cloth: 8
-    upkeep:
-      rations: 3
-      cloth: 2
-"""
+    # Load test config from file
+    test_config_path = os.path.join(os.path.dirname(__file__), 'test_config.yaml')
+    try:
+        with open(test_config_path, 'r') as f:
+            test_config = f.read()
+    except FileNotFoundError:
+        await interaction.followup.send(
+            emotive_message("Test configuration file not found. Please ensure test_config.yaml exists in the iroh directory."),
+            ephemeral=True
+        )
+        return
+    except Exception as e:
+        await interaction.followup.send(
+            emotive_message(f"Error reading test configuration file: {e}"),
+            ephemeral=True
+        )
+        return
 
     async with db_pool.acquire() as conn:
         success, message = await ConfigManager.import_config(conn, interaction.guild_id, test_config)
