@@ -23,3 +23,19 @@ services:
     volumes:
       - ./hawky:/usr/src/bot
       - ./db:/usr/src/bot/db
+    dns:
+      - 8.8.8.8
+      - 8.8.4.4
+
+  iroh-api:
+    image: avatar/iroh
+    build:
+      context: .
+      dockerfile: iroh/Dockerfile
+    depends_on:
+      - db
+    ports:
+      - 5001:5431
+    volumes:
+      - ./iroh:/usr/src/bot
+      - ./db:/usr/src/bot/db
