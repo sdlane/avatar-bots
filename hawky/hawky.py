@@ -23,6 +23,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 BOT_TOKEN = os.getenv('BOT_TOKEN')
+DB_URL = "postgresql://AVATAR:password@db:5432/AVATAR"
 
 intents = discord.Intents.default()
 intents.message_content = True
@@ -30,53 +31,53 @@ intents.message_content = True
 client = discord.Client(intents=intents)
 tree = app_commands.CommandTree(client)
 
+# Global connection pool
+db_pool = None
+
 
 # Task Handler
 @tasks.loop(seconds=60)
 async def process_hawky_tasks():
     """Process pending tasks from the HawkyTask table."""
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-
-    try:
-        # Get the next task that's due
-        task = await HawkyTask.pop_next_task(conn, datetime.now())
-
-        while task is not None:
-            # Handle different task types
-            if task.task == "send_letter":
-                try:
-                    await handle_send_letter(client, conn, task)
-                    logger.info(f"Successfully sent letter from {task.sender_identifier} to {task.recipient_identifier}")
-                except Exception as e:
-                    logger.error(f"Error sending letter (task {task.id}): {e}", exc_info=True)
-            elif task.task == "reset_counts":
-                try:
-                    await handle_reset_counts(conn, task)
-                    logger.info(f"Successfully reset letter counts for guild {task.guild_id}")
-                except Exception as e:
-                    logger.error(f"Error resetting counts (task {task.id}): {e}", exc_info=True)
-            elif task.task == "remind_me":
-                try:
-                    await handle_remind_me(client, conn, task)
-                    logger.info(f"Successfully sent reminder to user {task.recipient_identifier}")
-                except Exception as e:
-                    logger.error(f"Error sending reminder (task {task.id}): {e}", exc_info=True)
-            elif task.task == "send_response":
-                try:
-                    await handle_send_response(client, conn, task)
-                    logger.info(f"Successfully sent response from {task.sender_identifier} to {task.recipient_identifier}")
-                except Exception as e:
-                    logger.error(f"Error sending response (task {task.id}): {e}", exc_info=True)
-            else:
-                logger.warning(f"Unknown task type: {task.task}")
-
-            # Get the next task
+    async with db_pool.acquire() as conn:
+        try:
+            # Get the next task that's due
             task = await HawkyTask.pop_next_task(conn, datetime.now())
 
-    except Exception as e:
-        logger.error(f"Error processing tasks: {e}", exc_info=True)
-    finally:
-        await conn.close()
+            while task is not None:
+                # Handle different task types
+                if task.task == "send_letter":
+                    try:
+                        await handle_send_letter(client, conn, task)
+                        logger.info(f"Successfully sent letter from {task.sender_identifier} to {task.recipient_identifier}")
+                    except Exception as e:
+                        logger.error(f"Error sending letter (task {task.id}): {e}", exc_info=True)
+                elif task.task == "reset_counts":
+                    try:
+                        await handle_reset_counts(conn, task)
+                        logger.info(f"Successfully reset letter counts for guild {task.guild_id}")
+                    except Exception as e:
+                        logger.error(f"Error resetting counts (task {task.id}): {e}", exc_info=True)
+                elif task.task == "remind_me":
+                    try:
+                        await handle_remind_me(client, conn, task)
+                        logger.info(f"Successfully sent reminder to user {task.recipient_identifier}")
+                    except Exception as e:
+                        logger.error(f"Error sending reminder (task {task.id}): {e}", exc_info=True)
+                elif task.task == "send_response":
+                    try:
+                        await handle_send_response(client, conn, task)
+                        logger.info(f"Successfully sent response from {task.sender_identifier} to {task.recipient_identifier}")
+                    except Exception as e:
+                        logger.error(f"Error sending response (task {task.id}): {e}", exc_info=True)
+                else:
+                    logger.warning(f"Unknown task type: {task.task}")
+
+                # Get the next task
+                task = await HawkyTask.pop_next_task(conn, datetime.now())
+
+        except Exception as e:
+            logger.error(f"Error processing tasks: {e}", exc_info=True)
 
 async def handle_reset_counts(conn: asyncpg.Connection, task: HawkyTask):
     """
@@ -111,6 +112,16 @@ async def handle_reset_counts(conn: asyncpg.Connection, task: HawkyTask):
 # Public Commands
 @client.event
 async def on_ready():
+    global db_pool
+    # Initialize the connection pool
+    db_pool = await asyncpg.create_pool(
+        DB_URL,
+        min_size=2,
+        max_size=10,
+        command_timeout=60
+    )
+    logger.info("Database connection pool initialized")
+
     await tree.sync()
     process_hawky_tasks.start()  # Start the task processing loop
     logger.info(f'We have logged in as {client.user}')
@@ -127,12 +138,11 @@ async def whistle(interaction: discord.Interaction):
 )
 async def send_letter(interaction: discord.Interaction, message: discord.Message):
     # Get the characters for the sender
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    sender = Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
-    characters = Character.fetch_all(conn, interaction.guild_id)
-    sender = await sender
-    characters = await characters
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        sender = Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        characters = Character.fetch_all(conn, interaction.guild_id)
+        sender = await sender
+        characters = await characters
 
     if sender.letter_limit is None or sender.letter_limit - sender.letter_count > 0:
         view = SendLetterView(message, sender, characters, send_letter_callback)
@@ -149,59 +159,56 @@ async def send_letter_callback(interaction: discord.Interaction,
                                sender: Character,
                                recipient_identifier: str):
     # Get the characters for the sender and the recipient
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    recipient = await Character.fetch_by_identifier(conn, recipient_identifier, sender.guild_id)
+    async with db_pool.acquire() as conn:
+        recipient = await Character.fetch_by_identifier(conn, recipient_identifier, sender.guild_id)
 
-    # Get the ServerConfig for this server to get the letter delay
-    config = ServerConfig.fetch(conn, sender.guild_id)
-    
-    # Confirm that the user wants to send a letter to this character
-    # If there is, send confirmation checking whether it shoud connect this character to that channel
-    view = Confirm()
-    message_content = f"Are you sure you want to send this message to {recipient.name}?"
-    if sender.letter_limit is not None:
-        message_content = f"You have {sender.letter_limit - sender.letter_count} letters remaining today. " + message_content 
-    await interaction.response.send_message(
-        emotive_message(message_content),
-        view=view,
-        ephemeral = True)
-    await view.wait()
-    interaction = view.interaction
+        # Get the ServerConfig for this server to get the letter delay
+        config = ServerConfig.fetch(conn, sender.guild_id)
 
-    if view.value is None:
+        # Confirm that the user wants to send a letter to this character
+        # If there is, send confirmation checking whether it shoud connect this character to that channel
+        view = Confirm()
+        message_content = f"Are you sure you want to send this message to {recipient.name}?"
+        if sender.letter_limit is not None:
+            message_content = f"You have {sender.letter_limit - sender.letter_count} letters remaining today. " + message_content
         await interaction.response.send_message(
-            emotive_message("Send letter timed out"),
+            emotive_message(message_content),
+            view=view,
             ephemeral = True)
-        await conn.close()
-        return
-    elif not view.value:
-        await interaction.response.send_message(
-            emotive_message("Canceled send letter"),
-            ephemeral=True)
-        await conn.close()
-        return
+        await view.wait()
+        interaction = view.interaction
 
-    # Schedule Send Message Task
-    config = await config
-    if config is not None and config.letter_delay is not None:
-        scheduled_time = datetime.now() + timedelta(minutes=config.letter_delay)
-    else:
-        # If there is no letter delay, schedule it to go out with the next tick
-        scheduled_time = datetime.now()
-        
-    task = HawkyTask(task = "send_letter",
-                     recipient_identifier = recipient_identifier,
-                     sender_identifier = sender.identifier,
-                     parameter = f"{message.channel.id} {message.id}",
-                     scheduled_time = scheduled_time,
-                     guild_id = sender.guild_id)
+        if view.value is None:
+            await interaction.response.send_message(
+                emotive_message("Send letter timed out"),
+                ephemeral = True)
+            return
+        elif not view.value:
+            await interaction.response.send_message(
+                emotive_message("Canceled send letter"),
+                ephemeral=True)
+            return
 
-    await task.insert(conn)
+        # Schedule Send Message Task
+        config = await config
+        if config is not None and config.letter_delay is not None:
+            scheduled_time = datetime.now() + timedelta(minutes=config.letter_delay)
+        else:
+            # If there is no letter delay, schedule it to go out with the next tick
+            scheduled_time = datetime.now()
 
-    # Update count
-    sender.letter_count += 1
-    await sender.upsert(conn)
-    await conn.close()
+        task = HawkyTask(task = "send_letter",
+                         recipient_identifier = recipient_identifier,
+                         sender_identifier = sender.identifier,
+                         parameter = f"{message.channel.id} {message.id}",
+                         scheduled_time = scheduled_time,
+                         guild_id = sender.guild_id)
+
+        await task.insert(conn)
+
+        # Update count
+        sender.letter_count += 1
+        await sender.upsert(conn)
 
     # Send confirmation
     logger.info(f"Letter queued from {sender.identifier} to {recipient.identifier} (scheduled: {scheduled_time})")
@@ -251,16 +258,15 @@ async def remind_me_callback(interaction: discord.Interaction, message: discord.
     scheduled_time = datetime.now() + delta
 
     # Create the task
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    task = HawkyTask(
-        task="remind_me",
-        recipient_identifier=str(interaction.user.id),
-        parameter=f"{message.guild.id} {message.channel.id} {message.id}",
-        scheduled_time=scheduled_time,
-        guild_id=interaction.guild_id
-    )
-    await task.insert(conn)
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        task = HawkyTask(
+            task="remind_me",
+            recipient_identifier=str(interaction.user.id),
+            parameter=f"{message.guild.id} {message.channel.id} {message.id}",
+            scheduled_time=scheduled_time,
+            guild_id=interaction.guild_id
+        )
+        await task.insert(conn)
 
     # Send confirmation
     logger.info(f"Reminder set for user {interaction.user.id} in {time_str} (scheduled: {scheduled_time})")
@@ -277,165 +283,158 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
     If multiple letters exist, shows a selection dialog.
     """
     # Get the character of the sender
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+    async with db_pool.acquire() as conn:
+        sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
 
-    if sender is None:
-        await interaction.response.send_message(
-            emotive_message("You don't have a character assigned!"),
-            ephemeral=True)
-        await conn.close()
-        return
+        if sender is None:
+            await interaction.response.send_message(
+                emotive_message("You don't have a character assigned!"),
+                ephemeral=True)
+            return
 
-    # Check that the message was sent by the user in their own character channel
-    if message.author.id != interaction.user.id:
-        await interaction.response.send_message(
-            emotive_message("You can only send your own messages as responses!"),
-            ephemeral=True)
-        await conn.close()
-        return
+        # Check that the message was sent by the user in their own character channel
+        if message.author.id != interaction.user.id:
+            await interaction.response.send_message(
+                emotive_message("You can only send your own messages as responses!"),
+                ephemeral=True)
+            return
 
-    if message.channel.id != sender.channel_id:
-        await interaction.response.send_message(
-            emotive_message("You can only send responses from your character's channel!"),
-            ephemeral=True)
-        await conn.close()
-        return
+        if message.channel.id != sender.channel_id:
+            await interaction.response.send_message(
+                emotive_message("You can only send responses from your character's channel!"),
+                ephemeral=True)
+            return
 
-    # Find all unresponded letters sent to this character within the last 8 hours
-    eight_hours_ago = datetime.now() - timedelta(hours=8)
-    sent_letter_rows = await conn.fetch("""
-        SELECT id, message_id, channel_id, sender_identifier, recipient_identifier,
-               original_message_channel_id, original_message_id, has_response,
-               guild_id, sent_time
-        FROM SentLetter
-        WHERE recipient_identifier = $1 AND guild_id = $2 AND has_response = FALSE
-          AND sent_time >= $3
-        ORDER BY sent_time DESC;
-    """, sender.identifier, interaction.guild_id, eight_hours_ago)
+        # Find all unresponded letters sent to this character within the last 8 hours
+        eight_hours_ago = datetime.now() - timedelta(hours=8)
+        sent_letter_rows = await conn.fetch("""
+            SELECT id, message_id, channel_id, sender_identifier, recipient_identifier,
+                original_message_channel_id, original_message_id, has_response,
+                guild_id, sent_time
+            FROM SentLetter
+            WHERE recipient_identifier = $1 AND guild_id = $2 AND has_response = FALSE
+            AND sent_time >= $3
+            ORDER BY sent_time DESC;
+        """, sender.identifier, interaction.guild_id, eight_hours_ago)
 
-    if not sent_letter_rows:
-        await interaction.response.send_message(
-            emotive_message("No unreplied letters found for your character in the last 8 hours!"),
-            ephemeral=True)
-        await conn.close()
-        return
+        if not sent_letter_rows:
+            await interaction.response.send_message(
+                emotive_message("No unreplied letters found for your character in the last 8 hours!"),
+                ephemeral=True)
+            return
 
-    # Fetch the actual message content for each letter
-    letters_with_content = []
-    for row in sent_letter_rows:
-        try:
-            # Fetch the original message that was sent
-            channel = await client.fetch_channel(row['channel_id'])
-            sent_message = await channel.fetch_message(row['message_id'])
+        # Fetch the actual message content for each letter
+        letters_with_content = []
+        for row in sent_letter_rows:
+            try:
+                # Fetch the original message that was sent
+                channel = await client.fetch_channel(row['channel_id'])
+                sent_message = await channel.fetch_message(row['message_id'])
 
-            letters_with_content.append({
-                'id': row['id'],
-                'message_id': row['message_id'],
-                'channel_id': row['channel_id'],
-                'sender_identifier': row['sender_identifier'],
-                'recipient_identifier': row['recipient_identifier'],
-                'original_message_channel_id': row['original_message_channel_id'],
-                'original_message_id': row['original_message_id'],
-                'has_response': row['has_response'],
-                'guild_id': row['guild_id'],
-                'sent_time': row['sent_time'],
-                'content': sent_message.content,
-                'attachments': sent_message.attachments
-            })
-        except Exception as e:
-            logger.error(f"Error fetching message content for letter {row['id']}: {e}")
-            # Include the letter anyway but with placeholder content
-            letters_with_content.append({
-                'id': row['id'],
-                'message_id': row['message_id'],
-                'channel_id': row['channel_id'],
-                'sender_identifier': row['sender_identifier'],
-                'recipient_identifier': row['recipient_identifier'],
-                'original_message_channel_id': row['original_message_channel_id'],
-                'original_message_id': row['original_message_id'],
-                'has_response': row['has_response'],
-                'guild_id': row['guild_id'],
-                'sent_time': row['sent_time'],
-                'content': '[Content unavailable]',
-                'attachments': []
-            })
+                letters_with_content.append({
+                    'id': row['id'],
+                    'message_id': row['message_id'],
+                    'channel_id': row['channel_id'],
+                    'sender_identifier': row['sender_identifier'],
+                    'recipient_identifier': row['recipient_identifier'],
+                    'original_message_channel_id': row['original_message_channel_id'],
+                    'original_message_id': row['original_message_id'],
+                    'has_response': row['has_response'],
+                    'guild_id': row['guild_id'],
+                    'sent_time': row['sent_time'],
+                    'content': sent_message.content,
+                    'attachments': sent_message.attachments
+                })
+            except Exception as e:
+                logger.error(f"Error fetching message content for letter {row['id']}: {e}")
+                # Include the letter anyway but with placeholder content
+                letters_with_content.append({
+                    'id': row['id'],
+                    'message_id': row['message_id'],
+                    'channel_id': row['channel_id'],
+                    'sender_identifier': row['sender_identifier'],
+                    'recipient_identifier': row['recipient_identifier'],
+                    'original_message_channel_id': row['original_message_channel_id'],
+                    'original_message_id': row['original_message_id'],
+                    'has_response': row['has_response'],
+                    'guild_id': row['guild_id'],
+                    'sent_time': row['sent_time'],
+                    'content': '[Content unavailable]',
+                    'attachments': []
+                })
 
-    # If there's only one letter, proceed directly to confirmation
-    if len(letters_with_content) == 1:
-        await send_response_confirmation(interaction, message, letters_with_content[0], sender, conn)
-    else:
-        # Multiple letters - show selection dialog
-        view = SelectLetterView(message, letters_with_content, send_response_selection_callback)
-        await interaction.response.send_message(
-            emotive_message(f"You have {len(letters_with_content)} unreplied letters. Please select which one to respond to:"),
-            view=view,
-            ephemeral=True)
+        # If there's only one letter, proceed directly to confirmation
+        if len(letters_with_content) == 1:
+            await send_response_confirmation(interaction, message, letters_with_content[0], sender, conn)
+        else:
+            # Multiple letters - show selection dialog
+            view = SelectLetterView(message, letters_with_content, send_response_selection_callback)
+            await interaction.response.send_message(
+                emotive_message(f"You have {len(letters_with_content)} unreplied letters. Please select which one to respond to:"),
+                view=view,
+                ephemeral=True)
 
 
 async def send_response_selection_callback(interaction: discord.Interaction, message: discord.Message, selected_letter: dict):
     """
     Callback after user selects which letter to respond to.
     """
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+    async with db_pool.acquire() as conn:
+        sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
 
-    await send_response_confirmation(interaction, message, selected_letter, sender, conn)
+        await send_response_confirmation(interaction, message, selected_letter, sender, conn)
 
 
 async def send_response_confirmation(interaction: discord.Interaction, message: discord.Message, selected_letter: dict, sender: Character, conn):
     """
     Show confirmation dialog and schedule the response task.
     """
-    # Get the ServerConfig for this server to get the letter delay
-    config = await ServerConfig.fetch(conn, interaction.guild_id)
+    async with db_pool.acquire() as conn:
+        # Get the ServerConfig for this server to get the letter delay
+        config = await ServerConfig.fetch(conn, interaction.guild_id)
 
-    # Confirm that the user wants to send this response
-    view = Confirm()
-    message_content = f"Are you sure you want to send this response to {selected_letter['sender_identifier']}?"
-    await interaction.response.send_message(
-        emotive_message(message_content),
-        view=view,
-        ephemeral=True)
-    await view.wait()
-    interaction = view.interaction
-
-    if view.value is None:
+        # Confirm that the user wants to send this response
+        view = Confirm()
+        message_content = f"Are you sure you want to send this response to {selected_letter['sender_identifier']}?"
         await interaction.response.send_message(
-            emotive_message("Send response timed out"),
+            emotive_message(message_content),
+            view=view,
             ephemeral=True)
-        await conn.close()
-        return
-    elif not view.value:
-        await interaction.response.send_message(
-            emotive_message("Canceled send response"),
-            ephemeral=True)
-        await conn.close()
-        return
+        await view.wait()
+        interaction = view.interaction
 
-    # Schedule Send Response Task
-    if config is not None and config.letter_delay is not None:
-        scheduled_time = datetime.now() + timedelta(minutes=config.letter_delay)
-    else:
-        # If there is no letter delay, schedule it to go out with the next tick
-        scheduled_time = datetime.now()
+        if view.value is None:
+            await interaction.response.send_message(
+                emotive_message("Send response timed out"),
+                ephemeral=True)
+            return
+        elif not view.value:
+            await interaction.response.send_message(
+                emotive_message("Canceled send response"),
+                ephemeral=True)
+            return
 
-    task = HawkyTask(
-        task="send_response",
-        recipient_identifier=selected_letter['sender_identifier'],
-        sender_identifier=sender.identifier,
-        parameter=f"{message.channel.id} {message.id}",
-        scheduled_time=scheduled_time,
-        guild_id=interaction.guild_id
-    )
+        # Schedule Send Response Task
+        if config is not None and config.letter_delay is not None:
+            scheduled_time = datetime.now() + timedelta(minutes=config.letter_delay)
+        else:
+            # If there is no letter delay, schedule it to go out with the next tick
+            scheduled_time = datetime.now()
 
-    await task.insert(conn)
+        task = HawkyTask(
+            task="send_response",
+            recipient_identifier=selected_letter['sender_identifier'],
+            sender_identifier=sender.identifier,
+            parameter=f"{message.channel.id} {message.id}",
+            scheduled_time=scheduled_time,
+            guild_id=interaction.guild_id
+        )
 
-    # Mark the original letter as responded to
-    sent_letter = SentLetter(**{k: v for k, v in selected_letter.items() if k != 'content'})
-    await sent_letter.mark_responded(conn)
+        await task.insert(conn)
 
-    await conn.close()
+        # Mark the original letter as responded to
+        sent_letter = SentLetter(**{k: v for k, v in selected_letter.items() if k != 'content' and k != 'attachments'})
+        await sent_letter.mark_responded(conn)
 
     # Send confirmation
     logger.info(f"Response queued from {sender.identifier} to {selected_letter['sender_identifier']} (scheduled: {scheduled_time})")
@@ -449,9 +448,8 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
     description="Check your remaining daily letter allocation"
 )
 async def check_letter_limit(interaction: discord.Interaction):
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
 
     if character is None:
         await interaction.response.send_message(
@@ -482,9 +480,8 @@ async def check_letter_limit(interaction: discord.Interaction):
 )
 async def create_character(interaction: discord.Interaction, identifier: str):
     # Get server settings for this guild
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    server_config = await ServerConfig.fetch(conn, interaction.guild_id)
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        server_config = await ServerConfig.fetch(conn, interaction.guild_id)
 
     # If those don't exist, send error message and abort
     if server_config is None:
@@ -504,9 +501,8 @@ async def create_character(interaction: discord.Interaction, identifier: str):
         return
 
     # Check if the character already exists in the database
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
 
     if character is not None:
         await interaction.response.send_message(
@@ -555,9 +551,8 @@ async def create_character(interaction: discord.Interaction, identifier: str):
                           guild_id = interaction.guild_id)
 
     # Write character to the database
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    await character.upsert(conn)
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        await character.upsert(conn)
     
     await interaction.response.send_message(
         emotive_message(f'Created character with identifier: {identifier}'), ephemeral=True)
@@ -571,29 +566,25 @@ async def create_character(interaction: discord.Interaction, identifier: str):
 )
 async def remove_character(interaction: discord.Interaction, identifier: str):
     # Get the character from the database
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
+    async with db_pool.acquire() as conn:
+        character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
 
-    # If that character doesn't exist, abort
-    if character is None:
-        await conn.close()
-        await interaction.response.send_message(
-            emotive_message(f"There is no character with the identifier {identifier} in the database"),
-            ephemeral = True)
-        return
+        # If that character doesn't exist, abort
+        if character is None:
+            await interaction.response.send_message(
+                emotive_message(f"There is no character with the identifier {identifier} in the database"),
+                ephemeral = True)
+            return
 
-    # Delete the associated channel
-    delete_channel = interaction.guild.get_channel(character.channel_id).delete()
-    
-    # Delete the character from the database
-    delete_database = Character.delete(conn, character.id)
+        # Delete the associated channel
+        delete_channel = interaction.guild.get_channel(character.channel_id).delete()
+        
+        # Delete the character from the database
+        delete_database = Character.delete(conn, character.id)
 
-    await delete_channel
-    await delete_database
-    
-    # Close connection
-    await conn.close()
-    
+        await delete_channel
+        await delete_database
+     
     # Send confirmation
     await interaction.response.send_message(
         emotive_message(f"Successfully deleted {identifier}"),
@@ -609,9 +600,8 @@ async def remove_character(interaction: discord.Interaction, identifier: str):
 )
 async def config_character(interaction: discord.Interaction, identifier: str):
     # Get exisitng character entry
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
     
     # If it doesn't exist, send an error message
     if character is None:
@@ -625,25 +615,23 @@ async def config_character(interaction: discord.Interaction, identifier: str):
     
 @tree.context_menu(name='Assign Character')
 async def assign_character(interaction: discord.Interaction, member: discord.Member):
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    # Get the user's previous character
-    old_character = Character.fetch_by_user(conn, member.id, interaction.guild_id)
-    
-    # Send menu with dropdown to select un-selected characters
-    unowned_characters = Character.fetch_unowned(conn, interaction.guild_id)
+    async with db_pool.acquire() as conn:
+        # Get the user's previous character
+        old_character = Character.fetch_by_user(conn, member.id, interaction.guild_id)
+        
+        # Send menu with dropdown to select un-selected characters
+        unowned_characters = Character.fetch_unowned(conn, interaction.guild_id)
 
-    old_character = await old_character
-    unowned_characters = await unowned_characters
-    await conn.close()
+        old_character = await old_character
+        unowned_characters = await unowned_characters
 
     view = AssignCharacterView(old_character, unowned_characters, member.id)
     await interaction.response.send_message("Select a character", view=view, ephemeral=True)    
 
 @tree.context_menu(name='View Character')
 async def view_character(interaction: discord.Interaction, member: discord.Member):
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    character = await Character.fetch_by_user(conn, member.id, interaction.guild_id)
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        character = await Character.fetch_by_user(conn, member.id, interaction.guild_id)
 
     if character is None:
         await interaction.response.send_message(
@@ -661,9 +649,8 @@ async def view_character(interaction: discord.Interaction, member: discord.Membe
 )
 async def config_server(interaction: discord.Interaction):
     # Get the current settings, if any
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
-    server_config = await ServerConfig.fetch(conn, interaction.guild_id)
-    await conn.close()
+    async with db_pool.acquire() as conn:
+        server_config = await ServerConfig.fetch(conn, interaction.guild_id)
 
     if server_config is None:
         server_config = ServerConfig(guild_id = interaction.guild_id)
@@ -774,88 +761,84 @@ async def config_server_callback(interaction: discord.Interaction,
         return
 
     # Upsert result
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    async with db_pool.acquire() as conn:
+        # Check if reset_time was changed
+        old_config = await ServerConfig.fetch(conn, interaction.guild_id)
+        reset_time_changed = (old_config is None or old_config.reset_time != reset_time_obj)
 
-    # Check if reset_time was changed
-    old_config = await ServerConfig.fetch(conn, interaction.guild_id)
-    reset_time_changed = (old_config is None or old_config.reset_time != reset_time_obj)
+        await config.upsert(conn)
 
-    await config.upsert(conn)
+        # If reset_time was changed, cancel existing reset_counts tasks and schedule a new one
+        if reset_time_changed and reset_time_obj is not None:
+            # Delete all existing reset_counts tasks for this guild
+            deleted_count = await HawkyTask.delete_by_type_and_guild(conn, "reset_counts", interaction.guild_id)
 
-    # If reset_time was changed, cancel existing reset_counts tasks and schedule a new one
-    if reset_time_changed and reset_time_obj is not None:
-        # Delete all existing reset_counts tasks for this guild
-        deleted_count = await HawkyTask.delete_by_type_and_guild(conn, "reset_counts", interaction.guild_id)
+            # Calculate the next occurrence of the reset time
+            now = datetime.now()
+            next_reset = datetime.combine(now.date(), reset_time_obj)
 
-        # Calculate the next occurrence of the reset time
-        now = datetime.now()
-        next_reset = datetime.combine(now.date(), reset_time_obj)
+            # If the time has already passed today, schedule for tomorrow
+            if next_reset <= now:
+                next_reset = datetime.combine(now.date() + timedelta(days=1), reset_time_obj)
 
-        # If the time has already passed today, schedule for tomorrow
-        if next_reset <= now:
-            next_reset = datetime.combine(now.date() + timedelta(days=1), reset_time_obj)
+            # Schedule the new reset task
+            reset_task = HawkyTask(
+                task="reset_counts",
+                guild_id=interaction.guild_id,
+                scheduled_time=next_reset
+            )
+            await reset_task.insert(conn)
 
-        # Schedule the new reset task
-        reset_task = HawkyTask(
-            task="reset_counts",
-            guild_id=interaction.guild_id,
-            scheduled_time=next_reset
-        )
-        await reset_task.insert(conn)
-
-        await conn.close()
-        logger.info(f"Server config updated for guild {interaction.guild_id}. Reset time: {reset_time_obj.strftime('%H:%M')} UTC, next reset: {next_reset}")
-        await interaction.response.send_message(
-            emotive_message(f"Server Config Updated. Reset time changed to {reset_time_obj.strftime('%H:%M')} UTC. Next reset scheduled for {next_reset.strftime('%Y-%m-%d %H:%M:%S')} UTC"),
-            ephemeral=True)
-    else:
-        await conn.close()
-        logger.info(f"Server config updated for guild {interaction.guild_id}")
-        await interaction.response.send_message(emotive_message("Server Config Updated"), ephemeral=True)
+            logger.info(f"Server config updated for guild {interaction.guild_id}. Reset time: {reset_time_obj.strftime('%H:%M')} UTC, next reset: {next_reset}")
+            await interaction.response.send_message(
+                emotive_message(f"Server Config Updated. Reset time changed to {reset_time_obj.strftime('%H:%M')} UTC. Next reset scheduled for {next_reset.strftime('%Y-%m-%d %H:%M:%S')} UTC"),
+                ephemeral=True)
+        else:
+            logger.info(f"Server config updated for guild {interaction.guild_id}")
+            await interaction.response.send_message(emotive_message("Server Config Updated"), ephemeral=True)
 
 @tree.command(
     name="reset-counts",
     description="Reset daily counts for all characters manually"
 )
 async def reset_counts(interaction: discord.Interaction):
-    conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
+    async with db_pool.acquire() as conn:
+        # Reset letter counts
+        await Character.reset_letter_counts(conn, interaction.guild_id)
 
-    # Reset letter counts
-    await Character.reset_letter_counts(conn, interaction.guild_id)
+        # Check if a reset_counts task already exists for this guild
+        task_exists = await HawkyTask.exists_for_guild(conn, "reset_counts", interaction.guild_id)
 
-    # Check if a reset_counts task already exists for this guild
-    task_exists = await HawkyTask.exists_for_guild(conn, "reset_counts", interaction.guild_id)
+        message = "Reset daily letter counts"
 
-    message = "Reset daily letter counts"
+        if not task_exists:
+            # Get the server config to find the reset time
+            server_config = await ServerConfig.fetch(conn, interaction.guild_id)
 
-    if not task_exists:
-        # Get the server config to find the reset time
-        server_config = await ServerConfig.fetch(conn, interaction.guild_id)
+            # Determine the reset time (default to midnight if not configured)
+            from datetime import time as time_type
+            reset_time = server_config.reset_time if server_config and server_config.reset_time else time_type(0, 0)
 
-        # Determine the reset time (default to midnight if not configured)
-        from datetime import time as time_type
-        reset_time = server_config.reset_time if server_config and server_config.reset_time else time_type(0, 0)
+            # Calculate the next occurrence of the reset time
+            now = datetime.now()
+            next_reset = datetime.combine(now.date(), reset_time)
 
-        # Calculate the next occurrence of the reset time
-        now = datetime.now()
-        next_reset = datetime.combine(now.date(), reset_time)
+            # If the time has already passed today, schedule for tomorrow
+            if next_reset <= now:
+                next_reset = datetime.combine(now.date() + timedelta(days=1), reset_time)
 
-        # If the time has already passed today, schedule for tomorrow
-        if next_reset <= now:
-            next_reset = datetime.combine(now.date() + timedelta(days=1), reset_time)
+            reset_task = HawkyTask(
+                task="reset_counts",
+                guild_id=interaction.guild_id,
+                scheduled_time=next_reset
+            )
+            await reset_task.insert(conn)
+            message += f" and scheduled automatic daily resets at {reset_time.strftime('%H:%M')} UTC (next reset: {next_reset.strftime('%Y-%m-%d %H:%M:%S')})"
+            logger.info(f"Manual reset triggered for guild {interaction.guild_id}. Scheduled next reset at {next_reset}")
+        else:
+            logger.info(f"Manual reset triggered for guild {interaction.guild_id}. Auto-reset already scheduled")
 
-        reset_task = HawkyTask(
-            task="reset_counts",
-            guild_id=interaction.guild_id,
-            scheduled_time=next_reset
-        )
-        await reset_task.insert(conn)
-        message += f" and scheduled automatic daily resets at {reset_time.strftime('%H:%M')} UTC (next reset: {next_reset.strftime('%Y-%m-%d %H:%M:%S')})"
-        logger.info(f"Manual reset triggered for guild {interaction.guild_id}. Scheduled next reset at {next_reset}")
-    else:
-        logger.info(f"Manual reset triggered for guild {interaction.guild_id}. Auto-reset already scheduled")
 
-    await conn.close()
     await interaction.response.send_message(emotive_message(message),
                                             ephemeral=True)
     
