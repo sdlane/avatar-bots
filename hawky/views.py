@@ -230,4 +230,22 @@ class SelectLetterView(ui.View):
         self.add_item(SelectLetterDropdown(message, sent_letters, handler))
 
 
+class SendLetterModal(ui.Modal, title="Send Letter"):
+    recipient_identifier = ui.TextInput(
+        label='Recipient Identifier',
+        style=discord.TextStyle.short,
+        placeholder='Enter the recipient character identifier',
+        required=True
+    )
+
+    def __init__(self, callback, message, sender):
+        super().__init__()
+        self.callback = callback
+        self.message = message
+        self.sender = sender
+
+    async def on_submit(self, interaction: discord.Interaction):
+        await self.callback(interaction, self.message, self.sender, self.recipient_identifier.value)
+
+
 

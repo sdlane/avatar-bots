@@ -137,37 +137,51 @@ async def whistle(interaction: discord.Interaction):
     name="Send as Letter"
 )
 async def send_letter(interaction: discord.Interaction, message: discord.Message):
-    # Get the characters for the sender
+    # Get the sender character
     async with db_pool.acquire() as conn:
-        sender = Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
-        characters = Character.fetch_all(conn, interaction.guild_id)
-        server_config = ServerConfig.fetch(conn, interaction.guild_id)
-        sender = await sender
-        characters = await characters
-        server_config = await server_config
+        sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        server_config = await ServerConfig.fetch(conn, interaction.guild_id)
 
     # Check if user is an admin without a character
     is_admin = interaction.user.guild_permissions.manage_guild
     if sender is None and is_admin and server_config and server_config.admin_response_channel_id:
         # Admin without character can send letters if admin response channel is configured
-        view = SendLetterView(message, None, characters, send_letter_callback)
-        await interaction.response.send_message(emotive_message("Select a character"),
-                                                view=view,
-                                                ephemeral=True)
+        await interaction.response.send_modal(SendLetterModal(send_letter_modal_callback, message, None))
     elif sender is None:
         # User has no character and isn't an admin or admin channel not configured
         await interaction.response.send_message(
             emotive_message("You don't have a character assigned!"),
             ephemeral=True)
     elif sender.letter_limit is None or sender.letter_limit - sender.letter_count > 0:
-        view = SendLetterView(message, sender, characters, send_letter_callback)
-        await interaction.response.send_message(emotive_message("Select a character"),
-                                                view=view,
-                                                ephemeral=True)
+        await interaction.response.send_modal(SendLetterModal(send_letter_modal_callback, message, sender))
     else:
         await interaction.response.send_message(
             emotive_message("You have no letters remaining!"),
             ephemeral = True)
+
+async def send_letter_modal_callback(interaction: discord.Interaction,
+                                     message: discord.Message,
+                                     sender: Character,
+                                     recipient_identifier: str):
+    """
+    Callback for the SendLetterModal. Validates that the recipient exists,
+    then calls send_letter_callback to show confirmation and send the letter.
+    """
+    # Verify that a character with this identifier exists
+    async with db_pool.acquire() as conn:
+        recipient = await Character.fetch_by_identifier(conn, recipient_identifier, interaction.guild_id)
+
+    if recipient is None:
+        await interaction.response.send_message(
+            emotive_message(f"No character found with identifier '{recipient_identifier}'"),
+            ephemeral=True)
+        return
+
+    # Defer the response to acknowledge the modal submission
+    await interaction.response.defer(ephemeral=True)
+
+    # Character exists, proceed with send_letter_callback
+    await send_letter_callback(interaction, message, sender, recipient_identifier)
 
 async def send_letter_callback(interaction: discord.Interaction,
                                message: discord.Message,
@@ -179,17 +193,17 @@ async def send_letter_callback(interaction: discord.Interaction,
         recipient = await Character.fetch_by_identifier(conn, recipient_identifier, guild_id)
 
         # Get the ServerConfig for this server to get the letter delay
-        config = ServerConfig.fetch(conn, guild_id)
+        config = await ServerConfig.fetch(conn, guild_id)
 
         # Confirm that the user wants to send a letter to this character
-        # Replace the dropdown with the confirmation view
         view = Confirm()
         message_content = f"Are you sure you want to send this message to {recipient.name}?"
         if sender is not None and sender.letter_limit is not None:
             message_content = f"You have {sender.letter_limit - sender.letter_count} letters remaining today. " + message_content
-        await interaction.response.edit_message(
-            content=emotive_message(message_content),
-            view=view)
+        await interaction.followup.send(
+            emotive_message(message_content),
+            view=view,
+            ephemeral=True)
         await view.wait()
         interaction = view.interaction
 
@@ -205,7 +219,6 @@ async def send_letter_callback(interaction: discord.Interaction,
             return
 
         # Schedule Send Message Task
-        config = await config
         if config is not None and config.letter_delay is not None:
             scheduled_time = datetime.now() + timedelta(minutes=config.letter_delay)
         else:
