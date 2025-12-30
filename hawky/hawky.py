@@ -449,11 +449,12 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
             # If there is no letter delay, schedule it to go out with the next tick
             scheduled_time = datetime.now()
 
+        # Include original message info in parameter for admin response linking
         task = HawkyTask(
             task="send_response",
             recipient_identifier=selected_letter['sender_identifier'],
             sender_identifier=sender.identifier,
-            parameter=f"{message.channel.id} {message.id}",
+            parameter=f"{message.channel.id} {message.id} {selected_letter['original_message_channel_id']} {selected_letter['original_message_id']}",
             scheduled_time=scheduled_time,
             guild_id=interaction.guild_id
         )
