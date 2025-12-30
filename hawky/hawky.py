@@ -179,14 +179,14 @@ async def send_letter_callback(interaction: discord.Interaction,
         interaction = view.interaction
 
         if view.value is None:
-            await interaction.response.send_message(
-                emotive_message("Send letter timed out"),
-                ephemeral = True)
+            await interaction.response.edit_message(
+                content=emotive_message("Send letter timed out"),
+                view=None)
             return
         elif not view.value:
-            await interaction.response.send_message(
-                emotive_message("Canceled send letter"),
-                ephemeral=True)
+            await interaction.response.edit_message(
+                content=emotive_message("Canceled send letter"),
+                view=None)
             return
 
         # Schedule Send Message Task
@@ -212,8 +212,8 @@ async def send_letter_callback(interaction: discord.Interaction,
 
     # Send confirmation
     logger.info(f"Letter queued from {sender.identifier} to {recipient.identifier} (scheduled: {scheduled_time})")
-    await interaction.response.send_message(
-        emotive_message(f"Message queued to send to {recipient.name}"), ephemeral=True)
+    await interaction.response.edit_message(
+        content=emotive_message(f"Message queued to send to {recipient.name}"), view=None)
 
 
 @tree.context_menu(
@@ -404,14 +404,14 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
         interaction = view.interaction
 
         if view.value is None:
-            await interaction.response.send_message(
-                emotive_message("Send response timed out"),
-                ephemeral=True)
+            await interaction.response.edit_message(
+                content=emotive_message("Send response timed out"),
+                view=None)
             return
         elif not view.value:
-            await interaction.response.send_message(
-                emotive_message("Canceled send response"),
-                ephemeral=True)
+            await interaction.response.edit_message(
+                content=emotive_message("Canceled send response"),
+                view=None)
             return
 
         # Schedule Send Response Task
@@ -438,9 +438,9 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
 
     # Send confirmation
     logger.info(f"Response queued from {sender.identifier} to {selected_letter['sender_identifier']} (scheduled: {scheduled_time})")
-    await interaction.response.send_message(
-        emotive_message(f"Response queued to send to {selected_letter['sender_identifier']}"),
-        ephemeral=True)
+    await interaction.response.edit_message(
+        content=emotive_message(f"Response queued to send to {selected_letter['sender_identifier']}"),
+        view=None)
 
 
 @tree.command(
@@ -534,19 +534,19 @@ async def create_character(interaction: discord.Interaction, identifier: str):
             ephemeral = True)
         await view.wait()
         interaction = view.interaction
-        
+
         if view.value is None:
             # If not confirmed, abort
-            await interaction.response.send_message(
-                emotive_message("Character Creation Timed Out"),
-                ephemeral=True)
+            await interaction.response.edit_message(
+                content=emotive_message("Character Creation Timed Out"),
+                view=None)
             return
 
         elif not view.value:
             # If not confirmed, abort
-            await interaction.response.send_message(
-                emotive_message("Canceled Create Character"),
-                ephemeral=True)
+            await interaction.response.edit_message(
+                content=emotive_message("Canceled Create Character"),
+                view=None)
             return
 
 
@@ -560,10 +560,10 @@ async def create_character(interaction: discord.Interaction, identifier: str):
     # Write character to the database
     async with db_pool.acquire() as conn:
         await character.upsert(conn)
-    
+
     logger.info(f"Created character with identifier: {identifier}")
-    await interaction.response.send_message(
-        emotive_message(f'Created character with identifier: {identifier}'), ephemeral=True)
+    await interaction.response.edit_message(
+        content=emotive_message(f'Created character with identifier: {identifier}'), view=None)
 
 @tree.command(
     name="remove-character",
@@ -595,14 +595,14 @@ async def remove_character(interaction: discord.Interaction, identifier: str):
         interaction = view.interaction
 
         if view.value is None:
-            await interaction.response.send_message(
-                emotive_message("Character deletion timed out"),
-                ephemeral=True)
+            await interaction.response.edit_message(
+                content=emotive_message("Character deletion timed out"),
+                view=None)
             return
         elif not view.value:
-            await interaction.response.send_message(
-                emotive_message("Canceled character deletion"),
-                ephemeral=True)
+            await interaction.response.edit_message(
+                content=emotive_message("Canceled character deletion"),
+                view=None)
             return
 
         # Delete the associated channel
@@ -617,9 +617,9 @@ async def remove_character(interaction: discord.Interaction, identifier: str):
     # Send confirmation
     logger.info(f"Successfully deleted {identifier}")
 
-    await interaction.response.send_message(
-        emotive_message(f"Successfully deleted {identifier}"),
-        ephemeral = True)
+    await interaction.response.edit_message(
+        content=emotive_message(f"Successfully deleted {identifier}"),
+        view=None)
     
 
 @tree.command(
@@ -766,26 +766,27 @@ async def config_server_callback(interaction: discord.Interaction,
                 emotive_message(f"Channel Category {channel_category} does not exist. Do you want to create it?"),
                 view=view,
                 ephemeral=True)
-            
+
             await view.wait()
+            interaction = view.interaction
+
             if view.value is None:
                 # If not confirmed, abort
-                interaction.respose.send_message(
-                    emotive_message("Server Configuration Timed Out"),
-                    ephemeral=True)
+                await interaction.response.edit_message(
+                    content=emotive_message("Server Configuration Timed Out"),
+                    view=None)
                 return
-            
+
             elif view.value:
                 # If confirmed, create category and get ID
                 new_category = await interaction.guild.create_category(channel_category)
                 category_id = new_category.id
-                interaction = view.interaction
-                
+
             else:
                 # If not confirmed, abort
-                interaction.respose.send_message(
-                    emotive_message("Canceled Server Configuration"),
-                    ephemeral=True)
+                await interaction.response.edit_message(
+                    content=emotive_message("Canceled Server Configuration"),
+                    view=None)
                 return
 
     # Create object
