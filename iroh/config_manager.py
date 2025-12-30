@@ -1,0 +1,464 @@
+import yaml
+from typing import Dict, Any, List, Optional
+import asyncpg
+import logging
+from db import (
+    Territory, Faction, FactionMember, Unit, UnitType,
+    PlayerResources, TerritoryAdjacency, WargameConfig, Character
+)
+
+logger = logging.getLogger(__name__)
+
+
+class ConfigManager:
+    """Handles import/export of wargame configuration via YAML"""
+
+    @staticmethod
+    async def export_config(conn: asyncpg.Connection, guild_id: int) -> str:
+        """
+        Export current wargame state to YAML string.
+
+        Args:
+            conn: Database connection
+            guild_id: Guild ID to export
+
+        Returns:
+            YAML string representing the complete wargame state
+        """
+        config_dict = {}
+
+        # Export WargameConfig
+        wargame_config = await WargameConfig.fetch(conn, guild_id)
+        if wargame_config:
+            config_dict['wargame'] = {
+                'turn': wargame_config.current_turn,
+                'max_movement_stat': wargame_config.max_movement_stat,
+                'turn_resolution_enabled': wargame_config.turn_resolution_enabled
+            }
+        else:
+            config_dict['wargame'] = {
+                'turn': 0,
+                'max_movement_stat': 4,
+                'turn_resolution_enabled': False
+            }
+
+        # Export Factions
+        factions = await Faction.fetch_all(conn, guild_id)
+        config_dict['factions'] = []
+        for faction in factions:
+            faction_dict = {
+                'faction_id': faction.faction_id,
+                'name': faction.name
+            }
+
+            # Get leader character identifier
+            if faction.leader_character_id:
+                leader = await Character.fetch_by_id(conn, faction.leader_character_id)
+                if leader:
+                    faction_dict['leader'] = leader.identifier
+
+            # Get faction members
+            members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
+            if members:
+                member_identifiers = []
+                for member in members:
+                    char = await Character.fetch_by_id(conn, member.character_id)
+                    if char:
+                        member_identifiers.append(char.identifier)
+                faction_dict['members'] = member_identifiers
+
+            config_dict['factions'].append(faction_dict)
+
+        # Export Player Resources
+        # Get all characters first, then fetch their resources
+        characters = await Character.fetch_all(conn, guild_id)
+        config_dict['player_resources'] = []
+        for character in characters:
+            resources = await PlayerResources.fetch_by_character(conn, character.id, guild_id)
+            if resources and (resources.ore or resources.lumber or resources.coal or
+                            resources.rations or resources.cloth):
+                config_dict['player_resources'].append({
+                    'character': character.identifier,
+                    'resources': {
+                        'ore': resources.ore,
+                        'lumber': resources.lumber,
+                        'coal': resources.coal,
+                        'rations': resources.rations,
+                        'cloth': resources.cloth
+                    }
+                })
+
+        # Export Territories
+        territories = await Territory.fetch_all(conn, guild_id)
+        config_dict['territories'] = []
+        for territory in territories:
+            territory_dict = {
+                'territory_id': territory.territory_id,
+                'terrain_type': territory.terrain_type
+            }
+
+            if territory.name:
+                territory_dict['name'] = territory.name
+
+            if territory.original_nation:
+                territory_dict['original_nation'] = territory.original_nation
+
+            # Get controller faction_id
+            if territory.controller_faction_id:
+                controller = await Faction.fetch_by_id(conn, territory.controller_faction_id)
+                if controller:
+                    territory_dict['controller_faction_id'] = controller.faction_id
+
+            # Production
+            territory_dict['production'] = {
+                'ore': territory.ore_production,
+                'lumber': territory.lumber_production,
+                'coal': territory.coal_production,
+                'rations': territory.rations_production,
+                'cloth': territory.cloth_production
+            }
+
+            # Adjacent territories
+            adjacent_ids = await TerritoryAdjacency.fetch_adjacent(conn, territory.territory_id, guild_id)
+            if adjacent_ids:
+                territory_dict['adjacent_to'] = sorted(adjacent_ids)
+
+            config_dict['territories'].append(territory_dict)
+
+        # Export Unit Types
+        unit_types = await UnitType.fetch_all(conn, guild_id)
+        config_dict['unit_types'] = []
+        for unit_type in unit_types:
+            unit_type_dict = {
+                'type_id': unit_type.type_id,
+                'name': unit_type.name
+            }
+
+            if unit_type.nation:
+                unit_type_dict['nation'] = unit_type.nation
+
+            unit_type_dict['stats'] = {
+                'movement': unit_type.movement,
+                'organization': unit_type.organization,
+                'attack': unit_type.attack,
+                'defense': unit_type.defense,
+                'siege_attack': unit_type.siege_attack,
+                'siege_defense': unit_type.siege_defense
+            }
+
+            if unit_type.size != 1:
+                unit_type_dict['stats']['size'] = unit_type.size
+            if unit_type.capacity != 0:
+                unit_type_dict['stats']['capacity'] = unit_type.capacity
+            if unit_type.is_naval:
+                unit_type_dict['stats']['is_naval'] = unit_type.is_naval
+            if unit_type.keywords:
+                unit_type_dict['stats']['keywords'] = unit_type.keywords
+
+            unit_type_dict['cost'] = {
+                'ore': unit_type.cost_ore,
+                'lumber': unit_type.cost_lumber,
+                'coal': unit_type.cost_coal,
+                'rations': unit_type.cost_rations,
+                'cloth': unit_type.cost_cloth
+            }
+
+            unit_type_dict['upkeep'] = {
+                'ore': unit_type.upkeep_ore,
+                'lumber': unit_type.upkeep_lumber,
+                'coal': unit_type.upkeep_coal,
+                'rations': unit_type.upkeep_rations,
+                'cloth': unit_type.upkeep_cloth
+            }
+
+            config_dict['unit_types'].append(unit_type_dict)
+
+        # Export Units
+        units = await Unit.fetch_all(conn, guild_id)
+        config_dict['units'] = []
+        for unit in units:
+            unit_dict = {
+                'unit_id': unit.unit_id,
+                'type': unit.unit_type
+            }
+
+            if unit.name:
+                unit_dict['name'] = unit.name
+
+            # Get owner and commander character identifiers
+            owner = await Character.fetch_by_id(conn, unit.owner_character_id)
+            if owner:
+                unit_dict['owner'] = owner.identifier
+
+            if unit.commander_character_id:
+                commander = await Character.fetch_by_id(conn, unit.commander_character_id)
+                if commander:
+                    unit_dict['commander'] = commander.identifier
+
+            # Get faction_id
+            if unit.faction_id:
+                faction = await Faction.fetch_by_id(conn, unit.faction_id)
+                if faction:
+                    unit_dict['faction_id'] = faction.faction_id
+
+            if unit.current_territory_id is not None:
+                unit_dict['current_territory_id'] = unit.current_territory_id
+
+            # Only include non-default stats
+            if unit.organization != unit.max_organization:
+                unit_dict['current_organization'] = unit.organization
+
+            config_dict['units'].append(unit_dict)
+
+        return yaml.dump(config_dict, default_flow_style=False, sort_keys=False)
+
+    @staticmethod
+    async def import_config(conn: asyncpg.Connection, guild_id: int, config_yaml: str) -> tuple[bool, str]:
+        """
+        Import YAML string and populate database.
+
+        Args:
+            conn: Database connection
+            guild_id: Guild ID to import into
+            config_yaml: YAML string to import
+
+        Returns:
+            Tuple of (success: bool, message: str)
+        """
+        try:
+            config_dict = yaml.safe_load(config_yaml)
+        except yaml.YAMLError as e:
+            return False, f"Invalid YAML format: {e}"
+
+        # Validate that all referenced characters exist
+        character_identifiers_needed = set()
+
+        # Collect all character identifiers from config
+        if 'factions' in config_dict:
+            for faction in config_dict['factions']:
+                if 'leader' in faction:
+                    character_identifiers_needed.add(faction['leader'])
+                if 'members' in faction:
+                    character_identifiers_needed.update(faction['members'])
+
+        if 'player_resources' in config_dict:
+            for player_res in config_dict['player_resources']:
+                character_identifiers_needed.add(player_res['character'])
+
+        if 'units' in config_dict:
+            for unit in config_dict['units']:
+                if 'owner' in unit:
+                    character_identifiers_needed.add(unit['owner'])
+                if 'commander' in unit:
+                    character_identifiers_needed.add(unit['commander'])
+
+        # Validate characters exist
+        missing_characters = []
+        character_map = {}  # identifier -> Character object
+        for identifier in character_identifiers_needed:
+            char = await Character.fetch_by_identifier(conn, identifier, guild_id)
+            if not char:
+                missing_characters.append(identifier)
+            else:
+                character_map[identifier] = char
+
+        if missing_characters:
+            return False, f"Missing characters (create with hawky first): {', '.join(sorted(missing_characters))}"
+
+        # Import WargameConfig
+        if 'wargame' in config_dict:
+            wargame = config_dict['wargame']
+            wg_config = WargameConfig(
+                guild_id=guild_id,
+                current_turn=wargame.get('turn', 0),
+                max_movement_stat=wargame.get('max_movement_stat', 4),
+                turn_resolution_enabled=wargame.get('turn_resolution_enabled', False)
+            )
+            await wg_config.upsert(conn)
+
+        # Import Factions (first pass - without leaders)
+        faction_map = {}  # faction_id -> internal id
+        if 'factions' in config_dict:
+            for faction_data in config_dict['factions']:
+                faction = Faction(
+                    faction_id=faction_data['faction_id'],
+                    name=faction_data['name'],
+                    guild_id=guild_id
+                )
+                await faction.upsert(conn)
+
+                # Fetch back to get internal ID
+                faction_obj = await Faction.fetch_by_faction_id(conn, faction_data['faction_id'], guild_id)
+                if faction_obj:
+                    faction_map[faction_data['faction_id']] = faction_obj.id
+
+        # Import Factions (second pass - set leaders)
+        if 'factions' in config_dict:
+            for faction_data in config_dict['factions']:
+                if 'leader' in faction_data:
+                    leader_char = character_map.get(faction_data['leader'])
+                    if leader_char:
+                        faction = await Faction.fetch_by_faction_id(conn, faction_data['faction_id'], guild_id)
+                        if faction:
+                            faction.leader_character_id = leader_char.id
+                            await faction.upsert(conn)
+
+        # Import Faction Members
+        if 'factions' in config_dict:
+            for faction_data in config_dict['factions']:
+                faction_internal_id = faction_map.get(faction_data['faction_id'])
+                if faction_internal_id and 'members' in faction_data:
+                    wg_config = await WargameConfig.fetch(conn, guild_id)
+                    current_turn = wg_config.current_turn if wg_config else 0
+
+                    for member_identifier in faction_data['members']:
+                        member_char = character_map.get(member_identifier)
+                        if member_char:
+                            faction_member = FactionMember(
+                                faction_id=faction_internal_id,
+                                character_id=member_char.id,
+                                joined_turn=current_turn,
+                                guild_id=guild_id
+                            )
+                            await faction_member.insert(conn)
+
+        # Import Player Resources
+        if 'player_resources' in config_dict:
+            for player_res_data in config_dict['player_resources']:
+                char = character_map.get(player_res_data['character'])
+                if char:
+                    resources = player_res_data.get('resources', {})
+                    player_res = PlayerResources(
+                        character_id=char.id,
+                        ore=resources.get('ore', 0),
+                        lumber=resources.get('lumber', 0),
+                        coal=resources.get('coal', 0),
+                        rations=resources.get('rations', 0),
+                        cloth=resources.get('cloth', 0),
+                        guild_id=guild_id
+                    )
+                    await player_res.upsert(conn)
+
+        # Import Territories
+        if 'territories' in config_dict:
+            for territory_data in config_dict['territories']:
+                controller_faction_id = None
+                if 'controller_faction_id' in territory_data:
+                    controller_faction_id = faction_map.get(territory_data['controller_faction_id'])
+
+                production = territory_data.get('production', {})
+                territory = Territory(
+                    territory_id=territory_data['territory_id'],
+                    name=territory_data.get('name'),
+                    terrain_type=territory_data['terrain_type'],
+                    ore_production=production.get('ore', 0),
+                    lumber_production=production.get('lumber', 0),
+                    coal_production=production.get('coal', 0),
+                    rations_production=production.get('rations', 0),
+                    cloth_production=production.get('cloth', 0),
+                    controller_faction_id=controller_faction_id,
+                    original_nation=territory_data.get('original_nation'),
+                    guild_id=guild_id
+                )
+                await territory.upsert(conn)
+
+                # Import adjacencies
+                if 'adjacent_to' in territory_data:
+                    for adjacent_id in territory_data['adjacent_to']:
+                        adjacency = TerritoryAdjacency(
+                            territory_a_id=territory_data['territory_id'],
+                            territory_b_id=adjacent_id,
+                            guild_id=guild_id
+                        )
+                        await adjacency.insert(conn)
+
+        # Import Unit Types
+        if 'unit_types' in config_dict:
+            for unit_type_data in config_dict['unit_types']:
+                stats = unit_type_data.get('stats', {})
+                cost = unit_type_data.get('cost', {})
+                upkeep = unit_type_data.get('upkeep', {})
+
+                unit_type = UnitType(
+                    type_id=unit_type_data['type_id'],
+                    name=unit_type_data['name'],
+                    nation=unit_type_data.get('nation'),
+                    movement=stats.get('movement', 1),
+                    organization=stats.get('organization', 10),
+                    attack=stats.get('attack', 0),
+                    defense=stats.get('defense', 0),
+                    siege_attack=stats.get('siege_attack', 0),
+                    siege_defense=stats.get('siege_defense', 0),
+                    size=stats.get('size', 1),
+                    capacity=stats.get('capacity', 0),
+                    is_naval=stats.get('is_naval', False),
+                    keywords=stats.get('keywords', []),
+                    cost_ore=cost.get('ore', 0),
+                    cost_lumber=cost.get('lumber', 0),
+                    cost_coal=cost.get('coal', 0),
+                    cost_rations=cost.get('rations', 0),
+                    cost_cloth=cost.get('cloth', 0),
+                    upkeep_ore=upkeep.get('ore', 0),
+                    upkeep_lumber=upkeep.get('lumber', 0),
+                    upkeep_coal=upkeep.get('coal', 0),
+                    upkeep_rations=upkeep.get('rations', 0),
+                    upkeep_cloth=upkeep.get('cloth', 0),
+                    guild_id=guild_id
+                )
+                await unit_type.upsert(conn)
+
+        # Import Units
+        if 'units' in config_dict:
+            for unit_data in config_dict['units']:
+                owner_char = character_map.get(unit_data.get('owner'))
+                if not owner_char:
+                    continue  # Skip units with invalid owners
+
+                commander_char_id = None
+                if 'commander' in unit_data:
+                    commander_char = character_map.get(unit_data['commander'])
+                    if commander_char:
+                        commander_char_id = commander_char.id
+
+                faction_internal_id = None
+                if 'faction_id' in unit_data:
+                    faction_internal_id = faction_map.get(unit_data['faction_id'])
+
+                # Get unit type to determine stats
+                unit_type = await UnitType.fetch_by_type_id(conn, unit_data['type'], None, guild_id)
+                if not unit_type:
+                    logger.warning(f"Unit type {unit_data['type']} not found, skipping unit {unit_data['unit_id']}")
+                    continue
+
+                current_org = unit_data.get('current_organization', unit_type.organization)
+
+                unit = Unit(
+                    unit_id=unit_data['unit_id'],
+                    name=unit_data.get('name'),
+                    unit_type=unit_data['type'],
+                    owner_character_id=owner_char.id,
+                    commander_character_id=commander_char_id,
+                    faction_id=faction_internal_id,
+                    movement=unit_type.movement,
+                    organization=current_org,
+                    max_organization=unit_type.organization,
+                    attack=unit_type.attack,
+                    defense=unit_type.defense,
+                    siege_attack=unit_type.siege_attack,
+                    siege_defense=unit_type.siege_defense,
+                    size=unit_type.size,
+                    capacity=unit_type.capacity,
+                    current_territory_id=unit_data.get('current_territory_id'),
+                    is_naval=unit_type.is_naval,
+                    upkeep_ore=unit_type.upkeep_ore,
+                    upkeep_lumber=unit_type.upkeep_lumber,
+                    upkeep_coal=unit_type.upkeep_coal,
+                    upkeep_rations=unit_type.upkeep_rations,
+                    upkeep_cloth=unit_type.upkeep_cloth,
+                    keywords=unit_type.keywords,
+                    guild_id=guild_id
+                )
+                await unit.upsert(conn)
+
+        logger.info(f"Successfully imported wargame config for guild {guild_id}")
+        return True, "Configuration imported successfully"
