@@ -1,3 +1,4 @@
 discord.py
 asyncpg
-dotenv
+python-dotenv
+pyyaml

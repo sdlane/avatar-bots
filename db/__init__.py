@@ -4,3 +4,14 @@ from .base import *
 from .hawky_task import *
 from .sent_letter import *
 from .alias import *
+
+# Wargame models
+from .territory import *
+from .faction import *
+from .faction_member import *
+from .unit import *
+from .unit_type import *
+from .player_resources import *
+from .resource_transfer import *
+from .territory_adjacency import *
+from .wargame_config import *

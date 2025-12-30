@@ -154,6 +154,276 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS guild_id BIGINT NOT NULL;")
     await conn.execute("ALTER TABLE SentLetter ADD COLUMN IF NOT EXISTS sent_time TIMESTAMP NOT NULL;")
 
+    # --- WARGAME TABLES ---
+
+    # --- Territory table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Territory (
+        id SERIAL PRIMARY KEY,
+        territory_id INTEGER NOT NULL,
+        name VARCHAR(255),
+        terrain_type VARCHAR(50) NOT NULL,
+        ore_production INTEGER DEFAULT 0,
+        lumber_production INTEGER DEFAULT 0,
+        coal_production INTEGER DEFAULT 0,
+        rations_production INTEGER DEFAULT 0,
+        cloth_production INTEGER DEFAULT 0,
+        controller_faction_id INTEGER,
+        original_nation VARCHAR(50),
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(territory_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS territory_id INTEGER;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS name VARCHAR(255);")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS terrain_type VARCHAR(50);")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS ore_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS lumber_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS coal_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS rations_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS cloth_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS controller_faction_id INTEGER;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS original_nation VARCHAR(50);")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- Faction table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Faction (
+        id SERIAL PRIMARY KEY,
+        faction_id VARCHAR(50) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        leader_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(faction_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS faction_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS name VARCHAR(255);")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS leader_character_id INTEGER;")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- FactionMember table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS FactionMember (
+        id SERIAL PRIMARY KEY,
+        faction_id INTEGER NOT NULL REFERENCES Faction(id) ON DELETE CASCADE,
+        character_id INTEGER NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
+        joined_turn INTEGER NOT NULL,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(character_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE FactionMember ADD COLUMN IF NOT EXISTS faction_id INTEGER;")
+    await conn.execute("ALTER TABLE FactionMember ADD COLUMN IF NOT EXISTS character_id INTEGER;")
+    await conn.execute("ALTER TABLE FactionMember ADD COLUMN IF NOT EXISTS joined_turn INTEGER;")
+    await conn.execute("ALTER TABLE FactionMember ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- Unit table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Unit (
+        id SERIAL PRIMARY KEY,
+        unit_id VARCHAR(50) NOT NULL,
+        name VARCHAR(255),
+        unit_type VARCHAR(50) NOT NULL,
+        owner_character_id INTEGER NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
+        commander_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
+        commander_assigned_turn INTEGER,
+        faction_id INTEGER REFERENCES Faction(id) ON DELETE SET NULL,
+        movement INTEGER NOT NULL DEFAULT 1,
+        organization INTEGER NOT NULL,
+        max_organization INTEGER NOT NULL,
+        attack INTEGER NOT NULL DEFAULT 0,
+        defense INTEGER NOT NULL DEFAULT 0,
+        siege_attack INTEGER NOT NULL DEFAULT 0,
+        siege_defense INTEGER NOT NULL DEFAULT 0,
+        size INTEGER DEFAULT 1,
+        capacity INTEGER DEFAULT 0,
+        current_territory_id INTEGER,
+        is_naval BOOLEAN DEFAULT FALSE,
+        upkeep_ore INTEGER DEFAULT 0,
+        upkeep_lumber INTEGER DEFAULT 0,
+        upkeep_coal INTEGER DEFAULT 0,
+        upkeep_rations INTEGER DEFAULT 0,
+        upkeep_cloth INTEGER DEFAULT 0,
+        keywords TEXT[],
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(unit_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS unit_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS name VARCHAR(255);")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS unit_type VARCHAR(50);")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS owner_character_id INTEGER;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS commander_character_id INTEGER;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS commander_assigned_turn INTEGER;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS faction_id INTEGER;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS movement INTEGER DEFAULT 1;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS organization INTEGER;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS max_organization INTEGER;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS attack INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS defense INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS siege_attack INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS siege_defense INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS size INTEGER DEFAULT 1;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS capacity INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS current_territory_id INTEGER;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS is_naval BOOLEAN DEFAULT FALSE;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_ore INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_lumber INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_coal INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_rations INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS keywords TEXT[];")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- UnitType table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS UnitType (
+        id SERIAL PRIMARY KEY,
+        type_id VARCHAR(50) NOT NULL,
+        name VARCHAR(255) NOT NULL,
+        nation VARCHAR(50),
+        movement INTEGER NOT NULL,
+        organization INTEGER NOT NULL,
+        attack INTEGER NOT NULL,
+        defense INTEGER NOT NULL,
+        siege_attack INTEGER NOT NULL,
+        siege_defense INTEGER NOT NULL,
+        size INTEGER DEFAULT 1,
+        capacity INTEGER DEFAULT 0,
+        is_naval BOOLEAN DEFAULT FALSE,
+        keywords TEXT[],
+        cost_ore INTEGER DEFAULT 0,
+        cost_lumber INTEGER DEFAULT 0,
+        cost_coal INTEGER DEFAULT 0,
+        cost_rations INTEGER DEFAULT 0,
+        cost_cloth INTEGER DEFAULT 0,
+        upkeep_ore INTEGER DEFAULT 0,
+        upkeep_lumber INTEGER DEFAULT 0,
+        upkeep_coal INTEGER DEFAULT 0,
+        upkeep_rations INTEGER DEFAULT 0,
+        upkeep_cloth INTEGER DEFAULT 0,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(type_id, nation, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS type_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS name VARCHAR(255);")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS nation VARCHAR(50);")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS movement INTEGER;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS organization INTEGER;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS attack INTEGER;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS defense INTEGER;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS siege_attack INTEGER;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS siege_defense INTEGER;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS size INTEGER DEFAULT 1;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS capacity INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS is_naval BOOLEAN DEFAULT FALSE;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS keywords TEXT[];")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_ore INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_lumber INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_coal INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_rations INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_ore INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_lumber INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_coal INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_rations INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- PlayerResources table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS PlayerResources (
+        id SERIAL PRIMARY KEY,
+        character_id INTEGER NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
+        ore INTEGER DEFAULT 0,
+        lumber INTEGER DEFAULT 0,
+        coal INTEGER DEFAULT 0,
+        rations INTEGER DEFAULT 0,
+        cloth INTEGER DEFAULT 0,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(character_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS character_id INTEGER;")
+    await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS ore INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS lumber INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS coal INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS rations INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- ResourceTransfer table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS ResourceTransfer (
+        id SERIAL PRIMARY KEY,
+        from_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
+        to_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
+        ore INTEGER DEFAULT 0,
+        lumber INTEGER DEFAULT 0,
+        coal INTEGER DEFAULT 0,
+        rations INTEGER DEFAULT 0,
+        cloth INTEGER DEFAULT 0,
+        reason VARCHAR(255),
+        transfer_time TIMESTAMP NOT NULL DEFAULT NOW(),
+        turn_number INTEGER,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE
+    );
+    """)
+
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS from_character_id INTEGER;")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS to_character_id INTEGER;")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS ore INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS lumber INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS coal INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS rations INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS reason VARCHAR(255);")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS transfer_time TIMESTAMP DEFAULT NOW();")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS turn_number INTEGER;")
+    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- TerritoryAdjacency table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS TerritoryAdjacency (
+        id SERIAL PRIMARY KEY,
+        territory_a_id INTEGER NOT NULL,
+        territory_b_id INTEGER NOT NULL,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(territory_a_id, territory_b_id, guild_id),
+        CHECK (territory_a_id < territory_b_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE TerritoryAdjacency ADD COLUMN IF NOT EXISTS territory_a_id INTEGER;")
+    await conn.execute("ALTER TABLE TerritoryAdjacency ADD COLUMN IF NOT EXISTS territory_b_id INTEGER;")
+    await conn.execute("ALTER TABLE TerritoryAdjacency ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- WargameConfig table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS WargameConfig (
+        guild_id BIGINT PRIMARY KEY REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        current_turn INTEGER DEFAULT 0,
+        turn_resolution_enabled BOOLEAN DEFAULT FALSE,
+        last_turn_time TIMESTAMP,
+        max_movement_stat INTEGER DEFAULT 4,
+        gm_reports_channel_id BIGINT
+    );
+    """)
+
+    await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS current_turn INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS turn_resolution_enabled BOOLEAN DEFAULT FALSE;")
+    await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS last_turn_time TIMESTAMP;")
+    await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS max_movement_stat INTEGER DEFAULT 4;")
+    await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS gm_reports_channel_id BIGINT;")
+
     logger.info("Schema verified and updated successfully.")
     await conn.close()
 
