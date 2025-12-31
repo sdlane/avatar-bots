@@ -54,7 +54,7 @@ async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, g
             joined_turn=0,
             guild_id=guild_id
         )
-        await faction_member.upsert(conn)
+        await faction_member.insert(conn)
 
     if leader_identifier:
         return True, f"Faction '{name}' created successfully with leader {leader_identifier}."
@@ -85,7 +85,7 @@ async def delete_faction(conn: asyncpg.Connection, faction_id: str, guild_id: in
         return False, f"Cannot delete faction '{faction_id}' - it has {len(units)} units. Delete or reassign the units first."
 
     # Delete faction (CASCADE will delete FactionMember entries)
-    await faction.delete(conn)
+    await Faction.delete(conn, faction_id, guild_id)
 
     return True, f"Faction '{faction.name}' has been deleted."
 
@@ -174,7 +174,7 @@ async def add_faction_member(conn: asyncpg.Connection, faction_id: str, characte
         joined_turn=current_turn,
         guild_id=guild_id
     )
-    await faction_member.upsert(conn)
+    await faction_member.insert(conn)
 
     return True, f"{char.name} has joined {faction.name}."
 
@@ -209,6 +209,6 @@ async def remove_faction_member(conn: asyncpg.Connection, character_identifier: 
         return False, f"{char.name} is the leader of {faction.name}. Assign a new leader first using `/set-faction-leader`."
 
     # Remove member
-    await faction_member.delete(conn)
+    await FactionMember.delete(conn, char.id, guild_id)
 
     return True, f"{char.name} has left {faction.name}."

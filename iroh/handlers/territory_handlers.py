@@ -84,7 +84,7 @@ async def delete_territory(conn: asyncpg.Connection, territory_id: int, guild_id
         return False, f"Cannot delete territory {territory_id} - it contains {len(units)} units. Remove or move them first."
 
     # Delete territory (CASCADE will delete adjacencies)
-    await territory.delete(conn)
+    await Territory.delete(conn, territory_id, guild_id)
 
     return True, f"Territory {territory_id} has been deleted."
 
