@@ -149,7 +149,7 @@ async def view_resources(conn: asyncpg.Connection, user_id: int, guild_id: int) 
         - character: Character object
         - resources: PlayerResources object
     """
-    character = await Character.fetch_by_user_id(conn, user_id, guild_id)
+    character = await Character.fetch_by_user(conn, user_id, guild_id)
 
     if not character:
         return False, "You don't have a character assigned. Ask a GM to assign you one using hawky.", None
@@ -186,7 +186,7 @@ async def view_faction_membership(conn: asyncpg.Connection, user_id: int, guild_
         - leader: Character object (if exists)
         - members: List of Character objects
     """
-    character = await Character.fetch_by_user_id(conn, user_id, guild_id)
+    character = await Character.fetch_by_user(conn, user_id, guild_id)
 
     if not character:
         return False, "You don't have a character assigned. Ask a GM to assign you one using hawky.", None
@@ -233,7 +233,7 @@ async def view_units_for_character(conn: asyncpg.Connection, user_id: int, guild
         - owned_units: List of Unit objects
         - commanded_units: List of Unit objects
     """
-    character = await Character.fetch_by_user_id(conn, user_id, guild_id)
+    character = await Character.fetch_by_user(conn, user_id, guild_id)
 
     if not character:
         return False, "You don't have a character assigned. Ask a GM to assign you one using hawky.", None
@@ -263,7 +263,7 @@ async def view_territories_for_character(conn: asyncpg.Connection, user_id: int,
         - territories: List of Territory objects
         - adjacencies: Dict mapping territory_id to list of adjacent territory IDs
     """
-    character = await Character.fetch_by_user_id(conn, user_id, guild_id)
+    character = await Character.fetch_by_user(conn, user_id, guild_id)
 
     if not character:
         return False, "You don't have a character assigned. Ask a GM to assign you one using hawky.", None

@@ -91,7 +91,7 @@ async def delete_unit(conn: asyncpg.Connection, unit_id: str, guild_id: int) -> 
         return False, f"Unit '{unit_id}' not found."
 
     # Delete unit
-    await unit.delete(conn)
+    await Unit.delete(conn, unit_id, guild_id)
 
     return True, f"Unit '{unit_id}' has been deleted."
 
