@@ -63,6 +63,6 @@ async def delete_unit_type(conn: asyncpg.Connection, type_id: str, guild_id: int
         return False, f"Cannot delete unit type '{type_id}' - {len(units)} units are using it. Delete those units first."
 
     # Delete unit type
-    await unit_type.delete(conn)
+    await UnitType.delete(conn, type_id, nation, guild_id)
 
     return True, f"Unit type '{unit_type.name}' has been deleted."
