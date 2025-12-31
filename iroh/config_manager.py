@@ -423,18 +423,23 @@ class ConfigManager:
                 faction_internal_id = None
                 faction_nation = None
                 if 'faction_id' in unit_data:
+                    # Try to get from faction_map first (if factions were imported in same run)
                     faction_internal_id = faction_map.get(unit_data['faction_id'])
+
+                    # If not in map, fetch from database
+                    if not faction_internal_id:
+                        faction_obj = await Faction.fetch_by_faction_id(conn, unit_data['faction_id'], guild_id)
+                        if faction_obj:
+                            faction_internal_id = faction_obj.id
+
                     # Try to find faction's nation from territories it controls
                     if faction_internal_id:
-                        faction_obj = await Faction.fetch_by_id(conn, faction_internal_id)
-                        if faction_obj:
-                            # Look for territories with this faction's faction_id as original_nation
-                            territory_with_nation = await conn.fetchrow(
-                                "SELECT original_nation FROM Territory WHERE controller_faction_id = $1 AND guild_id = $2 AND original_nation IS NOT NULL LIMIT 1;",
-                                faction_internal_id, guild_id
-                            )
-                            if territory_with_nation:
-                                faction_nation = territory_with_nation['original_nation']
+                        territory_with_nation = await conn.fetchrow(
+                            "SELECT original_nation FROM Territory WHERE controller_faction_id = $1 AND guild_id = $2 AND original_nation IS NOT NULL LIMIT 1;",
+                            faction_internal_id, guild_id
+                        )
+                        if territory_with_nation:
+                            faction_nation = territory_with_nation['original_nation']
 
                 # Get unit type to determine stats
                 # Try with nation from config, faction nation, then nation-agnostic
