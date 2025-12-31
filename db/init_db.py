@@ -424,6 +424,102 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS max_movement_stat INTEGER DEFAULT 4;")
     await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS gm_reports_channel_id BIGINT;")
 
+    # --- Order table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS "Order" (
+        id SERIAL PRIMARY KEY,
+        order_id VARCHAR(50) NOT NULL,
+        order_type VARCHAR(50) NOT NULL,
+        unit_ids INTEGER[] NOT NULL DEFAULT '{}',
+        character_id INTEGER NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
+        turn_number INTEGER NOT NULL,
+        phase VARCHAR(50) NOT NULL,
+        priority INTEGER DEFAULT 0,
+        status VARCHAR(50) DEFAULT 'PENDING',
+        order_data JSONB NOT NULL,
+        result_data JSONB,
+        submitted_at TIMESTAMP DEFAULT NOW(),
+        updated_at TIMESTAMP,
+        updated_turn INTEGER,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(order_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS order_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS order_type VARCHAR(50);")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS unit_ids INTEGER[] DEFAULT '{}';")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS character_id INTEGER;")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS turn_number INTEGER;")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS phase VARCHAR(50);")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'PENDING';")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS order_data JSONB;")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS result_data JSONB;")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP DEFAULT NOW();")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS updated_turn INTEGER;")
+    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create indexes for Order table
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_order_turn_phase_status_submitted
+        ON "Order"(turn_number, phase, status, priority, submitted_at, guild_id);
+    """)
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_order_character
+        ON "Order"(character_id, guild_id);
+    """)
+
+    # --- TurnLog table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS TurnLog (
+        id SERIAL PRIMARY KEY,
+        turn_number INTEGER NOT NULL,
+        phase VARCHAR(50) NOT NULL,
+        event_type VARCHAR(50) NOT NULL,
+        entity_type VARCHAR(50),
+        entity_id INTEGER,
+        event_data JSONB NOT NULL,
+        timestamp TIMESTAMP DEFAULT NOW(),
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE
+    );
+    """)
+
+    await conn.execute("ALTER TABLE TurnLog ADD COLUMN IF NOT EXISTS turn_number INTEGER;")
+    await conn.execute("ALTER TABLE TurnLog ADD COLUMN IF NOT EXISTS phase VARCHAR(50);")
+    await conn.execute("ALTER TABLE TurnLog ADD COLUMN IF NOT EXISTS event_type VARCHAR(50);")
+    await conn.execute("ALTER TABLE TurnLog ADD COLUMN IF NOT EXISTS entity_type VARCHAR(50);")
+    await conn.execute("ALTER TABLE TurnLog ADD COLUMN IF NOT EXISTS entity_id INTEGER;")
+    await conn.execute("ALTER TABLE TurnLog ADD COLUMN IF NOT EXISTS event_data JSONB;")
+    await conn.execute("ALTER TABLE TurnLog ADD COLUMN IF NOT EXISTS timestamp TIMESTAMP DEFAULT NOW();")
+    await conn.execute("ALTER TABLE TurnLog ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create indexes for TurnLog table
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_turn_log_turn
+        ON TurnLog(turn_number, guild_id);
+    """)
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_turn_log_entity
+        ON TurnLog(entity_type, entity_id, guild_id);
+    """)
+
+    # --- ScheduledTurn table (for future auto-scheduling) ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS ScheduledTurn (
+        id SERIAL PRIMARY KEY,
+        scheduled_time TIMESTAMP NOT NULL,
+        status VARCHAR(50) DEFAULT 'SCHEDULED',
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(scheduled_time, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE ScheduledTurn ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMP;")
+    await conn.execute("ALTER TABLE ScheduledTurn ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'SCHEDULED';")
+    await conn.execute("ALTER TABLE ScheduledTurn ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
     logger.info("Schema verified and updated successfully.")
     await conn.close()
 

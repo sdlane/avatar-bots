@@ -15,3 +15,5 @@ from .player_resources import *
 from .resource_transfer import *
 from .territory_adjacency import *
 from .wargame_config import *
+from .order import *
+from .turn_log import *
