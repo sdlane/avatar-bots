@@ -62,14 +62,26 @@ async def resolve_turn(
     movement_events = await execute_movement_phase(conn, guild_id, turn_number)
     all_events.extend(movement_events)
 
+    combat_events = await execute_combat_phase(conn, guild_id, turn_number)
+    all_events.extend(combat_events)
+
     resource_events = await execute_resource_collection_phase(conn, guild_id, turn_number)
     all_events.extend(resource_events)
 
     transfer_events = await execute_resource_transfer_phase(conn, guild_id, turn_number)
     all_events.extend(transfer_events)
 
+    encirclement_events = await execute_encirclement_phase(conn, guild_id, turn_number)
+    all_events.extend(encirclement_events)
+
     upkeep_events = await execute_upkeep_phase(conn, guild_id, turn_number)
     all_events.extend(upkeep_events)
+
+    organization_events = await execute_organization_phase(conn, guild_id, turn_number)
+    all_events.extend(organization_events)
+
+    construction_events = await execute_construction_phase(conn, guild_id, turn_number)
+    all_events.extend(construction_events)
 
     # Update config
     config.current_turn = turn_number
