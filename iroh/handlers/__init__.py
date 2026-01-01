@@ -73,6 +73,11 @@ from .config_handlers import (
     fetch_wargame_config,
 )
 
+from .report_handlers import (
+    generate_character_report,
+    generate_gm_report,
+)
+
 __all__ = [
     # View handlers
     'view_territory',
@@ -124,4 +129,7 @@ __all__ = [
     'get_turn_status',
     # Config handlers
     'fetch_wargame_config',
+    # Report handlers
+    'generate_character_report',
+    'generate_gm_report',
 ]

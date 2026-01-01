@@ -1383,6 +1383,64 @@ async def set_gm_reports_channel_cmd(interaction: discord.Interaction, channel: 
 
 
 @tree.command(
+    name="turn-report",
+    description="View your character's turn report"
+)
+@app_commands.describe(turn_number="Optional: Specific turn number to view (defaults to most recent)")
+async def turn_report_cmd(interaction: discord.Interaction, turn_number: int = None):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.generate_character_report(
+            conn,
+            interaction.user.id,
+            interaction.guild_id,
+            turn_number
+        )
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        # Create and send embed
+        embed = turn_embeds.create_character_turn_report_embed(
+            data['character'].name,
+            data['turn_number'],
+            data['events']
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="gm-turn-report",
+    description="[Admin] View the GM turn report"
+)
+@app_commands.describe(turn_number="Optional: Specific turn number to view (defaults to most recent)")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def gm_turn_report_cmd(interaction: discord.Interaction, turn_number: int = None):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.generate_gm_report(
+            conn,
+            interaction.guild_id,
+            turn_number
+        )
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        # Create and send embed
+        embed = turn_embeds.create_gm_turn_report_embed(
+            data['turn_number'],
+            data['events'],
+            data['summary']
+        )
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@tree.command(
     name="edit-wargame-config",
     description="[Admin] Edit wargame configuration settings"
 )
