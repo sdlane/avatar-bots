@@ -51,3 +51,16 @@ class OrderStatus(Enum):
     SUCCESS = "SUCCESS"          # Successfully completed
     FAILED = "FAILED"            # Failed to execute
     CANCELLED = "CANCELLED"      # Cancelled by player
+
+
+# Display each phase
+PHASE_ORDER = [
+    TurnPhase.BEGINNING.value,
+    TurnPhase.MOVEMENT.value,
+    TurnPhase.COMBAT.value,
+    TurnPhase.RESOURCE_COLLECTION.value,
+    TurnPhase.RESOURCE_TRANSFER.value,
+    TurnPhase.ENCIRCLEMENT.value,
+    TurnPhase.UPKEEP.value,
+    TurnPhase.ORGANIZATION.value,
+    TurnPhase.CONSTRUCTION.value]

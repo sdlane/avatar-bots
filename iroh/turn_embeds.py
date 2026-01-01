@@ -4,6 +4,7 @@ Helper functions for creating Discord embeds for turn resolution reports.
 import discord
 from typing import List, Dict, Optional
 from datetime import datetime
+from order_types import PHASE_ORDER
 
 
 def create_orders_embed(character_name: str, orders: List[Dict]) -> discord.Embed:
@@ -175,9 +176,7 @@ def create_character_turn_report_embed(
         phases[phase].append(event)
 
     # Display each phase
-    phase_order = ['BEGINNING', 'MOVEMENT', 'RESOURCE_COLLECTION', 'RESOURCE_TRANSFER', 'UPKEEP']
-
-    for phase in phase_order:
+    for phase in PHASE_ORDER:
         if phase not in phases:
             continue
 
