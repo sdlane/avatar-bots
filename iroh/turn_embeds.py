@@ -5,6 +5,7 @@ import discord
 from typing import List, Dict, Optional
 from datetime import datetime
 from order_types import PHASE_ORDER
+from event_logging import EVENT_HANDLERS
 
 
 def create_orders_embed(character_name: str, orders: List[Dict]) -> discord.Embed:
@@ -187,79 +188,12 @@ def create_character_turn_report_embed(
             event_type = event.get('event_type', 'UNKNOWN')
             event_data = event.get('event_data', {})
 
-            if event_type == 'JOIN_FACTION':
-                faction_name = event_data.get('faction_name', 'Unknown')
-                lines.append(f"✅ Joined faction: **{faction_name}**")
-
-            elif event_type == 'JOIN_FACTION_COMPLETED':
-                char_name = event_data.get('character_name', 'Unknown')
-                faction_name = event_data.get('faction_name', 'Unknown')
-                lines.append(f"✅ **{char_name}** joined faction: **{faction_name}**")
-
-            elif event_type == 'JOIN_FACTION_PENDING':
-                faction_name = event_data.get('faction_name', 'Unknown')
-                waiting_for = event_data.get('waiting_for', 'approval')
-                lines.append(f"⏳ Join request for **{faction_name}** submitted (waiting for {waiting_for})")
-
-            elif event_type == 'LEAVE_FACTION':
-                char_name = event_data.get('character_name', 'Unknown')
-                faction_name = event_data.get('faction_name', 'Unknown')
-                lines.append(f"❌ **{char_name}** left faction: **{faction_name}**")
-
-            elif event_type == 'KICK_FROM_FACTION':
-                char_name = event_data.get('character_name', 'Unknown')
-                faction_name = event_data.get('faction_name', 'Unknown')
-                lines.append(f"🚫 **{char_name}** was removed from faction: **{faction_name}**")
-
-            elif event_type == 'ORDER_FAILED':
-                order_type = event_data.get('order_type', 'Unknown')
-                error = event_data.get('error', 'Unknown error')
-                lines.append(f"❌ Order failed: **{order_type}** - {error}")
-
-            elif event_type == 'TRANSIT_COMPLETE':
-                units = event_data.get('units', [])
-                final_territory = event_data.get('final_territory', 'Unknown')
-                lines.append(f"🎯 Units arrived: {', '.join(units)} → Territory {final_territory}")
-
-            elif event_type == 'TRANSIT_PROGRESS':
-                units = event_data.get('units', [])
-                current_territory = event_data.get('current_territory', 'Unknown')
-                path_index = event_data.get('path_index', 0)
-                total_steps = event_data.get('total_steps', 0)
-                lines.append(f"🚶 Units moving: {', '.join(units)} → Territory {current_territory} ({path_index}/{total_steps})")
-
-            elif event_type == 'RESOURCE_COLLECTION':
-                resources = event_data.get('resources', {})
-                territory_name = event_data.get('territory_name', 'Unknown')
-                resource_strs = []
-                if resources.get('ore', 0) > 0:
-                    resource_strs.append(f"⛏️{resources['ore']}")
-                if resources.get('lumber', 0) > 0:
-                    resource_strs.append(f"🪵{resources['lumber']}")
-                if resources.get('coal', 0) > 0:
-                    resource_strs.append(f"⚫{resources['coal']}")
-                if resources.get('rations', 0) > 0:
-                    resource_strs.append(f"🍖{resources['rations']}")
-                if resources.get('cloth', 0) > 0:
-                    resource_strs.append(f"🧵{resources['cloth']}")
-                if resource_strs:
-                    lines.append(f"💰 Collected from {territory_name}: {' '.join(resource_strs)}")
-
-            elif event_type == 'UPKEEP_PAID':
-                unit_id = event_data.get('unit_id', 'Unknown')
-                lines.append(f"✅ Upkeep paid for {unit_id}")
-
-            elif event_type == 'UPKEEP_DEFICIT':
-                unit_id = event_data.get('unit_id', 'Unknown')
-                penalty = event_data.get('organization_penalty', 0)
-                new_org = event_data.get('new_organization', 0)
-                deficit = event_data.get('resources_deficit', {})
-                deficit_strs = [f"{k}:{v}" for k, v in deficit.items() if v > 0]
-                lines.append(f"⚠️ {unit_id}: Insufficient upkeep (missing {', '.join(deficit_strs)}) - Organization -{penalty} → {new_org}")
-
-            elif event_type == 'UNIT_DISSOLVED':
-                unit_id = event_data.get('unit_id', 'Unknown')
-                lines.append(f"💀 **{unit_id} dissolved** (organization depleted)")
+            # Use EVENT_HANDLERS if available, otherwise skip unknown event types
+            if event_type in EVENT_HANDLERS:
+                handler = EVENT_HANDLERS[event_type]
+                line = handler.get_character_line(event_data)
+                if line:  # Only add non-empty lines
+                    lines.append(line)
 
         if lines:
             phase_name = phase.replace('_', ' ').title()
@@ -336,60 +270,12 @@ def create_gm_turn_report_embed(
             event_type = event.get('event_type', 'UNKNOWN')
             event_data = event.get('event_data', {})
 
-            if event_type == 'JOIN_FACTION':
-                char = event_data.get('character_name', 'Unknown')
-                faction = event_data.get('faction_name', 'Unknown')
-                lines.append(f"✅ {char} → {faction}")
-
-            elif event_type == 'JOIN_FACTION_COMPLETED':
-                char = event_data.get('character_name', 'Unknown')
-                faction = event_data.get('faction_name', 'Unknown')
-                lines.append(f"✅ {char} → {faction}")
-
-            elif event_type == 'JOIN_FACTION_PENDING':
-                char = event_data.get('character_name', 'Unknown')
-                faction = event_data.get('faction_name', 'Unknown')
-                waiting_for = event_data.get('waiting_for', '?')
-                lines.append(f"⏳ {char} → {faction} (pending: {waiting_for})")
-
-            elif event_type == 'LEAVE_FACTION':
-                char = event_data.get('character_name', 'Unknown')
-                faction = event_data.get('faction_name', 'Unknown')
-                lines.append(f"❌ {char} ← {faction}")
-
-            elif event_type == 'KICK_FROM_FACTION':
-                char = event_data.get('character_name', 'Unknown')
-                faction = event_data.get('faction_name', 'Unknown')
-                lines.append(f"🚫 {char} ← {faction} (kicked)")
-
-            elif event_type == 'ORDER_FAILED':
-                order_type = event_data.get('order_type', 'Unknown')
-                error = event_data.get('error', 'Unknown')
-                lines.append(f"❌ {order_type}: {error}")
-
-            elif event_type == 'TRANSIT_COMPLETE':
-                units = event_data.get('units', [])
-                final_territory = event_data.get('final_territory', 'Unknown')
-                lines.append(f"🎯 {', '.join(units)} → T{final_territory}")
-
-            elif event_type == 'TRANSIT_PROGRESS':
-                units = event_data.get('units', [])
-                current_territory = event_data.get('current_territory', 'Unknown')
-                lines.append(f"🚶 {', '.join(units)} → T{current_territory}")
-
-            elif event_type == 'RESOURCE_COLLECTION':
-                leader = event_data.get('leader_name', 'Unknown')
-                territory = event_data.get('territory_id', 'Unknown')
-                lines.append(f"💰 T{territory} → {leader}")
-
-            elif event_type == 'UPKEEP_DEFICIT':
-                unit_id = event_data.get('unit_id', 'Unknown')
-                penalty = event_data.get('organization_penalty', 0)
-                lines.append(f"⚠️ {unit_id} org -{penalty}")
-
-            elif event_type == 'UNIT_DISSOLVED':
-                unit_id = event_data.get('unit_id', 'Unknown')
-                lines.append(f"💀 {unit_id} dissolved")
+            # Use EVENT_HANDLERS if available, otherwise skip unknown event types
+            if event_type in EVENT_HANDLERS:
+                handler = EVENT_HANDLERS[event_type]
+                line = handler.get_gm_line(event_data)
+                if line:  # Only add non-empty lines
+                    lines.append(line)
 
         if len(phase_events) > 10:
             lines.append(f"... and {len(phase_events) - 10} more events")
