@@ -389,6 +389,8 @@ async def clear_wargame_config(interaction: discord.Interaction):
         await conn.execute("DELETE FROM Faction WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", interaction.guild_id)
 
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) cleared all wargame config for guild {interaction.guild_id}")
+
         await interaction.followup.send(
             emotive_message("All wargame configuration has been cleared. The slate is clean.")
         )
@@ -587,6 +589,11 @@ async def create_faction_cmd(interaction: discord.Interaction, faction_id: str, 
     async with db_pool.acquire() as conn:
         success, message = await handlers.create_faction(conn, faction_id, name, interaction.guild_id, leader)
 
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created faction '{faction_id}' (name: {name}, leader: {leader}) in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to create faction '{faction_id}' in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -604,6 +611,11 @@ async def delete_faction_cmd(interaction: discord.Interaction, faction_id: str):
 
     async with db_pool.acquire() as conn:
         success, message = await handlers.delete_faction(conn, faction_id, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted faction '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete faction '{faction_id}' in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -626,6 +638,11 @@ async def set_faction_leader_cmd(interaction: discord.Interaction, faction_id: s
     async with db_pool.acquire() as conn:
         success, message = await handlers.set_faction_leader(conn, faction_id, leader, interaction.guild_id)
 
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set faction leader for '{faction_id}' to '{leader}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set faction leader for '{faction_id}' in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -647,6 +664,11 @@ async def add_faction_member_cmd(interaction: discord.Interaction, faction_id: s
     async with db_pool.acquire() as conn:
         success, message = await handlers.add_faction_member(conn, faction_id, character, interaction.guild_id)
 
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) added character '{character}' to faction '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to add character '{character}' to faction '{faction_id}' in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -664,6 +686,11 @@ async def remove_faction_member_cmd(interaction: discord.Interaction, character:
 
     async with db_pool.acquire() as conn:
         success, message = await handlers.remove_faction_member(conn, character, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) removed character '{character}' from faction in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to remove character '{character}' from faction in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -687,6 +714,11 @@ async def create_territory_cmd(interaction: discord.Interaction, territory_id: i
 
     async with db_pool.acquire() as conn:
         success, message = await handlers.create_territory(conn, territory_id, terrain_type, interaction.guild_id, name)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created territory {territory_id} (name: {name}, type: {terrain_type}) in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to create territory {territory_id} in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -731,6 +763,11 @@ async def delete_territory_cmd(interaction: discord.Interaction, territory_id: i
     async with db_pool.acquire() as conn:
         success, message = await handlers.delete_territory(conn, territory_id, interaction.guild_id)
 
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted territory {territory_id} in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete territory {territory_id} in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -751,6 +788,11 @@ async def set_territory_controller_cmd(interaction: discord.Interaction, territo
 
     async with db_pool.acquire() as conn:
         success, message = await handlers.set_territory_controller(conn, territory_id, faction_id, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set territory {territory_id} controller to '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set territory {territory_id} controller in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -773,6 +815,11 @@ async def add_adjacency_cmd(interaction: discord.Interaction, territory_id_1: in
     async with db_pool.acquire() as conn:
         success, message = await handlers.add_adjacency(conn, territory_id_1, territory_id_2, interaction.guild_id)
 
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) added adjacency between territories {territory_id_1} and {territory_id_2} in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to add adjacency between territories {territory_id_1} and {territory_id_2} in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -793,6 +840,11 @@ async def remove_adjacency_cmd(interaction: discord.Interaction, territory_id_1:
 
     async with db_pool.acquire() as conn:
         success, message = await handlers.remove_adjacency(conn, territory_id_1, territory_id_2, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) removed adjacency between territories {territory_id_1} and {territory_id_2} in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to remove adjacency between territories {territory_id_1} and {territory_id_2} in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -867,6 +919,11 @@ async def delete_unit_type_cmd(interaction: discord.Interaction, type_id: str, n
     async with db_pool.acquire() as conn:
         success, message = await handlers.delete_unit_type(conn, type_id, interaction.guild_id, nation)
 
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted unit type '{type_id}' (nation: {nation}) in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete unit type '{type_id}' in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -891,6 +948,11 @@ async def create_unit_cmd(interaction: discord.Interaction, unit_id: str, unit_t
     async with db_pool.acquire() as conn:
         success, message = await handlers.create_unit(conn, unit_id, unit_type, owner, territory_id, interaction.guild_id)
 
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created unit '{unit_id}' (type: {unit_type}, owner: {owner}, territory: {territory_id}) in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to create unit '{unit_id}' in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -908,6 +970,11 @@ async def delete_unit_cmd(interaction: discord.Interaction, unit_id: str):
 
     async with db_pool.acquire() as conn:
         success, message = await handlers.delete_unit(conn, unit_id, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted unit '{unit_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete unit '{unit_id}' in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -929,6 +996,11 @@ async def set_unit_commander_cmd(interaction: discord.Interaction, unit_id: str,
 
     async with db_pool.acquire() as conn:
         success, message = await handlers.set_unit_commander(conn, unit_id, commander, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set unit '{unit_id}' commander to '{commander}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set unit '{unit_id}' commander in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -988,6 +1060,11 @@ async def order_join_faction_cmd(interaction: discord.Interaction, faction_id: s
             conn, character_identifier, faction_id, interaction.guild_id, character.id
         )
 
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted join faction order for character '{character_identifier}' to faction '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit join faction order for character '{character_identifier}' in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -1014,6 +1091,11 @@ async def order_leave_faction_cmd(interaction: discord.Interaction):
         success, message = await handlers.submit_leave_faction_order(
             conn, character, interaction.guild_id
         )
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted leave faction order for character '{character.name}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit leave faction order for character '{character.name}' in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -1044,6 +1126,11 @@ async def order_kick_from_faction_cmd(interaction: discord.Interaction, target_c
         success, message = await handlers.submit_kick_from_faction_order(
             conn, character, target_character, interaction.guild_id
         )
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted kick faction order for character '{target_character}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit kick faction order for character '{target_character}' in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -1086,6 +1173,11 @@ async def order_move_units_cmd(interaction: discord.Interaction, unit_ids: str, 
         success, message = await handlers.submit_transit_order(
             conn, unit_id_list, path_list, interaction.guild_id, character.id
         )
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted transit order for units {unit_ids} along path {path} in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit transit order for units {unit_ids} in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -1150,6 +1242,11 @@ async def cancel_order_cmd(interaction: discord.Interaction, order_id: str):
             conn, order_id, interaction.guild_id, character.id
         )
 
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) cancelled order '{order_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to cancel order '{order_id}' in guild {interaction.guild_id}: {message}")
+
         await interaction.followup.send(
             emotive_message(message),
             ephemeral=not success
@@ -1170,6 +1267,7 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
             success, message, all_events = await handlers.resolve_turn(conn, interaction.guild_id)
 
             if not success:
+                logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to resolve turn in guild {interaction.guild_id}: {message}")
                 await interaction.followup.send(
                     emotive_message(message),
                     ephemeral=True
@@ -1178,6 +1276,7 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
 
             # Get wargame config for GM reports channel
             config = await WargameConfig.fetch(conn, interaction.guild_id)
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) resolved turn {config.current_turn} in guild {interaction.guild_id} ({len(all_events)} events)")
 
             # Generate GM report
             summary = {
@@ -1283,6 +1382,8 @@ async def set_gm_reports_channel_cmd(interaction: discord.Interaction, channel: 
 
         config.gm_reports_channel_id = channel.id
         await config.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set GM reports channel to {channel.id} in guild {interaction.guild_id}")
 
         await interaction.followup.send(
             emotive_message(f"GM reports channel set to {channel.mention}."),

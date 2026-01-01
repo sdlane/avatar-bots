@@ -4,6 +4,9 @@ Discord UI components (modals, views, buttons) for Iroh wargame bot.
 import discord
 from typing import Optional
 from db import Territory, UnitType, PlayerResources, Character
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
@@ -88,6 +91,8 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
         from iroh import db_pool
         async with db_pool.acquire() as conn:
             await self.territory.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited territory {self.territory.territory_id} via modal in guild {interaction.guild_id}")
 
         await interaction.response.send_message(
             emotive_message(f"Territory {self.territory.territory_id} updated successfully."),
@@ -285,6 +290,8 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             async with db_pool.acquire() as conn:
                 await self.unit_type.upsert(conn)
 
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit type '{self.unit_type.type_id}' (nation: {self.unit_type.nation}) via modal in guild {interaction.guild_id}")
+
             await interaction.response.send_message(
                 emotive_message(f"Unit type '{self.unit_type.name}' updated successfully."),
                 ephemeral=False
@@ -322,6 +329,8 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             from iroh import db_pool
             async with db_pool.acquire() as conn:
                 await unit_type.upsert(conn)
+
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created unit type '{self.type_id}' (name: {self.name_value}, nation: {self.nation}) via modal in guild {interaction.guild_id}")
 
             await interaction.response.send_message(
                 emotive_message(f"Unit type '{self.name_value}' created successfully."),
@@ -415,6 +424,8 @@ class ModifyResourcesModal(discord.ui.Modal, title="Modify Player Resources"):
         from iroh import db_pool
         async with db_pool.acquire() as conn:
             await self.resources.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) modified resources for character '{self.character.name}' via modal in guild {interaction.guild_id} (ore: {ore}, lumber: {lumber}, coal: {coal}, rations: {rations}, cloth: {cloth})")
 
         await interaction.response.send_message(
             emotive_message(f"Resources for {self.character.name} updated successfully."),

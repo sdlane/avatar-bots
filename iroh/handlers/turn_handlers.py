@@ -75,6 +75,7 @@ async def resolve_turn(
     config.current_turn = turn_number
     config.last_turn_time = datetime.now()
     await config.upsert(conn)
+    logger.info(f"Turn resolution: updated config to turn {turn_number} for guild {guild_id}")
 
     # Write all events to TurnLog
     for event in all_events:
@@ -88,6 +89,9 @@ async def resolve_turn(
             guild_id=guild_id
         )
         await turn_log.insert(conn)
+
+    logger.info(f"Turn resolution: wrote {len(all_events)} events to TurnLog for guild {guild_id}, turn {turn_number}")
+    logger.info(f"Turn resolution: turn {turn_number} resolved successfully for guild {guild_id}")
 
     return True, f"Turn {turn_number} resolved successfully.", all_events
 
@@ -114,6 +118,7 @@ async def execute_beginning_phase(
         List of event dicts for TurnLog
     """
     events = []
+    logger.info(f"Beginning phase: starting beginning phase for guild {guild_id}, turn {turn_number}")
 
     # Fetch all orders for this phase (already sorted by priority, submitted_at)
     all_orders = await Order.fetch_unresolved_by_phase(
@@ -123,9 +128,11 @@ async def execute_beginning_phase(
     # Process orders
     for order in all_orders:
         if order.order_type in OrderHandlerMap:
+            logger.info(f"Beginning phase: starting to process {order.order_type} order (ID: {order.id}) for guild {guild_id}, turn {turn_number}")
             event = await OrderHandlerMap[order.order_type](conn, order, guild_id, turn_number)
             if event:
                 events.append(event)
+            logger.info(f"Beginning phase: processed {order.order_type} order (ID: {order.id}) for guild {guild_id}, turn {turn_number}")
         else:
             # Mark order as failed - no handler found for this order type
             order.status = OrderStatus.FAILED.value
@@ -133,7 +140,9 @@ async def execute_beginning_phase(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-
+            logger.warning(f"Beginning phase: no handler found for order type '{order.order_type}' (order ID: {order.id}) in guild {guild_id}, turn {turn_number}")
+    
+    logger.info(f"Beginning phase: finished beginning phase for guild {guild_id}, turn {turn_number}")
     return events
 
 
@@ -157,6 +166,11 @@ async def execute_movement_phase(
         List of event dicts for TurnLog
     """
     events = []
+    logger.info(f"Movement phase: starting movement phase for guild {guild_id}, turn {turn_number}")
+
+    # Placeholder for now
+
+    logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}")
     return events
 
 
@@ -177,6 +191,11 @@ async def execute_combat_phase(
         List of event dicts for TurnLog
     """
     events = []
+    logger.info(f"Combat phase: starting combat phase for guild {guild_id}, turn {turn_number}")
+
+    # Placeholder for now
+
+    logger.info(f"Combat phase: finished combat phase for guild {guild_id}, turn {turn_number}")
     return events
 
 async def execute_resource_collection_phase(
@@ -198,9 +217,11 @@ async def execute_resource_collection_phase(
         List of event dicts for TurnLog
     """
     events = []
+    logger.info(f"Resource collection phase: starting resource collection phase for guild {guild_id}, turn {turn_number}")
 
     # Placeholder for now
 
+    logger.info(f"Resource collection phase: finished resource collection phase for guild {guild_id}, turn {turn_number}")
     return events
 
 
@@ -222,6 +243,11 @@ async def execute_resource_transfer_phase(
     Returns:
         List of event dicts for TurnLog
     """
+    logger.info(f"Resource transfer phase: starting resource transfer phase for guild {guild_id}, turn {turn_number}")
+
+    # Placeholder for now
+
+    logger.info(f"Resource transfer phase: finished resource transfer phase for guild {guild_id}, turn {turn_number}")
     return []
 
 
@@ -242,6 +268,11 @@ async def execute_encirclement_phase(
         List of event dicts for TurnLog
     """
     events = []
+    logger.info(f"Encirclement phase: starting encirclement phase for guild {guild_id}, turn {turn_number}")
+
+    # Placeholder for now
+
+    logger.info(f"Encirclement phase: finished encirclement phase for guild {guild_id}, turn {turn_number}")
     return events
 
 async def execute_upkeep_phase(
@@ -267,7 +298,11 @@ async def execute_upkeep_phase(
         List of event dicts for TurnLog
     """
     events = []
+    logger.info(f"Upkeep phase: starting upkeep phase for guild {guild_id}, turn {turn_number}")
 
+    # Placeholder for now
+
+    logger.info(f"Upkeep phase: finished upkeep phase for guild {guild_id}, turn {turn_number}")
     return events
 
 
@@ -288,6 +323,11 @@ async def execute_organization_phase(
         List of event dicts for TurnLog
     """
     events = []
+    logger.info(f"Organization phase: starting organization phase for guild {guild_id}, turn {turn_number}")
+
+    # Placeholder for now
+
+    logger.info(f"Organization phase: finished organization phase for guild {guild_id}, turn {turn_number}")
     return events
 
 
@@ -309,6 +349,11 @@ async def execute_construction_phase(
         List of event dicts for TurnLog
     """
     events = []
+    logger.info(f"Construction phase: starting construction phase for guild {guild_id}, turn {turn_number}")
+
+    # Placeholder for now
+
+    logger.info(f"Construction phase: finished construction phase for guild {guild_id}, turn {turn_number}")
     return events
 
 async def get_turn_status(
