@@ -344,7 +344,7 @@ async def submit_transit_order(
     # Check no units have pending/ongoing orders
     unit_internal_ids = [u.id for u in units]
     existing_orders = await Order.fetch_by_units(
-        conn, unit_internal_ids, [OrderStatus.PENDING, OrderStatus.ONGOING], guild_id
+        conn, unit_internal_ids, [OrderStatus.PENDING.value, OrderStatus.ONGOING.value], guild_id
     )
     if existing_orders:
         conflicting_units = set()
@@ -380,7 +380,7 @@ async def submit_transit_order(
         turn_number=current_turn + 1,  # Execute next turn
         phase=ORDER_PHASE_MAP[OrderType.TRANSIT].value,
         priority=ORDER_PRIORITY_MAP[OrderType.TRANSIT],
-        status=OrderStatus.PENDING,
+        status=OrderStatus.PENDING.value,
         order_data={'path': path, 'path_index': 0},
         submitted_at=datetime.now(),
         guild_id=guild_id

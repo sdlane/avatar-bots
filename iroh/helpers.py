@@ -12,7 +12,7 @@ emote_texts = ["\"The stomach is the source of energy in your body. It is called
                "\"Follow your passion and life will reward you.\"",
                "\"The only thing better than finding something you're looking for is finding something you weren't looking for at a great bargain!\"",
                "\"Today, destiny is our friend. I know it.\"",
-               "\"There is nothing wrong with a life of peace and prosperity. I suggest you thik about what it is that you want from your life and why.\"",
+               "\"There is nothing wrong with a life of peace and prosperity. I suggest you think about what it is that you want from your life and why.\"",
                "\"At my age, there is only one big surprise left, and I'd just as soon leave it a mystery.\"",
                "\"A moment of quiet is good for your mental well-being.\"",
                "\"Sometimes, the best way to solve your own problems is to help someone else.\"",
