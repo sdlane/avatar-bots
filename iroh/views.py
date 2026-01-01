@@ -3,7 +3,7 @@ Discord UI components (modals, views, buttons) for Iroh wargame bot.
 """
 import discord
 from typing import Optional
-from db import Territory, UnitType, PlayerResources, Character
+from db import Territory, UnitType, PlayerResources, Character, WargameConfig
 import logging
 
 logger = logging.getLogger(__name__)
@@ -12,9 +12,10 @@ logger = logging.getLogger(__name__)
 class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
     """Modal for editing territory properties."""
 
-    def __init__(self, territory: Territory):
+    def __init__(self, territory: Territory, db_pool):
         super().__init__()
         self.territory = territory
+        self.db_pool = db_pool
 
         # Name field
         self.name_input = discord.ui.TextInput(
@@ -88,8 +89,7 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
         self.territory.cloth_production = cloth
 
         # Save to database
-        from iroh import db_pool
-        async with db_pool.acquire() as conn:
+        async with self.db_pool.acquire() as conn:
             await self.territory.upsert(conn)
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited territory {self.territory.territory_id} via modal in guild {interaction.guild_id}")
@@ -103,12 +103,13 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
 class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
     """Modal for editing unit type properties."""
 
-    def __init__(self, unit_type: Optional[UnitType] = None, type_id: str = None, name: str = None, nation: str = None):
+    def __init__(self, unit_type: Optional[UnitType] = None, type_id: str = None, name: str = None, nation: str = None, db_pool = None):
         super().__init__()
         self.unit_type = unit_type
         self.type_id = type_id
         self.name_value = name
         self.nation = nation
+        self.db_pool = db_pool
 
         # Stats field (movement,org,atk,def,siege_atk,siege_def,size,capacity)
         if unit_type:
@@ -286,8 +287,7 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             self.unit_type.is_naval = is_naval
 
             # Save to database
-            from iroh import db_pool
-            async with db_pool.acquire() as conn:
+            async with self.db_pool.acquire() as conn:
                 await self.unit_type.upsert(conn)
 
             logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit type '{self.unit_type.type_id}' (nation: {self.unit_type.nation}) via modal in guild {interaction.guild_id}")
@@ -326,8 +326,7 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             )
 
             # Save to database
-            from iroh import db_pool
-            async with db_pool.acquire() as conn:
+            async with self.db_pool.acquire() as conn:
                 await unit_type.upsert(conn)
 
             logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created unit type '{self.type_id}' (name: {self.name_value}, nation: {self.nation}) via modal in guild {interaction.guild_id}")
@@ -341,10 +340,11 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
 class ModifyResourcesModal(discord.ui.Modal, title="Modify Player Resources"):
     """Modal for modifying player resources."""
 
-    def __init__(self, character: Character, resources: PlayerResources):
+    def __init__(self, character: Character, resources: PlayerResources, db_pool):
         super().__init__()
         self.character = character
         self.resources = resources
+        self.db_pool = db_pool
 
         # Resource fields
         self.ore_input = discord.ui.TextInput(
@@ -421,13 +421,160 @@ class ModifyResourcesModal(discord.ui.Modal, title="Modify Player Resources"):
         self.resources.cloth = cloth
 
         # Save to database
-        from iroh import db_pool
-        async with db_pool.acquire() as conn:
+        async with self.db_pool.acquire() as conn:
             await self.resources.upsert(conn)
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) modified resources for character '{self.character.name}' via modal in guild {interaction.guild_id} (ore: {ore}, lumber: {lumber}, coal: {coal}, rations: {rations}, cloth: {cloth})")
 
         await interaction.response.send_message(
             emotive_message(f"Resources for {self.character.name} updated successfully."),
+            ephemeral=False
+        )
+
+
+class EditWargameConfigModal(discord.ui.Modal, title="Edit Wargame Config"):
+    """Modal for editing wargame configuration."""
+
+    def __init__(self, config: WargameConfig, db_pool, guild):
+        super().__init__()
+        self.config = config
+        self.db_pool = db_pool
+        self.guild = guild
+
+        # Current turn field
+        self.current_turn_input = discord.ui.TextInput(
+            label="Current Turn",
+            placeholder="Turn number (integer)",
+            default=str(config.current_turn),
+            required=True,
+            max_length=10
+        )
+        self.add_item(self.current_turn_input)
+
+        # Turn resolution enabled field
+        self.turn_resolution_enabled_input = discord.ui.TextInput(
+            label="Turn Resolution Enabled (yes/no)",
+            placeholder="yes or no",
+            default="yes" if config.turn_resolution_enabled else "no",
+            required=True,
+            max_length=3
+        )
+        self.add_item(self.turn_resolution_enabled_input)
+
+        # Max movement stat field
+        self.max_movement_stat_input = discord.ui.TextInput(
+            label="Max Movement Stat",
+            placeholder="Maximum movement value (integer)",
+            default=str(config.max_movement_stat),
+            required=True,
+            max_length=10
+        )
+        self.add_item(self.max_movement_stat_input)
+
+        # GM reports channel field (channel name)
+        current_channel_name = ""
+        if config.gm_reports_channel_id:
+            channel = guild.get_channel(config.gm_reports_channel_id)
+            if channel:
+                current_channel_name = channel.name
+
+        self.gm_reports_channel_input = discord.ui.TextInput(
+            label="GM Reports Channel",
+            placeholder="Channel name (or leave empty for none)",
+            default=current_channel_name,
+            required=False,
+            max_length=100
+        )
+        self.add_item(self.gm_reports_channel_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle form submission."""
+        from helpers import emotive_message
+
+        # Parse current turn
+        try:
+            current_turn = int(self.current_turn_input.value.strip())
+            if current_turn < 0:
+                await interaction.response.send_message(
+                    emotive_message("Current turn cannot be negative."),
+                    ephemeral=True
+                )
+                return
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid current turn value. Use integers only."),
+                ephemeral=True
+            )
+            return
+
+        # Parse turn resolution enabled
+        turn_res_str = self.turn_resolution_enabled_input.value.strip().lower()
+        if turn_res_str not in ['yes', 'no']:
+            await interaction.response.send_message(
+                emotive_message("Turn resolution enabled must be 'yes' or 'no'."),
+                ephemeral=True
+            )
+            return
+        turn_resolution_enabled = turn_res_str == 'yes'
+
+        # Parse max movement stat
+        try:
+            max_movement_stat = int(self.max_movement_stat_input.value.strip())
+            if max_movement_stat < 0:
+                await interaction.response.send_message(
+                    emotive_message("Max movement stat cannot be negative."),
+                    ephemeral=True
+                )
+                return
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid max movement stat value. Use integers only."),
+                ephemeral=True
+            )
+            return
+
+        # Parse GM reports channel
+        gm_reports_channel_id = None
+        channel_name = self.gm_reports_channel_input.value.strip()
+        if channel_name:
+            # Find channel by name
+            found_channel = None
+            for channel in self.guild.text_channels:
+                if channel.name == channel_name:
+                    found_channel = channel
+                    break
+
+            if not found_channel:
+                await interaction.response.send_message(
+                    emotive_message(f"Channel '{channel_name}' not found. Please check the channel name and try again."),
+                    ephemeral=True
+                )
+                return
+
+            gm_reports_channel_id = found_channel.id
+
+        # Update config
+        self.config.current_turn = current_turn
+        self.config.turn_resolution_enabled = turn_resolution_enabled
+        self.config.max_movement_stat = max_movement_stat
+        self.config.gm_reports_channel_id = gm_reports_channel_id
+
+        # Verify config
+        is_valid, error_msg = self.config.verify()
+        if not is_valid:
+            await interaction.response.send_message(
+                emotive_message(f"Invalid configuration: {error_msg}"),
+                ephemeral=True
+            )
+            return
+
+        # Save to database
+        async with self.db_pool.acquire() as conn:
+            await self.config.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited wargame config via modal in guild {interaction.guild_id} (turn: {current_turn}, turn_res_enabled: {turn_resolution_enabled}, max_movement: {max_movement_stat}, gm_reports_channel: {gm_reports_channel_id})")
+
+        await interaction.response.send_message(
+            emotive_message("Wargame configuration updated successfully."),
             ephemeral=False
         )

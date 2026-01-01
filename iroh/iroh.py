@@ -747,7 +747,7 @@ async def edit_territory_cmd(interaction: discord.Interaction, territory_id: int
             return
 
         # Show modal
-        modal = EditTerritoryModal(territory)
+        modal = EditTerritoryModal(territory, db_pool)
         await interaction.response.send_modal(modal)
 
 
@@ -875,7 +875,7 @@ async def create_unit_type_cmd(interaction: discord.Interaction, type_id: str, n
             return
 
         # Show modal for stats/costs
-        modal = EditUnitTypeModal(unit_type=None, type_id=data['type_id'], name=data['name'], nation=data['nation'])
+        modal = EditUnitTypeModal(unit_type=None, type_id=data['type_id'], name=data['name'], nation=data['nation'], db_pool=db_pool)
         await interaction.response.send_modal(modal)
 
 
@@ -900,7 +900,7 @@ async def edit_unit_type_cmd(interaction: discord.Interaction, type_id: str, nat
             return
 
         # Show modal
-        modal = EditUnitTypeModal(unit_type=unit_type)
+        modal = EditUnitTypeModal(unit_type=unit_type, db_pool=db_pool)
         await interaction.response.send_modal(modal)
 
 
@@ -1027,7 +1027,7 @@ async def modify_resources_cmd(interaction: discord.Interaction, character: str)
             return
 
         # Show modal
-        modal = ModifyResourcesModal(data['character'], data['resources'])
+        modal = ModifyResourcesModal(data['character'], data['resources'], db_pool)
         await interaction.response.send_modal(modal)
 
 
@@ -1389,6 +1389,27 @@ async def set_gm_reports_channel_cmd(interaction: discord.Interaction, channel: 
             emotive_message(f"GM reports channel set to {channel.mention}."),
             ephemeral=False
         )
+
+
+@tree.command(
+    name="edit-wargame-config",
+    description="[Admin] Edit wargame configuration settings"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_wargame_config_cmd(interaction: discord.Interaction):
+    async with db_pool.acquire() as conn:
+        success, message, config = await handlers.fetch_wargame_config(conn, interaction.guild_id)
+
+        if not success:
+            await interaction.response.send_message(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Show modal
+        modal = EditWargameConfigModal(config, db_pool, interaction.guild)
+        await interaction.response.send_modal(modal)
 
 
 client.run(BOT_TOKEN)

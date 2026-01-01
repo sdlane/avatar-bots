@@ -69,6 +69,10 @@ from .turn_handlers import (
     get_turn_status,
 )
 
+from .config_handlers import (
+    fetch_wargame_config,
+)
+
 __all__ = [
     # View handlers
     'view_territory',
@@ -118,4 +122,6 @@ __all__ = [
     # Turn handlers
     'resolve_turn',
     'get_turn_status',
+    # Config handlers
+    'fetch_wargame_config',
 ]
