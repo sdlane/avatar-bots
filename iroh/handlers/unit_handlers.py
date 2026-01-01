@@ -35,11 +35,8 @@ async def create_unit(conn: asyncpg.Connection, unit_id: str, unit_type: str, ow
             if territory_with_nation:
                 faction_nation = territory_with_nation['original_nation']
 
-    # Fetch unit type (try with nation first, then nation-agnostic)
-    unit_type_obj = await UnitType.fetch_by_type_id(conn, unit_type, faction_nation, guild_id)
-    if not unit_type_obj and faction_nation:
-        # Try nation-agnostic as fallback
-        unit_type_obj = await UnitType.fetch_by_type_id(conn, unit_type, None, guild_id)
+    # Fetch unit type
+    unit_type_obj = await UnitType.fetch_by_type_id(conn, unit_type, guild_id)
 
     if not unit_type_obj:
         return False, f"Unit type '{unit_type}' not found."

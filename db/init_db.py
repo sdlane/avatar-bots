@@ -309,7 +309,7 @@ async def ensure_tables():
         upkeep_rations INTEGER DEFAULT 0,
         upkeep_cloth INTEGER DEFAULT 0,
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
-        UNIQUE(type_id, nation, guild_id)
+        UNIQUE(type_id, guild_id)
     );
     """)
 
@@ -337,6 +337,28 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_rations INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Migrate unique constraint from (type_id, nation, guild_id) to (type_id, guild_id)
+    await conn.execute("""
+    DO $$
+    BEGIN
+        -- Drop old constraint if it exists
+        IF EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'unittype_type_id_nation_guild_id_key'
+        ) THEN
+            ALTER TABLE UnitType DROP CONSTRAINT unittype_type_id_nation_guild_id_key;
+        END IF;
+
+        -- Add new constraint if it doesn't exist
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'unittype_type_id_guild_id_key'
+        ) THEN
+            ALTER TABLE UnitType ADD CONSTRAINT unittype_type_id_guild_id_key UNIQUE (type_id, guild_id);
+        END IF;
+    END$$;
+    """)
 
     # --- PlayerResources table ---
     await conn.execute("""

@@ -37,7 +37,7 @@ class UnitType:
     async def upsert(self, conn: asyncpg.Connection):
         """
         Insert or update this UnitType entry.
-        The tuple (type_id, nation, guild_id) must be unique.
+        The tuple (type_id, guild_id) must be unique.
         """
         query = """
         INSERT INTO UnitType (
@@ -48,8 +48,9 @@ class UnitType:
             guild_id
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
-        ON CONFLICT (type_id, nation, guild_id) DO UPDATE
+        ON CONFLICT (type_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
+            nation = EXCLUDED.nation,
             movement = EXCLUDED.movement,
             organization = EXCLUDED.organization,
             attack = EXCLUDED.attack,
@@ -102,9 +103,9 @@ class UnitType:
         return cls(**data)
 
     @classmethod
-    async def fetch_by_type_id(cls, conn: asyncpg.Connection, type_id: str, nation: Optional[str], guild_id: int) -> Optional["UnitType"]:
+    async def fetch_by_type_id(cls, conn: asyncpg.Connection, type_id: str, guild_id: int) -> Optional["UnitType"]:
         """
-        Fetch a UnitType by its (type_id, nation, guild_id) tuple.
+        Fetch a UnitType by its (type_id, guild_id) tuple.
         """
         row = await conn.fetchrow("""
             SELECT id, type_id, name, nation, movement, organization, attack, defense,
@@ -113,8 +114,8 @@ class UnitType:
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth,
                    guild_id
             FROM UnitType
-            WHERE type_id = $1 AND (nation = $2 OR (nation IS NULL AND $2 IS NULL)) AND guild_id = $3;
-        """, type_id, nation, guild_id)
+            WHERE type_id = $1 AND guild_id = $2;
+        """, type_id, guild_id)
         if not row:
             return None
         data = dict(row)
@@ -166,16 +167,16 @@ class UnitType:
         return result
 
     @classmethod
-    async def delete(cls, conn: asyncpg.Connection, type_id: str, nation: Optional[str], guild_id: int) -> bool:
+    async def delete(cls, conn: asyncpg.Connection, type_id: str, guild_id: int) -> bool:
         """
-        Delete a UnitType by (type_id, nation, guild_id).
+        Delete a UnitType by (type_id, guild_id).
         """
         result = await conn.execute(
-            "DELETE FROM UnitType WHERE type_id = $1 AND (nation = $2 OR (nation IS NULL AND $2 IS NULL)) AND guild_id = $3;",
-            type_id, nation, guild_id
+            "DELETE FROM UnitType WHERE type_id = $1 AND guild_id = $2;",
+            type_id, guild_id
         )
         deleted = result.startswith("DELETE 1")
-        logger.info(f"Deleted UnitType type_id={type_id} nation={nation} guild_id={guild_id}. Result: {result}")
+        logger.info(f"Deleted UnitType type_id={type_id} guild_id={guild_id}. Result: {result}")
         return deleted
 
     @classmethod

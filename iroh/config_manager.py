@@ -442,16 +442,10 @@ class ConfigManager:
                             faction_nation = territory_with_nation['original_nation']
 
                 # Get unit type to determine stats
-                # Try with nation from config, faction nation, then nation-agnostic
-                unit_nation = unit_data.get('nation', faction_nation)
-                unit_type = await UnitType.fetch_by_type_id(conn, unit_data['type'], unit_nation, guild_id)
-
-                if not unit_type and unit_nation:
-                    # Try nation-agnostic type as fallback
-                    unit_type = await UnitType.fetch_by_type_id(conn, unit_data['type'], None, guild_id)
+                unit_type = await UnitType.fetch_by_type_id(conn, unit_data['type'], guild_id)
 
                 if not unit_type:
-                    logger.warning(f"Unit type {unit_data['type']} (nation={unit_nation}) not found, skipping unit {unit_data['unit_id']}")
+                    logger.warning(f"Unit type {unit_data['type']} not found, skipping unit {unit_data['unit_id']}")
                     continue
 
                 current_org = unit_data.get('current_organization', unit_type.organization)

@@ -70,7 +70,7 @@ async def test_create_unit_type_duplicate(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_create_unit_type_different_nations(db_conn, test_server):
-    """Test creating unit types with same type_id but different nations."""
+    """Test creating unit types with same type_id but different nations fails (type_id is unique per guild)."""
     # Create infantry for fire-nation
     unit_type1 = UnitType(
         type_id="infantry", name="Fire Nation Infantry",
@@ -82,16 +82,15 @@ async def test_create_unit_type_different_nations(db_conn, test_server):
     )
     await unit_type1.upsert(db_conn)
 
-    # Try to create infantry for earth-kingdom (should succeed)
+    # Try to create infantry for earth-kingdom (should fail - type_id must be unique per guild)
     success, message, data = await create_unit_type(
         db_conn, "infantry", "Earth Kingdom Infantry", TEST_GUILD_ID, nation="earth-kingdom"
     )
 
-    # Verify success
-    assert success is True
-    assert data is not None
-    assert data['type_id'] == "infantry"
-    assert data['nation'] == "earth-kingdom"
+    # Verify failure
+    assert success is False
+    assert "already exists" in message.lower()
+    assert data is None
 
     # Cleanup
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -113,7 +112,7 @@ async def test_edit_unit_type_success(db_conn, test_server):
 
     # Edit unit type
     success, message, data = await edit_unit_type(
-        db_conn, "cavalry", TEST_GUILD_ID, nation="earth-kingdom"
+        db_conn, "cavalry", TEST_GUILD_ID
     )
 
     # Verify
@@ -133,7 +132,7 @@ async def test_edit_unit_type_success(db_conn, test_server):
 async def test_edit_unit_type_nonexistent(db_conn, test_server):
     """Test editing a non-existent unit type."""
     success, message, data = await edit_unit_type(
-        db_conn, "nonexistent-unit", TEST_GUILD_ID, nation="fire-nation"
+        db_conn, "nonexistent-unit", TEST_GUILD_ID
     )
 
     # Verify failure
@@ -158,7 +157,7 @@ async def test_delete_unit_type_success(db_conn, test_server):
 
     # Delete unit type
     success, message = await delete_unit_type(
-        db_conn, "artillery", TEST_GUILD_ID, nation="fire-nation"
+        db_conn, "artillery", TEST_GUILD_ID
     )
 
     # Verify
@@ -166,7 +165,7 @@ async def test_delete_unit_type_success(db_conn, test_server):
     assert "deleted" in message.lower()
 
     # Verify deleted from database
-    fetched = await UnitType.fetch_by_type_id(db_conn, "artillery", "fire-nation", TEST_GUILD_ID)
+    fetched = await UnitType.fetch_by_type_id(db_conn, "artillery", TEST_GUILD_ID)
     assert fetched is None
 
 
@@ -221,7 +220,7 @@ async def test_delete_unit_type_with_units(db_conn, test_server):
 
     # Try to delete unit type
     success, message = await delete_unit_type(
-        db_conn, "tank", TEST_GUILD_ID, nation="fire-nation"
+        db_conn, "tank", TEST_GUILD_ID
     )
 
     # Verify failure
@@ -240,7 +239,7 @@ async def test_delete_unit_type_with_units(db_conn, test_server):
 async def test_delete_unit_type_nonexistent(db_conn, test_server):
     """Test deleting a non-existent unit type."""
     success, message = await delete_unit_type(
-        db_conn, "nonexistent-unit", TEST_GUILD_ID, nation="fire-nation"
+        db_conn, "nonexistent-unit", TEST_GUILD_ID
     )
 
     # Verify failure
@@ -251,7 +250,7 @@ async def test_delete_unit_type_nonexistent(db_conn, test_server):
 @pytest.mark.asyncio
 async def test_unit_type_guild_isolation(db_conn, test_server_multi_guild):
     """Test that unit type operations are properly isolated between guilds."""
-    # Create unit type with same type_id and nation in both guilds
+    # Create unit type with same type_id in both guilds (nation can be different or same)
     unit_type_a = UnitType(
         type_id="infantry", name="Guild A Infantry",
         nation="fire-nation", guild_id=TEST_GUILD_ID,
@@ -274,7 +273,7 @@ async def test_unit_type_guild_isolation(db_conn, test_server_multi_guild):
 
     # Edit unit type in guild A
     success_a, _, data_a = await edit_unit_type(
-        db_conn, "infantry", TEST_GUILD_ID, nation="fire-nation"
+        db_conn, "infantry", TEST_GUILD_ID
     )
 
     # Verify guild A's unit type
@@ -284,13 +283,13 @@ async def test_unit_type_guild_isolation(db_conn, test_server_multi_guild):
 
     # Verify guild B's unit type is unchanged
     success_b, _, data_b = await edit_unit_type(
-        db_conn, "infantry", TEST_GUILD_ID_2, nation="fire-nation"
+        db_conn, "infantry", TEST_GUILD_ID_2
     )
     assert success_b is True
     assert data_b.name == "Guild B Infantry"
     assert data_b.movement == 3
 
-    # Verify same type_id+nation combination exists independently
+    # Verify same type_id exists independently in each guild
     assert data_a.type_id == data_b.type_id == "infantry"
     assert data_a.nation == data_b.nation == "fire-nation"
 
@@ -302,12 +301,12 @@ async def test_unit_type_guild_isolation(db_conn, test_server_multi_guild):
 
     # Delete unit type in guild A
     success_delete_a = await delete_unit_type(
-        db_conn, "infantry", TEST_GUILD_ID, nation="fire-nation"
+        db_conn, "infantry", TEST_GUILD_ID
     )
     assert success_delete_a[0] is True
 
     # Verify guild B's unit type still exists
-    fetched_b = await UnitType.fetch_by_type_id(db_conn, "infantry", "fire-nation", TEST_GUILD_ID_2)
+    fetched_b = await UnitType.fetch_by_type_id(db_conn, "infantry", TEST_GUILD_ID_2)
     assert fetched_b is not None
     assert fetched_b.name == "Guild B Infantry"
 

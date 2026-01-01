@@ -96,7 +96,7 @@ async def view_unit(conn: asyncpg.Connection, unit_id: str, guild_id: int, show_
         return False, f"Unit '{unit_id}' not found.", None
 
     # Fetch unit type
-    unit_type = await UnitType.fetch_by_type_id(conn, unit.unit_type, None, guild_id)
+    unit_type = await UnitType.fetch_by_type_id(conn, unit.unit_type, guild_id)
 
     # Fetch owner/commander only for admins
     owner = None
@@ -129,13 +129,10 @@ async def view_unit_type(conn: asyncpg.Connection, type_id: str, nation: Optiona
         (success, message, data) where data contains:
         - unit_type: UnitType object
     """
-    unit_type = await UnitType.fetch_by_type_id(conn, type_id, nation, guild_id)
+    unit_type = await UnitType.fetch_by_type_id(conn, type_id, guild_id)
 
     if not unit_type:
-        if nation:
-            return False, f"Unit type '{type_id}' for nation '{nation}' not found.", None
-        else:
-            return False, f"Unit type '{type_id}' not found.", None
+        return False, f"Unit type '{type_id}' not found.", None
 
     return True, "", {'unit_type': unit_type}
 
