@@ -12,6 +12,7 @@ class Faction:
     faction_id: str = ""
     name: str = ""
     leader_character_id: Optional[int] = None
+    created_turn: int = 0
     guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
@@ -21,18 +22,20 @@ class Faction:
         """
         query = """
         INSERT INTO Faction (
-            faction_id, name, leader_character_id, guild_id
+            faction_id, name, leader_character_id, created_turn, guild_id
         )
-        VALUES ($1, $2, $3, $4)
+        VALUES ($1, $2, $3, $4, $5)
         ON CONFLICT (faction_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
-            leader_character_id = EXCLUDED.leader_character_id;
+            leader_character_id = EXCLUDED.leader_character_id,
+            created_turn = EXCLUDED.created_turn;
         """
         await conn.execute(
             query,
             self.faction_id,
             self.name,
             self.leader_character_id,
+            self.created_turn,
             self.guild_id
         )
 
@@ -42,7 +45,7 @@ class Faction:
         Fetch a Faction by its internal sequential ID.
         """
         row = await conn.fetchrow("""
-            SELECT id, faction_id, name, leader_character_id, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, guild_id
             FROM Faction
             WHERE id = $1;
         """, faction_internal_id)
@@ -54,7 +57,7 @@ class Faction:
         Fetch a Faction by its (faction_id, guild_id) pair.
         """
         row = await conn.fetchrow("""
-            SELECT id, faction_id, name, leader_character_id, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, guild_id
             FROM Faction
             WHERE faction_id = $1 AND guild_id = $2;
         """, faction_id, guild_id)
@@ -66,7 +69,7 @@ class Faction:
         Fetch all Factions in a guild.
         """
         rows = await conn.fetch("""
-            SELECT id, faction_id, name, leader_character_id, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, guild_id
             FROM Faction
             WHERE guild_id = $1
             ORDER BY faction_id;

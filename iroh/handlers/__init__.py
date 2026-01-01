@@ -57,6 +57,7 @@ from .list_handlers import (
 from .order_handlers import (
     submit_join_faction_order,
     submit_leave_faction_order,
+    submit_kick_from_faction_order,
     submit_transit_order,
     cancel_order,
     view_pending_orders,
@@ -109,6 +110,7 @@ __all__ = [
     # Order handlers
     'submit_join_faction_order',
     'submit_leave_faction_order',
+    'submit_kick_from_faction_order',
     'submit_transit_order',
     'cancel_order',
     'view_pending_orders',

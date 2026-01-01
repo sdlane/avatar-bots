@@ -1,6 +1,8 @@
 from order_types import *
 from datetime import datetime
 from db import Character, Faction, FactionMember, FactionJoinRequest, Unit
+import asyncpg
+from typing import Optional, Dict
 
 async def handle_leave_faction_order(
     conn: asyncpg.Connection,
@@ -242,3 +244,98 @@ async def handle_join_faction_order(
 #        order.updated_turn = turn_number
 #        await order.upsert(conn)
 #        return None
+
+
+async def handle_kick_from_faction_order(
+    conn: asyncpg.Connection,
+    order: Order,
+    guild_id: int,
+    turn_number: int
+) -> Optional[Dict]:
+    """
+    Handle a single KICK_FROM_FACTION order.
+
+    Args:
+        conn: Database connection
+        order: The order to process
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        Event dict if successful, None if failed
+    """
+    try:
+        # Extract order data
+        target_character_id = order.order_data.get('target_character_id')
+        faction_id = order.order_data.get('faction_id')
+
+        # Validate target character still exists
+        target_character = await Character.fetch_by_id(conn, target_character_id)
+        if not target_character:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'Target character not found'}
+            order.updated_at = datetime.now()
+            order.updated_turn = turn_number
+            await order.upsert(conn)
+            return None
+
+        # Validate faction still exists
+        faction = await Faction.fetch_by_id(conn, faction_id)
+        if not faction:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'Faction not found'}
+            order.updated_at = datetime.now()
+            order.updated_turn = turn_number
+            await order.upsert(conn)
+            return None
+
+        # Check target is still in the faction
+        target_membership = await FactionMember.fetch_by_character(conn, target_character.id, guild_id)
+        if not target_membership or target_membership.faction_id != faction.id:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'Target character is no longer in the faction'}
+            order.updated_at = datetime.now()
+            order.updated_turn = turn_number
+            await order.upsert(conn)
+            return None
+
+        # Remove from faction
+        await FactionMember.delete(conn, target_character.id, guild_id)
+
+        # Update units' faction_id to NULL
+        units = await Unit.fetch_by_owner(conn, target_character.id, guild_id)
+        for unit in units:
+            if unit.faction_id == faction.id:
+                unit.faction_id = None
+                await unit.upsert(conn)
+
+        # Mark order success
+        order.status = OrderStatus.SUCCESS.value
+        order.result_data = {
+            'target_character_name': target_character.name,
+            'faction_name': faction.name,
+            'faction_id': faction.faction_id
+        }
+        order.updated_at = datetime.now()
+        order.updated_turn = turn_number
+        await order.upsert(conn)
+
+        return {
+            'phase': TurnPhase.BEGINNING.value,
+            'event_type': 'KICK_FROM_FACTION',
+            'entity_type': 'character',
+            'entity_id': target_character.id,
+            'event_data': {
+                'character_name': target_character.name,
+                'faction_name': faction.name,
+                'order_id': order.order_id
+            }
+        }
+
+    except Exception as e:
+        order.status = OrderStatus.FAILED.value
+        order.result_data = {'error': str(e)}
+        order.updated_at = datetime.now()
+        order.updated_turn = turn_number
+        await order.upsert(conn)
+        return None

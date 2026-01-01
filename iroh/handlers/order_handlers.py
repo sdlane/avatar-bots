@@ -161,6 +161,124 @@ async def submit_leave_faction_order(
     return True, f"Order submitted: {character.name} will leave {faction.name} next turn (Order #{order_id})."
 
 
+async def submit_kick_from_faction_order(
+    conn: asyncpg.Connection,
+    leader_character: Character,
+    target_character_identifier: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Submit an order for a faction leader to kick a member from their faction.
+
+    Cannot be issued:
+    - Within the first 3 turns of the game
+    - Within 3 turns of the creation of the faction
+    - Within 3 turns of the member joining the faction
+    - Against the faction leader themselves
+
+    Args:
+        conn: Database connection
+        leader_character: Character submitting the order (must be faction leader)
+        target_character_identifier: Character identifier to kick
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate target character exists
+    target_character = await Character.fetch_by_identifier(conn, target_character_identifier, guild_id)
+    if not target_character:
+        return False, f"Character '{target_character_identifier}' not found."
+
+    # Check leader is in a faction
+    leader_membership = await FactionMember.fetch_by_character(conn, leader_character.id, guild_id)
+    if not leader_membership:
+        return False, "You are not a member of any faction."
+
+    # Get faction
+    faction = await Faction.fetch_by_id(conn, leader_membership.faction_id)
+
+    # Check leader is the faction leader
+    if faction.leader_character_id != leader_character.id:
+        return False, f"You must be the leader of {faction.name} to kick members."
+
+    # Check target is not the leader themselves
+    if target_character.id == leader_character.id:
+        return False, "You cannot kick yourself from the faction."
+
+    # Check target is in the same faction
+    target_membership = await FactionMember.fetch_by_character(conn, target_character.id, guild_id)
+    if not target_membership or target_membership.faction_id != faction.id:
+        return False, f"{target_character.name} is not a member of {faction.name}."
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Check not within first 3 turns of game
+    if current_turn < 3:
+        return False, f"Kick orders cannot be issued within the first 3 turns of the game. Current turn: {current_turn}."
+
+    # Get faction created_turn
+    faction_row = await conn.fetchrow(
+        "SELECT created_turn FROM Faction WHERE id = $1;",
+        faction.id
+    )
+    faction_created_turn = faction_row['created_turn'] if faction_row and faction_row['created_turn'] else 0
+
+    # Check not within 3 turns of faction creation
+    if current_turn - faction_created_turn < 3:
+        turns_remaining = 3 - (current_turn - faction_created_turn)
+        return False, f"Kick orders cannot be issued within 3 turns of faction creation. Wait {turns_remaining} more turn(s)."
+
+    # Check not within 3 turns of member joining
+    if current_turn - target_membership.joined_turn < 3:
+        turns_remaining = 3 - (current_turn - target_membership.joined_turn)
+        return False, f"{target_character.name} joined the faction too recently. Wait {turns_remaining} more turn(s)."
+
+    # Check no pending kick orders for this target
+    existing_orders = await conn.fetch("""
+        SELECT order_id FROM "Order"
+        WHERE guild_id = $1
+        AND status = $2
+        AND order_type = $3
+        AND order_data->>'target_character_id' = $4;
+    """, guild_id, OrderStatus.PENDING.value, OrderType.KICK_FROM_FACTION.value, str(target_character.id))
+
+    if existing_orders:
+        return False, f"There is already a pending kick order for {target_character.name}."
+
+    # Generate order ID
+    order_count = await conn.fetchval('SELECT COUNT(*) FROM "Order" WHERE guild_id = $1;', guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.KICK_FROM_FACTION.value,
+        unit_ids=[],
+        character_id=leader_character.id,
+        turn_number=current_turn + 1,  # Execute next turn
+        phase=ORDER_PHASE_MAP[OrderType.KICK_FROM_FACTION].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.KICK_FROM_FACTION],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_character_id': target_character.id,
+            'target_character_name': target_character.name,
+            'faction_id': faction.id
+        },
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    return True, f"Order submitted: {target_character.name} will be kicked from {faction.name} next turn (Order #{order_id})."
+
+
 async def submit_transit_order(
     conn: asyncpg.Connection,
     unit_ids: List[str],

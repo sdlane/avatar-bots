@@ -8,6 +8,7 @@ class OrderType(Enum):
     """Types of orders that can be submitted."""
     JOIN_FACTION = "JOIN_FACTION"
     LEAVE_FACTION = "LEAVE_FACTION"
+    KICK_FROM_FACTION = "KICK_FROM_FACTION"
     TRANSIT = "TRANSIT"
 
 
@@ -28,6 +29,7 @@ class TurnPhase(Enum):
 ORDER_PHASE_MAP: Dict[OrderType, TurnPhase] = {
     OrderType.JOIN_FACTION: TurnPhase.BEGINNING,
     OrderType.LEAVE_FACTION: TurnPhase.BEGINNING,
+    OrderType.KICK_FROM_FACTION: TurnPhase.BEGINNING,
     OrderType.TRANSIT: TurnPhase.MOVEMENT,
 }
 
@@ -35,6 +37,7 @@ ORDER_PHASE_MAP: Dict[OrderType, TurnPhase] = {
 # Priority within each phase (lower = executes first within the phase)
 ORDER_PRIORITY_MAP: Dict[OrderType, int] = {
     OrderType.LEAVE_FACTION: 0,   # Execute leaves before joins
+    OrderType.KICK_FROM_FACTION: 0,   # Execute kicks at same priority as leaves
     OrderType.JOIN_FACTION: 1,
     OrderType.TRANSIT: 0,          # All transit orders at same priority (FIFO by submitted_at)
 }

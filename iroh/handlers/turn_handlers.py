@@ -17,6 +17,7 @@ logger = logging.getLogger(__name__)
 
 OrderHandlerMap: Dict[str, function] = {
     OrderType.LEAVE_FACTION.value: handle_leave_faction_order,
+    OrderType.KICK_FROM_FACTION.value: handle_kick_from_faction_order,
     OrderType.JOIN_FACTION.value: handle_join_faction_order,
 }
 

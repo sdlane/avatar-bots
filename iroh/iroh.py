@@ -1022,6 +1022,36 @@ async def order_leave_faction_cmd(interaction: discord.Interaction):
 
 
 @tree.command(
+    name="order-kick-from-faction",
+    description="[Faction Leader] Submit an order to kick a member from your faction"
+)
+@app_commands.describe(
+    target_character="Character identifier of the member to kick"
+)
+async def order_kick_from_faction_cmd(interaction: discord.Interaction, target_character: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_kick_from_faction_order(
+            conn, character, target_character, interaction.guild_id
+        )
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
     name="order-transit",
     description="Submit a transit order to move one or more units along a path"
 )

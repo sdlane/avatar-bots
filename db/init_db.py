@@ -202,6 +202,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS faction_id VARCHAR(50);")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS name VARCHAR(255);")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS leader_character_id INTEGER;")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS created_turn INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
     # --- FactionMember table ---

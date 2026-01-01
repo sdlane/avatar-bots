@@ -3,7 +3,7 @@ Faction management command handlers.
 """
 import asyncpg
 from typing import Optional, Tuple
-from db import Faction, FactionMember, Character, Unit
+from db import Faction, FactionMember, Character, Unit, WargameConfig
 
 
 async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, guild_id: int, leader_identifier: Optional[str] = None) -> Tuple[bool, str]:
@@ -33,11 +33,16 @@ async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, g
             return False, f"Character '{leader_identifier}' not found. Create the character first using hawky."
         leader_character_id = leader_char.id
 
+    # Get current turn for created_turn
+    config = await WargameConfig.fetch(conn, guild_id)
+    current_turn = config.current_turn if config else 0
+
     # Create faction
     faction = Faction(
         faction_id=faction_id,
         name=name,
         leader_character_id=leader_character_id,
+        created_turn=current_turn,
         guild_id=guild_id
     )
 
@@ -51,7 +56,7 @@ async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, g
         faction_member = FactionMember(
             faction_id=faction.id,
             character_id=leader_character_id,
-            joined_turn=0,
+            joined_turn=current_turn,
             guild_id=guild_id
         )
         await faction_member.insert(conn)
