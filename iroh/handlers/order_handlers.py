@@ -76,7 +76,7 @@ async def submit_join_faction_order(
         turn_number=current_turn + 1,  # Execute next turn
         phase=ORDER_PHASE_MAP[OrderType.JOIN_FACTION].value,
         priority=ORDER_PRIORITY_MAP[OrderType.JOIN_FACTION],
-        status=OrderStatus.PENDING,
+        status=OrderStatus.PENDING.value,
         order_data={
             'target_faction_id': target_faction_id,
             'submitted_by': submitted_by,
@@ -87,30 +87,12 @@ async def submit_join_faction_order(
     )
 
     await order.upsert(conn)
-
-    # Check if matching order exists from the other party
-    other_party = 'leader' if is_character else 'character'
-    matching_order = await conn.fetchrow("""
-        SELECT order_id FROM "Order"
-        WHERE character_id = $1 AND guild_id = $2
-        AND status = $3
-        AND order_type = $4
-        AND order_data->>'target_faction_id' = $5
-        AND order_data->>'submitted_by' = $6
-        AND order_id != $7;
-    """, character.id, guild_id, OrderStatus.PENDING,
-        OrderType.JOIN_FACTION.value, target_faction_id, other_party, order_id)
-
-    if matching_order:
-        return True, f"Order submitted: {character.name} will join {faction.name} at the beginning of the next turn. Both orders confirmed - join will proceed."
-    else:
-        waiting_for = "faction leader" if is_character else character.name
-        return True, f"Order submitted (Order #{order_id}). Waiting for {waiting_for} to also submit join order."
+    return True, f"Order submitted. Order will be processed at the next beginning phase. The addition to the faction will be completed when both the faction leader and the person being added submit the order."
 
 
 async def submit_leave_faction_order(
     conn: asyncpg.Connection,
-    character_identifier: str,
+    character: Character,
     guild_id: int
 ) -> Tuple[bool, str]:
     """
@@ -124,34 +106,17 @@ async def submit_leave_faction_order(
     Returns:
         (success, message)
     """
-    # Validate character exists
-    character = await Character.fetch_by_identifier(conn, character_identifier, guild_id)
-    if not character:
-        return False, f"Character '{character_identifier}' not found."
-
     # Check character is in a faction
     faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
     if not faction_member:
-        return False, f"{character.name} is not a member of any faction."
+        return False, f"You are not a member of any faction."
 
     # Get faction name
     faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
 
     # Check character is not faction leader
     if faction.leader_character_id == character.id:
-        return False, f"{character.name} is the leader of {faction.name}. Assign a new leader first using `/set-faction-leader`."
-
-    # Check no pending faction order for current turn
-    existing_orders = await conn.fetch("""
-        SELECT order_id FROM "Order"
-        WHERE character_id = $1 AND guild_id = $2
-        AND status IN ($3, $4)
-        AND order_type IN ($5, $6);
-    """, character.id, guild_id, OrderStatus.PENDING, OrderStatus.ONGOING,
-        OrderType.JOIN_FACTION.value, OrderType.LEAVE_FACTION.value)
-
-    if existing_orders:
-        return False, f"{character.name} already has a pending faction order."
+        return False, f"You are the leader of {faction.name}. Get a GM to a new leader first using `/set-faction-leader`."
 
     # Get current turn from WargameConfig
     wargame_config = await conn.fetchrow(
@@ -159,6 +124,18 @@ async def submit_leave_faction_order(
         guild_id
     )
     current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Check no pending faction order for current turn
+    existing_orders = await conn.fetch("""
+        SELECT order_id FROM "Order"
+        WHERE character_id = $1 AND guild_id = $2
+        AND status = $3
+        AND order_type = $4;
+    """, character.id, guild_id, OrderStatus.PENDING.value, OrderType.LEAVE_FACTION.value)
+
+    if existing_orders:
+        return False, f"{character.name} already has a pending faction order."
+
 
     # Generate order ID
     order_count = await conn.fetchval('SELECT COUNT(*) FROM "Order" WHERE guild_id = $1;', guild_id)
@@ -173,7 +150,7 @@ async def submit_leave_faction_order(
         turn_number=current_turn + 1,  # Execute next turn
         phase=ORDER_PHASE_MAP[OrderType.LEAVE_FACTION].value,
         priority=ORDER_PRIORITY_MAP[OrderType.LEAVE_FACTION],
-        status=OrderStatus.PENDING,
+        status=OrderStatus.PENDING.value,
         order_data={},
         submitted_at=datetime.now(),
         guild_id=guild_id
@@ -326,11 +303,11 @@ async def cancel_order(
         return False, f"Order '{order_id}' does not belong to you."
 
     # Validate status is PENDING (cannot cancel ONGOING orders)
-    if order.status != OrderStatus.PENDING:
+    if order.status != OrderStatus.PENDING.value:
         return False, f"Cannot cancel order '{order_id}' with status '{order.status}'. Only PENDING orders can be cancelled."
 
     # Update status to CANCELLED
-    order.status = OrderStatus.CANCELLED
+    order.status = OrderStatus.CANCELLED.value
     order.updated_at = datetime.now()
     await order.upsert(conn)
 

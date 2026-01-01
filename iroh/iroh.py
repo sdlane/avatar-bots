@@ -5,6 +5,7 @@ from helpers import *
 from embeds import *
 from views import *
 import handlers
+import turn_embeds
 import os
 import logging
 from dotenv import load_dotenv
@@ -956,6 +957,307 @@ async def modify_resources_cmd(interaction: discord.Interaction, character: str)
         # Show modal
         modal = ModifyResourcesModal(data['character'], data['resources'])
         await interaction.response.send_modal(modal)
+
+
+# Order Management Commands (Player)
+@tree.command(
+    name="order-join-faction",
+    description="Submit an order to join a faction (requires both character and faction leader approval)"
+)
+@app_commands.describe(
+    faction_id="The faction ID to join",
+    character_identifier="The identifier of the character that is going to be joining the faction. Assumed to be you if not included."
+)
+async def order_join_faction_cmd(interaction: discord.Interaction, faction_id: str, character_identifier: Optional[str] = None):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        if character_identifier is None:
+            character_identifier = character.identifier
+
+        success, message = await handlers.submit_join_faction_order(
+            conn, character_identifier, faction_id, interaction.guild_id, character.id
+        )
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="order-leave-faction",
+    description="Submit an order to leave your current faction"
+)
+async def order_leave_faction_cmd(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_leave_faction_order(
+            conn, character, interaction.guild_id
+        )
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="order-transit",
+    description="Submit a transit order to move one or more units along a path"
+)
+@app_commands.describe(
+    unit_ids="Comma-separated unit IDs (e.g., 'FN-001' or 'FN-001,FN-002')",
+    path="Comma-separated territory IDs for the path (e.g., '101,102,103')"
+)
+async def order_move_units_cmd(interaction: discord.Interaction, unit_ids: str, path: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        # Parse unit_ids and path
+        unit_id_list = [uid.strip() for uid in unit_ids.split(',')]
+        try:
+            path_list = [int(tid.strip()) for tid in path.split(',')]
+        except ValueError:
+            await interaction.followup.send(
+                emotive_message("Invalid path format. Please use comma-separated territory IDs (e.g., '101,102,103')."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_transit_order(
+            conn, unit_id_list, path_list, interaction.guild_id, character.id
+        )
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="my-orders",
+    description="View your pending and ongoing orders"
+)
+async def my_orders_cmd(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message, orders = await handlers.view_pending_orders(
+            conn, character.name, interaction.guild_id
+        )
+
+        if not success:
+            await interaction.followup.send(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Create embed
+        embed = turn_embeds.create_orders_embed(character.name, orders)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="cancel-order",
+    description="Cancel a pending order (cannot cancel ongoing orders)"
+)
+@app_commands.describe(
+    order_id="The order ID to cancel (e.g., 'ORD-0001')"
+)
+async def cancel_order_cmd(interaction: discord.Interaction, order_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.cancel_order(
+            conn, order_id, interaction.guild_id, character.id
+        )
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+# Turn Management Commands (Admin)
+@tree.command(
+    name="resolve-turn",
+    description="[Admin] Execute turn resolution"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def resolve_turn_cmd(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        async with conn.transaction():
+            success, message, all_events = await handlers.resolve_turn(conn, interaction.guild_id)
+
+            if not success:
+                await interaction.followup.send(
+                    emotive_message(message),
+                    ephemeral=True
+                )
+                return
+
+            # Get wargame config for GM reports channel
+            config = await WargameConfig.fetch(conn, interaction.guild_id)
+
+            # Generate GM report
+            summary = {
+                'total_events': len(all_events),
+                'beginning_events': len([e for e in all_events if e['phase'] == 'BEGINNING']),
+                'movement_events': len([e for e in all_events if e['phase'] == 'MOVEMENT']),
+                'resource_collection_events': len([e for e in all_events if e['phase'] == 'RESOURCE_COLLECTION']),
+                'upkeep_events': len([e for e in all_events if e['phase'] == 'UPKEEP'])
+            }
+
+            gm_embed = turn_embeds.create_gm_turn_report_embed(
+                config.current_turn, all_events, summary
+            )
+
+            # Send GM report to reports channel
+            if config.gm_reports_channel_id:
+                try:
+                    reports_channel = client.get_channel(config.gm_reports_channel_id)
+                    if reports_channel:
+                        await reports_channel.send(embed=gm_embed)
+                except Exception as e:
+                    logger.error(f"Failed to send GM report to channel: {e}")
+
+            # Send individual reports to each character
+            characters = await Character.fetch_all(conn, interaction.guild_id)
+            for character in characters:
+                if not character.channel_id:
+                    continue
+
+                # Filter events relevant to this character
+                character_events = []
+                for event in all_events:
+                    event_data = event.get('event_data', {})
+
+                    # Check if event is relevant to this character
+                    if event.get('entity_type') == 'character' and event.get('entity_id') == character.id:
+                        character_events.append(event)
+                    elif event_data.get('character_name') == character.name:
+                        character_events.append(event)
+                    elif event.get('event_type') == 'RESOURCE_COLLECTION' and event_data.get('leader_name') == character.name:
+                        character_events.append(event)
+                    # Check for unit events (unit owned by character)
+                    elif event.get('entity_type') == 'unit':
+                        unit = await Unit.fetch_by_id(conn, event.get('entity_id'))
+                        if unit and unit.owner_character_id == character.id:
+                            character_events.append(event)
+
+                if character_events:
+                    try:
+                        char_channel = client.get_channel(character.channel_id)
+                        if char_channel:
+                            char_embed = turn_embeds.create_character_turn_report_embed(
+                                character.name, config.current_turn, character_events
+                            )
+                            await char_channel.send(embed=char_embed)
+                    except Exception as e:
+                        logger.error(f"Failed to send report to {character.name}: {e}")
+
+            await interaction.followup.send(
+                emotive_message(message),
+                ephemeral=False
+            )
+
+
+@tree.command(
+    name="turn-status",
+    description="[Admin] View current turn status and pending orders"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def turn_status_cmd(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        success, message, status_data = await handlers.get_turn_status(conn, interaction.guild_id)
+
+        if not success:
+            await interaction.followup.send(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        embed = turn_embeds.create_turn_status_embed(status_data)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="set-gm-reports-channel",
+    description="[Admin] Set the channel where GM turn reports will be sent"
+)
+@app_commands.describe(
+    channel="The channel for GM reports"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def set_gm_reports_channel_cmd(interaction: discord.Interaction, channel: discord.TextChannel):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Fetch or create wargame config
+        config = await WargameConfig.fetch(conn, interaction.guild_id)
+        if not config:
+            config = WargameConfig(guild_id=interaction.guild_id)
+
+        config.gm_reports_channel_id = channel.id
+        await config.upsert(conn)
+
+        await interaction.followup.send(
+            emotive_message(f"GM reports channel set to {channel.mention}."),
+            ephemeral=False
+        )
 
 
 client.run(BOT_TOKEN)

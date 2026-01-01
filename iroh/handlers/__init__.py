@@ -54,6 +54,20 @@ from .list_handlers import (
     list_units,
 )
 
+from .order_handlers import (
+    submit_join_faction_order,
+    submit_leave_faction_order,
+    submit_transit_order,
+    cancel_order,
+    view_pending_orders,
+    validate_path,
+)
+
+from .turn_handlers import (
+    resolve_turn,
+    get_turn_status,
+)
+
 __all__ = [
     # View handlers
     'view_territory',
@@ -92,4 +106,14 @@ __all__ = [
     'list_territories',
     'list_unit_types',
     'list_units',
+    # Order handlers
+    'submit_join_faction_order',
+    'submit_leave_faction_order',
+    'submit_transit_order',
+    'cancel_order',
+    'view_pending_orders',
+    'validate_path',
+    # Turn handlers
+    'resolve_turn',
+    'get_turn_status',
 ]

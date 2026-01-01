@@ -471,6 +471,31 @@ async def ensure_tables():
         ON "Order"(character_id, guild_id);
     """)
 
+    # --- FactionJoinRequest table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS FactionJoinRequest (
+        id SERIAL PRIMARY KEY,
+        character_id INTEGER NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
+        faction_id INTEGER NOT NULL REFERENCES Faction(id) ON DELETE CASCADE,
+        submitted_by VARCHAR(20) NOT NULL,
+        submitted_at TIMESTAMP DEFAULT NOW(),
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(character_id, faction_id, submitted_by, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE FactionJoinRequest ADD COLUMN IF NOT EXISTS character_id INTEGER;")
+    await conn.execute("ALTER TABLE FactionJoinRequest ADD COLUMN IF NOT EXISTS faction_id INTEGER;")
+    await conn.execute("ALTER TABLE FactionJoinRequest ADD COLUMN IF NOT EXISTS submitted_by VARCHAR(20);")
+    await conn.execute("ALTER TABLE FactionJoinRequest ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP DEFAULT NOW();")
+    await conn.execute("ALTER TABLE FactionJoinRequest ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create index for FactionJoinRequest table
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_faction_join_request_lookup
+        ON FactionJoinRequest(character_id, faction_id, guild_id);
+    """)
+
     # --- TurnLog table ---
     await conn.execute("""
     CREATE TABLE IF NOT EXISTS TurnLog (
