@@ -141,9 +141,10 @@ async def execute_beginning_phase(
     for order in all_orders:
         if order.order_type in OrderHandlerMap:
             logger.info(f"Beginning phase: starting to process {order.order_type} order (ID: {order.id}) for guild {guild_id}, turn {turn_number}")
-            event = await OrderHandlerMap[order.order_type](conn, order, guild_id, turn_number)
-            if event:
-                events.append(event)
+            result_events = await OrderHandlerMap[order.order_type](conn, order, guild_id, turn_number)
+            # Handler returns a list of event dicts (may be empty)
+            if result_events:
+                events.extend(result_events)
             logger.info(f"Beginning phase: processed {order.order_type} order (ID: {order.id}) for guild {guild_id}, turn {turn_number}")
         else:
             # Mark order as failed - no handler found for this order type

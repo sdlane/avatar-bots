@@ -1306,23 +1306,14 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
                 if not character.channel_id:
                     continue
 
-                # Filter events relevant to this character
+                # Filter events relevant to this character using affected_character_ids
                 character_events = []
                 for event in all_events:
                     event_data = event.get('event_data', {})
+                    affected_ids = event_data.get('affected_character_ids', [])
 
-                    # Check if event is relevant to this character
-                    if event.get('entity_type') == 'character' and event.get('entity_id') == character.id:
+                    if character.id in affected_ids:
                         character_events.append(event)
-                    elif event_data.get('character_name') == character.name:
-                        character_events.append(event)
-                    elif event.get('event_type') == 'RESOURCE_COLLECTION' and event_data.get('leader_name') == character.name:
-                        character_events.append(event)
-                    # Check for unit events (unit owned by character)
-                    elif event.get('entity_type') == 'unit':
-                        unit = await Unit.fetch_by_id(conn, event.get('entity_id'))
-                        if unit and unit.owner_character_id == character.id:
-                            character_events.append(event)
 
                 if character_events:
                     try:

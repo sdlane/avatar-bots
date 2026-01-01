@@ -192,9 +192,30 @@ def create_character_turn_report_embed(
                 faction_name = event_data.get('faction_name', 'Unknown')
                 lines.append(f"✅ Joined faction: **{faction_name}**")
 
-            elif event_type == 'LEAVE_FACTION':
+            elif event_type == 'JOIN_FACTION_COMPLETED':
+                char_name = event_data.get('character_name', 'Unknown')
                 faction_name = event_data.get('faction_name', 'Unknown')
-                lines.append(f"❌ Left faction: **{faction_name}**")
+                lines.append(f"✅ **{char_name}** joined faction: **{faction_name}**")
+
+            elif event_type == 'JOIN_FACTION_PENDING':
+                faction_name = event_data.get('faction_name', 'Unknown')
+                waiting_for = event_data.get('waiting_for', 'approval')
+                lines.append(f"⏳ Join request for **{faction_name}** submitted (waiting for {waiting_for})")
+
+            elif event_type == 'LEAVE_FACTION':
+                char_name = event_data.get('character_name', 'Unknown')
+                faction_name = event_data.get('faction_name', 'Unknown')
+                lines.append(f"❌ **{char_name}** left faction: **{faction_name}**")
+
+            elif event_type == 'KICK_FROM_FACTION':
+                char_name = event_data.get('character_name', 'Unknown')
+                faction_name = event_data.get('faction_name', 'Unknown')
+                lines.append(f"🚫 **{char_name}** was removed from faction: **{faction_name}**")
+
+            elif event_type == 'ORDER_FAILED':
+                order_type = event_data.get('order_type', 'Unknown')
+                error = event_data.get('error', 'Unknown error')
+                lines.append(f"❌ Order failed: **{order_type}** - {error}")
 
             elif event_type == 'TRANSIT_COMPLETE':
                 units = event_data.get('units', [])
@@ -321,10 +342,31 @@ def create_gm_turn_report_embed(
                 faction = event_data.get('faction_name', 'Unknown')
                 lines.append(f"✅ {char} → {faction}")
 
+            elif event_type == 'JOIN_FACTION_COMPLETED':
+                char = event_data.get('character_name', 'Unknown')
+                faction = event_data.get('faction_name', 'Unknown')
+                lines.append(f"✅ {char} → {faction}")
+
+            elif event_type == 'JOIN_FACTION_PENDING':
+                char = event_data.get('character_name', 'Unknown')
+                faction = event_data.get('faction_name', 'Unknown')
+                waiting_for = event_data.get('waiting_for', '?')
+                lines.append(f"⏳ {char} → {faction} (pending: {waiting_for})")
+
             elif event_type == 'LEAVE_FACTION':
                 char = event_data.get('character_name', 'Unknown')
                 faction = event_data.get('faction_name', 'Unknown')
                 lines.append(f"❌ {char} ← {faction}")
+
+            elif event_type == 'KICK_FROM_FACTION':
+                char = event_data.get('character_name', 'Unknown')
+                faction = event_data.get('faction_name', 'Unknown')
+                lines.append(f"🚫 {char} ← {faction} (kicked)")
+
+            elif event_type == 'ORDER_FAILED':
+                order_type = event_data.get('order_type', 'Unknown')
+                error = event_data.get('error', 'Unknown')
+                lines.append(f"❌ {order_type}: {error}")
 
             elif event_type == 'TRANSIT_COMPLETE':
                 units = event_data.get('units', [])
