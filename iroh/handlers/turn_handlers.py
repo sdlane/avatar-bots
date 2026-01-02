@@ -396,7 +396,7 @@ async def get_turn_status(
             WHERE guild_id = $1
             AND status IN ($2, $3)
             AND phase = $4;
-        """, guild_id, OrderStatus.PENDING, OrderStatus.ONGOING, phase.value)
+        """, guild_id, OrderStatus.PENDING.value, OrderStatus.ONGOING.value, phase.value)
         pending_counts[phase.value] = count
 
     status_dict = {
