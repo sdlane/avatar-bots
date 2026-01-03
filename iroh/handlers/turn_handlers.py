@@ -10,6 +10,10 @@ from db import (
 )
 from order_types import *
 from orders import *
+from orders.resource_transfer_orders import (
+    handle_cancel_transfer_order,
+    handle_resource_transfer_order
+)
 
 import logging
 
@@ -19,6 +23,8 @@ OrderHandlerMap: Dict[str, function] = {
     OrderType.LEAVE_FACTION.value: handle_leave_faction_order,
     OrderType.KICK_FROM_FACTION.value: handle_kick_from_faction_order,
     OrderType.JOIN_FACTION.value: handle_join_faction_order,
+    OrderType.CANCEL_TRANSFER.value: handle_cancel_transfer_order,
+    OrderType.RESOURCE_TRANSFER.value: handle_resource_transfer_order,
 }
 
 async def resolve_turn(
@@ -330,7 +336,10 @@ async def execute_resource_transfer_phase(
     """
     Execute the Resource Transfer phase.
 
-    Placeholder for future implementation.
+    Processes resource transfer orders in priority sequence:
+    1. CANCEL_TRANSFER orders (priority 0)
+    2. PENDING RESOURCE_TRANSFER orders (priority 1) - one-time transfers
+    3. ONGOING RESOURCE_TRANSFER orders (priority 1) - recurring transfers
 
     Args:
         conn: Database connection
@@ -340,12 +349,41 @@ async def execute_resource_transfer_phase(
     Returns:
         List of TurnLog objects
     """
-    logger.info(f"Resource transfer phase: starting resource transfer phase for guild {guild_id}, turn {turn_number}")
+    events = []
+    logger.info(f"Resource transfer phase: starting for guild {guild_id}, turn {turn_number}")
 
-    # Placeholder for now
+    # Process CANCEL orders first (priority 0)
+    cancel_orders = await Order.fetch_by_phase_status_and_type(
+        conn, guild_id, TurnPhase.RESOURCE_TRANSFER.value,
+        [OrderStatus.PENDING.value], OrderType.CANCEL_TRANSFER.value
+    )
+    for order in cancel_orders:
+        result_events = await handle_cancel_transfer_order(conn, order, guild_id, turn_number)
+        if result_events:
+            events.extend(result_events)
 
-    logger.info(f"Resource transfer phase: finished resource transfer phase for guild {guild_id}, turn {turn_number}")
-    return []
+    # Process PENDING resource transfers (priority 1) - these are one-time
+    pending_transfers = await Order.fetch_by_phase_status_and_type(
+        conn, guild_id, TurnPhase.RESOURCE_TRANSFER.value,
+        [OrderStatus.PENDING.value], OrderType.RESOURCE_TRANSFER.value
+    )
+    for order in pending_transfers:
+        result_events = await handle_resource_transfer_order(conn, order, guild_id, turn_number)
+        if result_events:
+            events.extend(result_events)
+
+    # Process ONGOING resource transfers (priority 1) - these are recurring
+    ongoing_transfers = await Order.fetch_by_phase_status_and_type(
+        conn, guild_id, TurnPhase.RESOURCE_TRANSFER.value,
+        [OrderStatus.ONGOING.value], OrderType.RESOURCE_TRANSFER.value
+    )
+    for order in ongoing_transfers:
+        result_events = await handle_resource_transfer_order(conn, order, guild_id, turn_number)
+        if result_events:
+            events.extend(result_events)
+
+    logger.info(f"Resource transfer phase: finished for guild {guild_id}, turn {turn_number}")
+    return events
 
 
 async def execute_encirclement_phase(
