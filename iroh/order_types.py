@@ -10,6 +10,8 @@ class OrderType(Enum):
     LEAVE_FACTION = "LEAVE_FACTION"
     KICK_FROM_FACTION = "KICK_FROM_FACTION"
     TRANSIT = "TRANSIT"
+    RESOURCE_TRANSFER = "RESOURCE_TRANSFER"
+    CANCEL_TRANSFER = "CANCEL_TRANSFER"
 
 
 class TurnPhase(Enum):
@@ -31,6 +33,8 @@ ORDER_PHASE_MAP: Dict[OrderType, TurnPhase] = {
     OrderType.LEAVE_FACTION: TurnPhase.BEGINNING,
     OrderType.KICK_FROM_FACTION: TurnPhase.BEGINNING,
     OrderType.TRANSIT: TurnPhase.MOVEMENT,
+    OrderType.RESOURCE_TRANSFER: TurnPhase.RESOURCE_TRANSFER,
+    OrderType.CANCEL_TRANSFER: TurnPhase.RESOURCE_TRANSFER,
 }
 
 
@@ -40,6 +44,8 @@ ORDER_PRIORITY_MAP: Dict[OrderType, int] = {
     OrderType.KICK_FROM_FACTION: 0,   # Execute kicks at same priority as leaves
     OrderType.JOIN_FACTION: 1,
     OrderType.TRANSIT: 0,          # All transit orders at same priority (FIFO by submitted_at)
+    OrderType.CANCEL_TRANSFER: 0,  # Process cancellations first
+    OrderType.RESOURCE_TRANSFER: 1, # Then resource transfers
 }
 
 
