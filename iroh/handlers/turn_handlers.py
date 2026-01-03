@@ -313,7 +313,8 @@ async def execute_resource_collection_phase(
             'entity_type': 'character',
             'entity_id': char_id,
             'event_data': {
-                'leader_name': character.name,
+                'affected_character_ids': [char_id],
+                'character_name': character.name,
                 'resources': {
                     'ore': resources['ore'],
                     'lumber': resources['lumber'],
