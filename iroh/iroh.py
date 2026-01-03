@@ -1188,22 +1188,136 @@ async def order_move_units_cmd(interaction: discord.Interaction, unit_ids: str, 
 
 @tree.command(
     name="order-resource-transfer",
-    description="Submit a resource transfer order to send resources to another character"
+    description="Submit a one-time resource transfer order"
 )
-async def order_resource_transfer_cmd(interaction: discord.Interaction):
+@app_commands.describe(
+    recipient="Character identifier to send resources to",
+    ore="Amount of ore to transfer (default: 0)",
+    lumber="Amount of lumber to transfer (default: 0)",
+    coal="Amount of coal to transfer (default: 0)",
+    rations="Amount of rations to transfer (default: 0)",
+    cloth="Amount of cloth to transfer (default: 0)"
+)
+async def order_resource_transfer_cmd(
+    interaction: discord.Interaction,
+    recipient: str,
+    ore: int = 0,
+    lumber: int = 0,
+    coal: int = 0,
+    rations: int = 0,
+    cloth: int = 0
+):
+    await interaction.response.defer()
+
+    # Validate at least one resource
+    if ore + lumber + coal + rations + cloth == 0:
+        await interaction.followup.send(
+            emotive_message("Must transfer at least one resource."),
+            ephemeral=True
+        )
+        return
+
     async with db_pool.acquire() as conn:
         # Get character for this user
         character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
         if not character:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 emotive_message("You don't have a character in this wargame."),
                 ephemeral=True
             )
             return
 
-        # Open modal
-        modal = ResourceTransferModal(character, db_pool)
-        await interaction.response.send_modal(modal)
+        resources = {
+            'ore': ore, 'lumber': lumber, 'coal': coal,
+            'rations': rations, 'cloth': cloth
+        }
+
+        success, message = await handlers.submit_resource_transfer_order(
+            conn, character, recipient, resources,
+            is_ongoing=False, term=None, guild_id=interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted resource transfer to '{recipient}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit resource transfer: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="order-ongoing-transfer",
+    description="Submit an ongoing (recurring) resource transfer order"
+)
+@app_commands.describe(
+    recipient="Character identifier to send resources to",
+    ore="Amount of ore per turn (default: 0)",
+    lumber="Amount of lumber per turn (default: 0)",
+    coal="Amount of coal per turn (default: 0)",
+    rations="Amount of rations per turn (default: 0)",
+    cloth="Amount of cloth per turn (default: 0)",
+    term="Number of turns (leave empty for indefinite)"
+)
+async def order_ongoing_transfer_cmd(
+    interaction: discord.Interaction,
+    recipient: str,
+    ore: int = 0,
+    lumber: int = 0,
+    coal: int = 0,
+    rations: int = 0,
+    cloth: int = 0,
+    term: int = None
+):
+    await interaction.response.defer()
+
+    # Validate at least one resource
+    if ore + lumber + coal + rations + cloth == 0:
+        await interaction.followup.send(
+            emotive_message("Must transfer at least one resource."),
+            ephemeral=True
+        )
+        return
+
+    # Validate term if specified
+    if term is not None and term < 2:
+        await interaction.followup.send(
+            emotive_message("Term must be at least 2 turns if specified."),
+            ephemeral=True
+        )
+        return
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        resources = {
+            'ore': ore, 'lumber': lumber, 'coal': coal,
+            'rations': rations, 'cloth': cloth
+        }
+
+        success, message = await handlers.submit_resource_transfer_order(
+            conn, character, recipient, resources,
+            is_ongoing=True, term=term, guild_id=interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted ongoing transfer to '{recipient}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit ongoing transfer: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
 
 
 @tree.command(

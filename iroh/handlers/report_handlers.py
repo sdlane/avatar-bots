@@ -29,7 +29,7 @@ async def generate_character_report(
         data_dict contains:
         - character: Character object
         - turn_number: int
-        - events: List of event dicts
+        - events: List of TurnLog objects
     """
     # Get character for this user
     character = await Character.fetch_by_user(conn, user_id, guild_id)
@@ -52,25 +52,14 @@ async def generate_character_report(
     # Fetch all turn logs for this turn
     turn_logs = await TurnLog.fetch_by_turn(conn, turn_number, guild_id)
 
-    # Convert TurnLog objects to event dicts
-    all_events = []
-    for log in turn_logs:
-        all_events.append({
-            'phase': log.phase,
-            'event_type': log.event_type,
-            'entity_type': log.entity_type,
-            'entity_id': log.entity_id,
-            'event_data': log.event_data
-        })
-
     # Filter events relevant to this character using affected_character_ids
     character_events = []
-    for event in all_events:
-        event_data = event.get('event_data', {})
+    for log in turn_logs:
+        event_data = log.event_data or {}
         affected_ids = event_data.get('affected_character_ids', [])
 
         if character.id in affected_ids:
-            character_events.append(event)
+            character_events.append(log)
 
     return True, "Report generated successfully.", {
         'character': character,
@@ -96,7 +85,7 @@ async def generate_gm_report(
         (success, message, data_dict)
         data_dict contains:
         - turn_number: int
-        - events: List of event dicts
+        - events: List of TurnLog objects
         - summary: Dict with event counts by phase
     """
     # Get wargame config
@@ -115,28 +104,17 @@ async def generate_gm_report(
     # Fetch all turn logs for this turn
     turn_logs = await TurnLog.fetch_by_turn(conn, turn_number, guild_id)
 
-    # Convert TurnLog objects to event dicts
-    all_events = []
-    for log in turn_logs:
-        all_events.append({
-            'phase': log.phase,
-            'event_type': log.event_type,
-            'entity_type': log.entity_type,
-            'entity_id': log.entity_id,
-            'event_data': log.event_data
-        })
-
     # Generate summary
     summary = {
-        'total_events': len(all_events),
-        'beginning_events': len([e for e in all_events if e['phase'] == 'BEGINNING']),
-        'movement_events': len([e for e in all_events if e['phase'] == 'MOVEMENT']),
-        'resource_collection_events': len([e for e in all_events if e['phase'] == 'RESOURCE_COLLECTION']),
-        'upkeep_events': len([e for e in all_events if e['phase'] == 'UPKEEP'])
+        'total_events': len(turn_logs),
+        'beginning_events': len([e for e in turn_logs if e.phase == 'BEGINNING']),
+        'movement_events': len([e for e in turn_logs if e.phase == 'MOVEMENT']),
+        'resource_collection_events': len([e for e in turn_logs if e.phase == 'RESOURCE_COLLECTION']),
+        'upkeep_events': len([e for e in turn_logs if e.phase == 'UPKEEP'])
     }
 
     return True, "Report generated successfully.", {
         'turn_number': turn_number,
-        'events': all_events,
+        'events': turn_logs,
         'summary': summary
     }

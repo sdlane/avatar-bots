@@ -330,6 +330,7 @@ async def handle_resource_transfer_order(
                         'to_character_name': to_character.name,
                         'transferred_resources': transferred_resources,
                         'order_id': order.order_id,
+                        'is_ongoing': False,
                         'affected_character_ids': affected_character_ids
                     },
                     guild_id=guild_id
@@ -359,6 +360,7 @@ async def handle_resource_transfer_order(
                             'to_character_name': to_character.name,
                             'order_id': order.order_id,
                             'reason': 'No resources available',
+                            'is_ongoing': False,
                             'affected_character_ids': affected_character_ids
                         },
                         guild_id=guild_id
@@ -377,6 +379,7 @@ async def handle_resource_transfer_order(
                             'requested_resources': requested_resources,
                             'transferred_resources': transferred_resources,
                             'order_id': order.order_id,
+                            'is_ongoing': False,
                             'affected_character_ids': affected_character_ids
                         },
                         guild_id=guild_id
@@ -388,8 +391,17 @@ async def handle_resource_transfer_order(
             turns_executed += 1
             order.order_data['turns_executed'] = turns_executed
 
+            # Calculate turns remaining (None if indefinite)
+            turns_remaining = None
+            term_completed = False
+            if term is not None:
+                turns_remaining = term - turns_executed
+                if turns_remaining <= 0:
+                    turns_remaining = 0
+                    term_completed = True
+
             # Check term expiration
-            if term is not None and turns_executed >= term:
+            if term_completed:
                 # Term expired: mark SUCCESS
                 order.status = OrderStatus.SUCCESS.value
                 order.result_data = {
@@ -424,6 +436,10 @@ async def handle_resource_transfer_order(
                         'to_character_name': to_character.name,
                         'transferred_resources': transferred_resources,
                         'order_id': order.order_id,
+                        'is_ongoing': True,
+                        'term': term,
+                        'turns_remaining': turns_remaining,
+                        'term_completed': term_completed,
                         'affected_character_ids': affected_character_ids
                     },
                     guild_id=guild_id
@@ -442,6 +458,10 @@ async def handle_resource_transfer_order(
                         'requested_resources': requested_resources,
                         'transferred_resources': transferred_resources,
                         'order_id': order.order_id,
+                        'is_ongoing': True,
+                        'term': term,
+                        'turns_remaining': turns_remaining,
+                        'term_completed': term_completed,
                         'affected_character_ids': affected_character_ids
                     },
                     guild_id=guild_id

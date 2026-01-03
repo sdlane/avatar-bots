@@ -32,6 +32,14 @@ from .movement_events import (
 from .resource_events import (
     resource_collection_character_line,
     resource_collection_gm_line,
+    resource_transfer_success_character_line,
+    resource_transfer_success_gm_line,
+    resource_transfer_partial_character_line,
+    resource_transfer_partial_gm_line,
+    resource_transfer_failed_character_line,
+    resource_transfer_failed_gm_line,
+    transfer_cancelled_character_line,
+    transfer_cancelled_gm_line,
 )
 
 from .upkeep_events import (
@@ -93,6 +101,22 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'RESOURCE_COLLECTION': EventHandler(
         get_character_line=resource_collection_character_line,
         get_gm_line=resource_collection_gm_line
+    ),
+    'RESOURCE_TRANSFER_SUCCESS': EventHandler(
+        get_character_line=resource_transfer_success_character_line,
+        get_gm_line=resource_transfer_success_gm_line
+    ),
+    'RESOURCE_TRANSFER_PARTIAL': EventHandler(
+        get_character_line=resource_transfer_partial_character_line,
+        get_gm_line=resource_transfer_partial_gm_line
+    ),
+    'RESOURCE_TRANSFER_FAILED': EventHandler(
+        get_character_line=resource_transfer_failed_character_line,
+        get_gm_line=resource_transfer_failed_gm_line
+    ),
+    'TRANSFER_CANCELLED': EventHandler(
+        get_character_line=transfer_cancelled_character_line,
+        get_gm_line=transfer_cancelled_gm_line
     ),
 
     # Upkeep events
