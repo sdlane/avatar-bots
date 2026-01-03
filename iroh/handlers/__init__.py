@@ -64,10 +64,7 @@ from .order_handlers import (
     validate_path,
 )
 
-from .turn_handlers import (
-    resolve_turn,
-    get_turn_status,
-)
+from .turn_handlers import *
 
 from .config_handlers import (
     fetch_wargame_config,
@@ -126,6 +123,15 @@ __all__ = [
     'validate_path',
     # Turn handlers
     'resolve_turn',
+    'execute_beginning_phase',
+    'execute_movement_phase',
+    'execute_combat_phase',
+    'execute_resource_collection_phase',
+    'execute_resource_transfer_phase',
+    'execute_encirclement_phase',
+    'execute_upkeep_phase',
+    'execute_organization_phase',
+    'execute_construction_phase',
     'get_turn_status',
     # Config handlers
     'fetch_wargame_config',
