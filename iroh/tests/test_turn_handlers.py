@@ -228,7 +228,7 @@ async def test_execute_beginning_phase_with_join_order(db_conn, test_server):
 
     # Verify events returned
     assert len(events) > 0
-    assert events[0]['phase'] == TurnPhase.BEGINNING.value
+    assert events[0].phase == TurnPhase.BEGINNING.value
 
     # Verify order was updated
     processed_order = await Order.fetch_by_order_id(db_conn, "ORD-0001", TEST_GUILD_ID)
@@ -303,8 +303,8 @@ async def test_execute_beginning_phase_with_leave_order(db_conn, test_server):
 
     # Verify events returned
     assert len(events) > 0
-    assert events[0]['phase'] == TurnPhase.BEGINNING.value
-    assert events[0]['event_type'] in ['LEAVE_FACTION']
+    assert events[0].phase == TurnPhase.BEGINNING.value
+    assert events[0].event_type in ['LEAVE_FACTION']
 
     # Verify order was updated
     processed_order = await Order.fetch_by_order_id(db_conn, "ORD-0001", TEST_GUILD_ID)

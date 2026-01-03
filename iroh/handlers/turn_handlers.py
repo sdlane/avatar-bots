@@ -24,7 +24,7 @@ OrderHandlerMap: Dict[str, function] = {
 async def resolve_turn(
     conn: asyncpg.Connection,
     guild_id: int
-) -> Tuple[bool, str, List[Dict]]:
+) -> Tuple[bool, str, List[TurnLog]]:
     """
     Execute turn resolution for a guild.
 
@@ -91,16 +91,7 @@ async def resolve_turn(
 
     # Write all events to TurnLog
     for event in all_events:
-        turn_log = TurnLog(
-            turn_number=turn_number,
-            phase=event['phase'],
-            event_type=event['event_type'],
-            entity_type=event.get('entity_type'),
-            entity_id=event.get('entity_id'),
-            event_data=event.get('event_data', {}),
-            guild_id=guild_id
-        )
-        await turn_log.insert(conn)
+        await event.insert(conn)
 
     logger.info(f"Turn resolution: wrote {len(all_events)} events to TurnLog for guild {guild_id}, turn {turn_number}")
     logger.info(f"Turn resolution: turn {turn_number} resolved successfully for guild {guild_id}")
@@ -114,7 +105,7 @@ async def execute_beginning_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Beginning phase: faction leaves and joins.
 
@@ -127,7 +118,7 @@ async def execute_beginning_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     events = []
     logger.info(f"Beginning phase: starting beginning phase for guild {guild_id}, turn {turn_number}")
@@ -163,7 +154,7 @@ async def execute_movement_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Movement phase: transit orders with tick-based movement.
 
@@ -176,7 +167,7 @@ async def execute_movement_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     events = []
     logger.info(f"Movement phase: starting movement phase for guild {guild_id}, turn {turn_number}")
@@ -191,7 +182,7 @@ async def execute_combat_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Combat phase
 
@@ -201,7 +192,7 @@ async def execute_combat_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     events = []
     logger.info(f"Combat phase: starting combat phase for guild {guild_id}, turn {turn_number}")
@@ -215,7 +206,7 @@ async def execute_resource_collection_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Resource Collection phase.
 
@@ -228,7 +219,7 @@ async def execute_resource_collection_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     events = []
     logger.info(f"Resource collection phase: starting for guild {guild_id}, turn {turn_number}")
@@ -307,12 +298,13 @@ async def execute_resource_collection_phase(
         logger.info(f"Resource collection: Awarded {resources} to character {character.name} (ID: {char_id})")
 
         # Create single event for this character with aggregated resources
-        events.append({
-            'phase': 'RESOURCE_COLLECTION',
-            'event_type': 'RESOURCE_COLLECTION',
-            'entity_type': 'character',
-            'entity_id': char_id,
-            'event_data': {
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase='RESOURCE_COLLECTION',
+            event_type='RESOURCE_COLLECTION',
+            entity_type='character',
+            entity_id=char_id,
+            event_data={
                 'affected_character_ids': [char_id],
                 'character_name': character.name,
                 'resources': {
@@ -322,8 +314,9 @@ async def execute_resource_collection_phase(
                     'rations': resources['rations'],
                     'cloth': resources['cloth']
                 }
-            }
-        })
+            },
+            guild_id=guild_id
+        ))
 
     logger.info(f"Resource collection phase: finished for guild {guild_id}, turn {turn_number}. Processed {len(character_resources)} characters.")
     return events
@@ -333,7 +326,7 @@ async def execute_resource_transfer_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Resource Transfer phase.
 
@@ -345,7 +338,7 @@ async def execute_resource_transfer_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     logger.info(f"Resource transfer phase: starting resource transfer phase for guild {guild_id}, turn {turn_number}")
 
@@ -359,7 +352,7 @@ async def execute_encirclement_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Encirclement phase
 
@@ -369,7 +362,7 @@ async def execute_encirclement_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     events = []
     logger.info(f"Encirclement phase: starting encirclement phase for guild {guild_id}, turn {turn_number}")
@@ -383,7 +376,7 @@ async def execute_upkeep_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Upkeep phase.
 
@@ -399,7 +392,7 @@ async def execute_upkeep_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     events = []
     logger.info(f"Upkeep phase: starting upkeep phase for guild {guild_id}, turn {turn_number}")
@@ -414,7 +407,7 @@ async def execute_organization_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Organization phase
 
@@ -424,7 +417,7 @@ async def execute_organization_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     events = []
     logger.info(f"Organization phase: starting organization phase for guild {guild_id}, turn {turn_number}")
@@ -440,7 +433,7 @@ async def execute_construction_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Execute the Construction phase
 
@@ -450,7 +443,7 @@ async def execute_construction_phase(
         turn_number: Current turn number
 
     Returns:
-        List of event dicts for TurnLog
+        List of TurnLog objects
     """
     events = []
     logger.info(f"Construction phase: starting construction phase for guild {guild_id}, turn {turn_number}")

@@ -1,6 +1,6 @@
 from order_types import *
 from datetime import datetime
-from db import Character, Faction, FactionMember, FactionJoinRequest, Unit
+from db import Character, Faction, FactionMember, FactionJoinRequest, Unit, TurnLog
 import asyncpg
 from typing import Optional, Dict, List, Union
 
@@ -9,7 +9,7 @@ async def handle_leave_faction_order(
     order: Order,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Handle a single LEAVE_FACTION order.
 
@@ -20,7 +20,7 @@ async def handle_leave_faction_order(
         turn_number: Current turn number
 
     Returns:
-        Event dict if successful, None if failed
+        List of TurnLog objects
     """
     try:
         character = await Character.fetch_by_id(conn, order.character_id)
@@ -30,18 +30,20 @@ async def handle_leave_faction_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'ORDER_FAILED',
-                'entity_type': 'character',
-                'entity_id': order.character_id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='ORDER_FAILED',
+                entity_type='character',
+                entity_id=order.character_id,
+                event_data={
                     'order_type': 'LEAVE_FACTION',
                     'order_id': order.order_id,
                     'error': 'Character not found',
                     'affected_character_ids': [order.character_id]
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
         # Get current faction membership
         faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
@@ -51,18 +53,20 @@ async def handle_leave_faction_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'ORDER_FAILED',
-                'entity_type': 'character',
-                'entity_id': character.id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='ORDER_FAILED',
+                entity_type='character',
+                entity_id=character.id,
+                event_data={
                     'order_type': 'LEAVE_FACTION',
                     'order_id': order.order_id,
                     'error': 'Character not in a faction',
                     'affected_character_ids': [character.id]
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
         faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
 
@@ -96,18 +100,20 @@ async def handle_leave_faction_order(
                 affected_character_ids.append(member.character_id)
 
         # Return single event with all affected character IDs
-        return [{
-            'phase': TurnPhase.BEGINNING.value,
-            'event_type': 'LEAVE_FACTION',
-            'entity_type': 'character',
-            'entity_id': character.id,
-            'event_data': {
+        return [TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.BEGINNING.value,
+            event_type='LEAVE_FACTION',
+            entity_type='character',
+            entity_id=character.id,
+            event_data={
                 'character_name': character.name,
                 'faction_name': faction.name if faction else 'Unknown',
                 'order_id': order.order_id,
                 'affected_character_ids': affected_character_ids
-            }
-        }]
+            },
+            guild_id=guild_id
+        )]
 
     except Exception as e:
         order.status = OrderStatus.FAILED.value
@@ -115,18 +121,20 @@ async def handle_leave_faction_order(
         order.updated_at = datetime.now()
         order.updated_turn = turn_number
         await order.upsert(conn)
-        return [{
-            'phase': TurnPhase.BEGINNING.value,
-            'event_type': 'ORDER_FAILED',
-            'entity_type': 'character',
-            'entity_id': order.character_id,
-            'event_data': {
+        return [TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.BEGINNING.value,
+            event_type='ORDER_FAILED',
+            entity_type='character',
+            entity_id=order.character_id,
+            event_data={
                 'order_type': 'LEAVE_FACTION',
                 'order_id': order.order_id,
                 'error': str(e),
                 'affected_character_ids': [order.character_id]
-            }
-        }]
+            },
+            guild_id=guild_id
+        )]
 
 
 async def handle_join_faction_order(
@@ -134,7 +142,7 @@ async def handle_join_faction_order(
     order: Order,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Handle a single JOIN_FACTION order by checking/creating FactionJoinRequest entries.
 
@@ -151,7 +159,7 @@ async def handle_join_faction_order(
         turn_number: Current turn number
 
     Returns:
-        Event dict with join status (completed or waiting)
+        List of TurnLog objects
     """
     try:
         # Extract order data
@@ -167,18 +175,20 @@ async def handle_join_faction_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'ORDER_FAILED',
-                'entity_type': 'character',
-                'entity_id': order.character_id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='ORDER_FAILED',
+                entity_type='character',
+                entity_id=order.character_id,
+                event_data={
                     'order_type': 'JOIN_FACTION',
                     'order_id': order.order_id,
                     'error': 'Character not found',
                     'affected_character_ids': [order.character_id]
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
         # Validate faction exists
         faction = await Faction.fetch_by_faction_id(conn, target_faction_id, guild_id)
@@ -188,18 +198,20 @@ async def handle_join_faction_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'ORDER_FAILED',
-                'entity_type': 'character',
-                'entity_id': character.id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='ORDER_FAILED',
+                entity_type='character',
+                entity_id=character.id,
+                event_data={
                     'order_type': 'JOIN_FACTION',
                     'order_id': order.order_id,
                     'error': 'Faction not found',
                     'affected_character_ids': [character.id]
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
         # Check if character is already a member of a faction
         existing_membership = await FactionMember.fetch_by_character(conn, character.id, guild_id)
@@ -210,18 +222,20 @@ async def handle_join_faction_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'ORDER_FAILED',
-                'entity_type': 'character',
-                'entity_id': character.id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='ORDER_FAILED',
+                entity_type='character',
+                entity_id=character.id,
+                event_data={
                     'order_type': 'JOIN_FACTION',
                     'order_id': order.order_id,
                     'error': 'Character already in a faction',
                     'affected_character_ids': [character.id]
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
         # Check for matching request from other party
         other_party = 'leader' if submitted_by == 'character' else 'character'
@@ -272,19 +286,21 @@ async def handle_join_faction_order(
                 affected_character_ids.append(member.character_id)
 
             # Return single event with all affected character IDs
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'JOIN_FACTION_COMPLETED',
-                'entity_type': 'character',
-                'entity_id': character.id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='JOIN_FACTION_COMPLETED',
+                entity_type='character',
+                entity_id=character.id,
+                event_data={
                     'character_name': character.name,
                     'faction_name': faction.name,
                     'order_id': order.order_id,
                     'status': 'completed',
                     'affected_character_ids': affected_character_ids
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
         else:
             # No matching request - create a new request
             request = FactionJoinRequest(
@@ -314,20 +330,22 @@ async def handle_join_faction_order(
                 affected_character_ids.append(faction.leader_character_id)
 
             # Return event for pending join request (for both the submitter and faction leader)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'JOIN_FACTION_PENDING',
-                'entity_type': 'character',
-                'entity_id': character.id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='JOIN_FACTION_PENDING',
+                entity_type='character',
+                entity_id=character.id,
+                event_data={
                     'character_name': character.name,
                     'faction_name': faction.name,
                     'order_id': order.order_id,
                     'status': 'pending',
                     'waiting_for': waiting_for,
                     'affected_character_ids': affected_character_ids
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
     except Exception as e:
         order.status = OrderStatus.FAILED.value
@@ -335,18 +353,20 @@ async def handle_join_faction_order(
         order.updated_at = datetime.now()
         order.updated_turn = turn_number
         await order.upsert(conn)
-        return [{
-            'phase': TurnPhase.BEGINNING.value,
-            'event_type': 'ORDER_FAILED',
-            'entity_type': 'character',
-            'entity_id': order.character_id,
-            'event_data': {
+        return [TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.BEGINNING.value,
+            event_type='ORDER_FAILED',
+            entity_type='character',
+            entity_id=order.character_id,
+            event_data={
                 'order_type': 'JOIN_FACTION',
                 'order_id': order.order_id,
                 'error': str(e),
                 'affected_character_ids': [order.character_id]
-            }
-        }]
+            },
+            guild_id=guild_id
+        )]
 
 
 async def handle_kick_from_faction_order(
@@ -354,7 +374,7 @@ async def handle_kick_from_faction_order(
     order: Order,
     guild_id: int,
     turn_number: int
-) -> List[Dict]:
+) -> List[TurnLog]:
     """
     Handle a single KICK_FROM_FACTION order.
 
@@ -365,7 +385,7 @@ async def handle_kick_from_faction_order(
         turn_number: Current turn number
 
     Returns:
-        Event dict if successful, None if failed
+        List of TurnLog objects
     """
     try:
         # Extract order data
@@ -380,18 +400,20 @@ async def handle_kick_from_faction_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'ORDER_FAILED',
-                'entity_type': 'character',
-                'entity_id': order.character_id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='ORDER_FAILED',
+                entity_type='character',
+                entity_id=order.character_id,
+                event_data={
                     'order_type': 'KICK_FROM_FACTION',
                     'order_id': order.order_id,
                     'error': 'Target character not found',
                     'affected_character_ids': [order.character_id]
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
         # Validate faction still exists
         faction = await Faction.fetch_by_id(conn, faction_id)
@@ -401,18 +423,20 @@ async def handle_kick_from_faction_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'ORDER_FAILED',
-                'entity_type': 'character',
-                'entity_id': order.character_id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='ORDER_FAILED',
+                entity_type='character',
+                entity_id=order.character_id,
+                event_data={
                     'order_type': 'KICK_FROM_FACTION',
                     'order_id': order.order_id,
                     'error': 'Faction not found',
                     'affected_character_ids': [order.character_id]
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
         # Check target is still in the faction
         target_membership = await FactionMember.fetch_by_character(conn, target_character.id, guild_id)
@@ -422,18 +446,20 @@ async def handle_kick_from_faction_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
-            return [{
-                'phase': TurnPhase.BEGINNING.value,
-                'event_type': 'ORDER_FAILED',
-                'entity_type': 'character',
-                'entity_id': order.character_id,
-                'event_data': {
+            return [TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='ORDER_FAILED',
+                entity_type='character',
+                entity_id=order.character_id,
+                event_data={
                     'order_type': 'KICK_FROM_FACTION',
                     'order_id': order.order_id,
                     'error': 'Target character is no longer in the faction',
                     'affected_character_ids': [order.character_id]
-                }
-            }]
+                },
+                guild_id=guild_id
+            )]
 
         # Get all faction members BEFORE removing the target
         faction_members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
@@ -466,18 +492,20 @@ async def handle_kick_from_faction_order(
                 affected_character_ids.append(member.character_id)
 
         # Return single event with all affected character IDs
-        return [{
-            'phase': TurnPhase.BEGINNING.value,
-            'event_type': 'KICK_FROM_FACTION',
-            'entity_type': 'character',
-            'entity_id': target_character.id,
-            'event_data': {
+        return [TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.BEGINNING.value,
+            event_type='KICK_FROM_FACTION',
+            entity_type='character',
+            entity_id=target_character.id,
+            event_data={
                 'character_name': target_character.name,
                 'faction_name': faction.name,
                 'order_id': order.order_id,
                 'affected_character_ids': affected_character_ids
-            }
-        }]
+            },
+            guild_id=guild_id
+        )]
 
     except Exception as e:
         order.status = OrderStatus.FAILED.value
@@ -485,15 +513,17 @@ async def handle_kick_from_faction_order(
         order.updated_at = datetime.now()
         order.updated_turn = turn_number
         await order.upsert(conn)
-        return [{
-            'phase': TurnPhase.BEGINNING.value,
-            'event_type': 'ORDER_FAILED',
-            'entity_type': 'character',
-            'entity_id': order.character_id,
-            'event_data': {
+        return [TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.BEGINNING.value,
+            event_type='ORDER_FAILED',
+            entity_type='character',
+            entity_id=order.character_id,
+            event_data={
                 'order_type': 'KICK_FROM_FACTION',
                 'order_id': order.order_id,
                 'error': str(e),
                 'affected_character_ids': [order.character_id]
-            }
-        }]
+            },
+            guild_id=guild_id
+        )]

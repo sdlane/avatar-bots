@@ -104,9 +104,9 @@ async def test_handle_leave_faction_order_success(db_conn, test_server):
 
     # Verify event generated
     assert len(events) == 1
-    assert events[0]['event_type'] == 'LEAVE_FACTION'
-    assert events[0]['entity_id'] == char.id
-    assert char.id in events[0]['event_data']['affected_character_ids']
+    assert events[0].event_type == 'LEAVE_FACTION'
+    assert events[0].entity_id == char.id
+    assert char.id in events[0].event_data['affected_character_ids']
 
     # Cleanup
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -154,7 +154,7 @@ async def test_handle_leave_faction_order_not_in_faction(db_conn, test_server):
 
     # Verify failure event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'ORDER_FAILED'
+    assert events[0].event_type == 'ORDER_FAILED'
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -221,7 +221,7 @@ async def test_handle_leave_faction_order_notifies_all_members(db_conn, test_ser
 
     # Verify both characters in affected_character_ids
     assert len(events) == 1
-    affected_ids = events[0]['event_data']['affected_character_ids']
+    affected_ids = events[0].event_data['affected_character_ids']
     assert char1.id in affected_ids
     assert char2.id in affected_ids
 
@@ -300,8 +300,8 @@ async def test_handle_join_faction_order_completed_immediately(db_conn, test_ser
 
     # Verify event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'JOIN_FACTION_COMPLETED'
-    assert events[0]['event_data']['status'] == 'completed'
+    assert events[0].event_type == 'JOIN_FACTION_COMPLETED'
+    assert events[0].event_data['status'] == 'completed'
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -378,11 +378,11 @@ async def test_handle_join_faction_order_pending(db_conn, test_server):
 
     # Verify event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'JOIN_FACTION_PENDING'
-    assert events[0]['event_data']['status'] == 'pending'
+    assert events[0].event_type == 'JOIN_FACTION_PENDING'
+    assert events[0].event_data['status'] == 'pending'
 
     # Verify both character and leader are in affected_character_ids
-    affected_ids = events[0]['event_data']['affected_character_ids']
+    affected_ids = events[0].event_data['affected_character_ids']
     assert char.id in affected_ids
     assert leader.id in affected_ids
 
@@ -453,7 +453,7 @@ async def test_handle_join_faction_order_already_in_faction(db_conn, test_server
 
     # Verify failure event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'ORDER_FAILED'
+    assert events[0].event_type == 'ORDER_FAILED'
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -501,7 +501,7 @@ async def test_handle_join_faction_order_nonexistent_faction(db_conn, test_serve
 
     # Verify failure event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'ORDER_FAILED'
+    assert events[0].event_type == 'ORDER_FAILED'
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -702,11 +702,11 @@ async def test_handle_kick_from_faction_order_success(db_conn, test_server):
 
     # Verify event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'KICK_FROM_FACTION'
-    assert events[0]['entity_id'] == member.id
+    assert events[0].event_type == 'KICK_FROM_FACTION'
+    assert events[0].entity_id == member.id
 
     # Verify both characters in affected_character_ids
-    affected_ids = events[0]['event_data']['affected_character_ids']
+    affected_ids = events[0].event_data['affected_character_ids']
     assert member.id in affected_ids
     assert leader.id in affected_ids
 
@@ -767,7 +767,7 @@ async def test_handle_kick_from_faction_order_target_not_found(db_conn, test_ser
 
     # Verify failure event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'ORDER_FAILED'
+    assert events[0].event_type == 'ORDER_FAILED'
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -830,7 +830,7 @@ async def test_handle_kick_from_faction_order_target_not_in_faction(db_conn, tes
 
     # Verify failure event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'ORDER_FAILED'
+    assert events[0].event_type == 'ORDER_FAILED'
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -885,7 +885,7 @@ async def test_handle_kick_from_faction_order_nonexistent_faction(db_conn, test_
 
     # Verify failure event
     assert len(events) == 1
-    assert events[0]['event_type'] == 'ORDER_FAILED'
+    assert events[0].event_type == 'ORDER_FAILED'
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)

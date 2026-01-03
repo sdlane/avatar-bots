@@ -37,18 +37,18 @@ async def test_resource_collection_basic(db_conn, test_server):
     # Verify event generated
     assert len(events) == 1
     event = events[0]
-    assert event['phase'] == 'RESOURCE_COLLECTION'
-    assert event['event_type'] == 'RESOURCE_COLLECTION'
-    assert event['entity_type'] == 'character'
-    assert event['entity_id'] == character.id
-    assert 'affected_character_ids' in event['event_data']
-    assert event['event_data']['affected_character_ids'] == [character.id]
-    assert event['event_data']['character_name'] == character.name
-    assert event['event_data']['resources']['ore'] == 10
-    assert event['event_data']['resources']['lumber'] == 5
-    assert event['event_data']['resources']['coal'] == 3
-    assert event['event_data']['resources']['rations'] == 15
-    assert event['event_data']['resources']['cloth'] == 7
+    assert event.phase == 'RESOURCE_COLLECTION'
+    assert event.event_type == 'RESOURCE_COLLECTION'
+    assert event.entity_type == 'character'
+    assert event.entity_id == character.id
+    assert 'affected_character_ids' in event.event_data
+    assert event.event_data['affected_character_ids'] == [character.id]
+    assert event.event_data['character_name'] == character.name
+    assert event.event_data['resources']['ore'] == 10
+    assert event.event_data['resources']['lumber'] == 5
+    assert event.event_data['resources']['coal'] == 3
+    assert event.event_data['resources']['rations'] == 15
+    assert event.event_data['resources']['cloth'] == 7
 
     # Verify PlayerResources created and updated
     player_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
@@ -110,16 +110,16 @@ async def test_resource_collection_multiple_territories(db_conn, test_server):
     # Verify single event generated (aggregated)
     assert len(events) == 1
     event = events[0]
-    assert event['entity_id'] == character.id
-    assert 'affected_character_ids' in event['event_data']
-    assert event['event_data']['affected_character_ids'] == [character.id]
+    assert event.entity_id == character.id
+    assert 'affected_character_ids' in event.event_data
+    assert event.event_data['affected_character_ids'] == [character.id]
 
     # Verify aggregated totals
-    assert event['event_data']['resources']['ore'] == 30  # 10+15+5
-    assert event['event_data']['resources']['lumber'] == 17  # 5+2+10
-    assert event['event_data']['resources']['coal'] == 13  # 2+8+3
-    assert event['event_data']['resources']['rations'] == 24  # 8+4+12
-    assert event['event_data']['resources']['cloth'] == 10  # 3+1+6
+    assert event.event_data['resources']['ore'] == 30  # 10+15+5
+    assert event.event_data['resources']['lumber'] == 17  # 5+2+10
+    assert event.event_data['resources']['coal'] == 13  # 2+8+3
+    assert event.event_data['resources']['rations'] == 24  # 8+4+12
+    assert event.event_data['resources']['cloth'] == 10  # 3+1+6
 
     # Verify PlayerResources has aggregated totals
     player_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
@@ -231,8 +231,8 @@ async def test_resource_collection_new_player(db_conn, test_server):
     # Verify event generated
     assert len(events) == 1
     event = events[0]
-    assert 'affected_character_ids' in event['event_data']
-    assert event['event_data']['affected_character_ids'] == [character.id]
+    assert 'affected_character_ids' in event.event_data
+    assert event.event_data['affected_character_ids'] == [character.id]
 
     # Verify PlayerResources created with correct values
     player_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
@@ -284,8 +284,8 @@ async def test_resource_collection_accumulation(db_conn, test_server):
     # Verify event generated
     assert len(events) == 1
     event = events[0]
-    assert 'affected_character_ids' in event['event_data']
-    assert event['event_data']['affected_character_ids'] == [character.id]
+    assert 'affected_character_ids' in event.event_data
+    assert event.event_data['affected_character_ids'] == [character.id]
 
     # Verify resources accumulated (added to existing)
     player_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
@@ -343,18 +343,18 @@ async def test_resource_collection_multiple_characters(db_conn, test_server):
     assert len(events) == 2
 
     # Verify each character got their own event
-    char1_event = next(e for e in events if e['entity_id'] == char1.id)
-    char2_event = next(e for e in events if e['entity_id'] == char2.id)
+    char1_event = next(e for e in events if e.entity_id == char1.id)
+    char2_event = next(e for e in events if e.entity_id == char2.id)
 
-    assert 'affected_character_ids' in char1_event['event_data']
-    assert char1_event['event_data']['affected_character_ids'] == [char1.id]
-    assert 'affected_character_ids' in char2_event['event_data']
-    assert char2_event['event_data']['affected_character_ids'] == [char2.id]
+    assert 'affected_character_ids' in char1_event.event_data
+    assert char1_event.event_data['affected_character_ids'] == [char1.id]
+    assert 'affected_character_ids' in char2_event.event_data
+    assert char2_event.event_data['affected_character_ids'] == [char2.id]
 
-    assert char1_event['event_data']['resources']['ore'] == 10
-    assert char1_event['event_data']['resources']['lumber'] == 5
-    assert char2_event['event_data']['resources']['ore'] == 15
-    assert char2_event['event_data']['resources']['coal'] == 8
+    assert char1_event.event_data['resources']['ore'] == 10
+    assert char1_event.event_data['resources']['lumber'] == 5
+    assert char2_event.event_data['resources']['ore'] == 15
+    assert char2_event.event_data['resources']['coal'] == 8
 
     # Verify PlayerResources for both characters
     res1 = await PlayerResources.fetch_by_character(db_conn, char1.id, TEST_GUILD_ID)
