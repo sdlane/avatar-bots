@@ -391,12 +391,9 @@ async def get_turn_status(
     # Count pending orders by phase
     pending_counts = {}
     for phase in TurnPhase:
-        count = await conn.fetchval("""
-            SELECT COUNT(*) FROM "Order"
-            WHERE guild_id = $1
-            AND status IN ($2, $3)
-            AND phase = $4;
-        """, guild_id, OrderStatus.PENDING.value, OrderStatus.ONGOING.value, phase.value)
+        count = await Order.count_by_phase_and_status(
+            conn, guild_id, phase.value, [OrderStatus.PENDING.value, OrderStatus.ONGOING.value]
+        )
         pending_counts[phase.value] = count
 
     status_dict = {

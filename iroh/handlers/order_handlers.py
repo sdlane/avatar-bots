@@ -61,7 +61,7 @@ async def submit_join_faction_order(
     current_turn = wargame_config['current_turn'] if wargame_config else 0
 
     # Generate order ID
-    order_count = await conn.fetchval('SELECT COUNT(*) FROM "Order" WHERE guild_id = $1;', guild_id)
+    order_count = await Order.get_count(conn, guild_id)
     order_id = f"ORD-{order_count + 1:04d}"
 
     # Determine submitted_by role
@@ -126,19 +126,16 @@ async def submit_leave_faction_order(
     current_turn = wargame_config['current_turn'] if wargame_config else 0
 
     # Check no pending faction order for current turn
-    existing_orders = await conn.fetch("""
-        SELECT order_id FROM "Order"
-        WHERE character_id = $1 AND guild_id = $2
-        AND status = $3
-        AND order_type = $4;
-    """, character.id, guild_id, OrderStatus.PENDING.value, OrderType.LEAVE_FACTION.value)
+    existing_orders = await Order.fetch_by_character_and_type(
+        conn, character.id, guild_id, OrderType.LEAVE_FACTION.value, OrderStatus.PENDING.value
+    )
 
     if existing_orders:
         return False, f"{character.name} already has a pending faction order."
 
 
     # Generate order ID
-    order_count = await conn.fetchval('SELECT COUNT(*) FROM "Order" WHERE guild_id = $1;', guild_id)
+    order_count = await Order.get_count(conn, guild_id)
     order_id = f"ORD-{order_count + 1:04d}"
 
     # Create order
@@ -240,19 +237,15 @@ async def submit_kick_from_faction_order(
         return False, f"{target_character.name} joined the faction too recently. Wait {turns_remaining} more turn(s)."
 
     # Check no pending kick orders for this target
-    existing_orders = await conn.fetch("""
-        SELECT order_id FROM "Order"
-        WHERE guild_id = $1
-        AND status = $2
-        AND order_type = $3
-        AND order_data->>'target_character_id' = $4;
-    """, guild_id, OrderStatus.PENDING.value, OrderType.KICK_FROM_FACTION.value, str(target_character.id))
+    existing_orders = await Order.fetch_by_type_and_target(
+        conn, guild_id, OrderType.KICK_FROM_FACTION.value, OrderStatus.PENDING.value, target_character.id
+    )
 
     if existing_orders:
         return False, f"There is already a pending kick order for {target_character.name}."
 
     # Generate order ID
-    order_count = await conn.fetchval('SELECT COUNT(*) FROM "Order" WHERE guild_id = $1;', guild_id)
+    order_count = await Order.get_count(conn, guild_id)
     order_id = f"ORD-{order_count + 1:04d}"
 
     # Create order
@@ -364,7 +357,7 @@ async def submit_transit_order(
     current_turn = wargame_config['current_turn'] if wargame_config else 0
 
     # Generate order ID
-    order_count = await conn.fetchval('SELECT COUNT(*) FROM "Order" WHERE guild_id = $1;', guild_id)
+    order_count = await Order.get_count(conn, guild_id)
     order_id = f"ORD-{order_count + 1:04d}"
 
     # Determine if order will be ongoing

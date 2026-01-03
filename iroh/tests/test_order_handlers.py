@@ -59,14 +59,14 @@ async def test_submit_join_faction_order_by_character(db_conn, test_server):
     assert success is True
 
     # Verify order was created
-    orders = await db_conn.fetch('SELECT * FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT * FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     assert len(orders) == 1
     assert orders[0]['order_type'] == OrderType.JOIN_FACTION.value
     assert orders[0]['status'] == OrderStatus.PENDING.value
     assert orders[0]['turn_number'] == 6  # Current turn + 1
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -113,13 +113,13 @@ async def test_submit_join_faction_order_by_leader(db_conn, test_server):
     assert success is True
 
     # Verify order was created
-    orders = await db_conn.fetch('SELECT * FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT * FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     assert len(orders) == 1
     assert orders[0]['order_type'] == OrderType.JOIN_FACTION.value
     assert orders[0]['status'] == OrderStatus.PENDING.value
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -171,11 +171,11 @@ async def test_submit_join_faction_order_both_parties(db_conn, test_server):
     
 
     # Verify both orders were created
-    orders = await db_conn.fetch('SELECT * FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT * FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     assert len(orders) == 2
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -345,13 +345,13 @@ async def test_submit_leave_faction_order_success(db_conn, test_server):
     assert "will leave" in message.lower()
 
     # Verify order was created
-    orders = await db_conn.fetch('SELECT * FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT * FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     assert len(orders) == 1
     assert orders[0]['order_type'] == OrderType.LEAVE_FACTION.value
     assert orders[0]['status'] == OrderStatus.PENDING.value
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -473,13 +473,13 @@ async def test_submit_transit_order_single_unit(db_conn, test_server):
     assert "TEST-001" in message
 
     # Verify order was created
-    orders = await db_conn.fetch('SELECT * FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT * FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     assert len(orders) == 1
     assert orders[0]['order_type'] == OrderType.TRANSIT.value
     assert orders[0]['status'] == OrderStatus.PENDING.value
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -550,12 +550,12 @@ async def test_submit_transit_order_unit_group(db_conn, test_server):
     assert "TEST-001" in message
 
     # Verify order was created with all unit IDs
-    orders = await db_conn.fetch('SELECT * FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT * FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     assert len(orders) == 1
     assert len(orders[0]['unit_ids']) == 3
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -727,7 +727,7 @@ async def test_cancel_order_success(db_conn, test_server):
     assert success is True
 
     # Get order ID
-    orders = await db_conn.fetch('SELECT order_id FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT order_id FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     order_id = orders[0]['order_id']
 
     # Cancel order
@@ -742,7 +742,7 @@ async def test_cancel_order_success(db_conn, test_server):
     assert order.status == OrderStatus.CANCELLED.value
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -799,7 +799,7 @@ async def test_view_pending_orders(db_conn, test_server):
     assert orders[0]['status'] == OrderStatus.PENDING.value
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -1088,7 +1088,7 @@ async def test_submit_transit_order_with_existing_order(db_conn, test_server):
     assert "already have pending orders" in message.lower()
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -1223,7 +1223,7 @@ async def test_cancel_order_wrong_character(db_conn, test_server):
     assert success is True
 
     # Get order ID
-    orders = await db_conn.fetch('SELECT order_id FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT order_id FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     order_id = orders[0]['order_id']
 
     # Try to cancel as char2
@@ -1234,7 +1234,7 @@ async def test_cancel_order_wrong_character(db_conn, test_server):
     assert "does not belong to you" in message.lower()
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -1279,10 +1279,10 @@ async def test_cancel_order_ongoing_status(db_conn, test_server):
     assert success is True
 
     # Get order and manually change status to ONGOING
-    orders = await db_conn.fetch('SELECT order_id FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    orders = await db_conn.fetch('SELECT order_id FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     order_id = orders[0]['order_id']
     await db_conn.execute(
-        'UPDATE "Order" SET status = $1 WHERE order_id = $2 AND guild_id = $3;',
+        'UPDATE WargameOrder SET status = $1 WHERE order_id = $2 AND guild_id = $3;',
         OrderStatus.ONGOING.value, order_id, TEST_GUILD_ID
     )
 
@@ -1295,7 +1295,7 @@ async def test_cancel_order_ongoing_status(db_conn, test_server):
     assert "ongoing" in message.lower()
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -1378,7 +1378,7 @@ async def test_view_pending_orders_multiple_types(db_conn, test_server):
     assert OrderType.TRANSIT.value in order_types
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -1512,7 +1512,7 @@ async def test_order_id_uniqueness(db_conn, test_server):
 
     # Get order IDs
     orders = await db_conn.fetch(
-        'SELECT order_id FROM "Order" WHERE guild_id = $1 ORDER BY id;',
+        'SELECT order_id FROM WargameOrder WHERE guild_id = $1 ORDER BY id;',
         TEST_GUILD_ID
     )
 
@@ -1522,6 +1522,6 @@ async def test_order_id_uniqueness(db_conn, test_server):
     assert orders[1]['order_id'] == "ORD-0002"
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)

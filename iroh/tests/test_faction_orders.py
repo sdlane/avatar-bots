@@ -114,7 +114,7 @@ async def test_handle_leave_faction_order_success(db_conn, test_server):
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
 @pytest.mark.asyncio
@@ -157,7 +157,7 @@ async def test_handle_leave_faction_order_not_in_faction(db_conn, test_server):
     assert events[0]['event_type'] == 'ORDER_FAILED'
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
 @pytest.mark.asyncio
@@ -226,7 +226,7 @@ async def test_handle_leave_faction_order_notifies_all_members(db_conn, test_ser
     assert char2.id in affected_ids
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -304,7 +304,7 @@ async def test_handle_join_faction_order_completed_immediately(db_conn, test_ser
     assert events[0]['event_data']['status'] == 'completed'
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -387,7 +387,7 @@ async def test_handle_join_faction_order_pending(db_conn, test_server):
     assert leader.id in affected_ids
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionJoinRequest WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -456,7 +456,7 @@ async def test_handle_join_faction_order_already_in_faction(db_conn, test_server
     assert events[0]['event_type'] == 'ORDER_FAILED'
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -504,7 +504,7 @@ async def test_handle_join_faction_order_nonexistent_faction(db_conn, test_serve
     assert events[0]['event_type'] == 'ORDER_FAILED'
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
 @pytest.mark.asyncio
@@ -592,7 +592,7 @@ async def test_handle_join_faction_order_updates_units(db_conn, test_server):
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -714,7 +714,7 @@ async def test_handle_kick_from_faction_order_success(db_conn, test_server):
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -770,7 +770,7 @@ async def test_handle_kick_from_faction_order_target_not_found(db_conn, test_ser
     assert events[0]['event_type'] == 'ORDER_FAILED'
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
@@ -833,7 +833,7 @@ async def test_handle_kick_from_faction_order_target_not_in_faction(db_conn, tes
     assert events[0]['event_type'] == 'ORDER_FAILED'
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
@@ -888,4 +888,4 @@ async def test_handle_kick_from_faction_order_nonexistent_faction(db_conn, test_
     assert events[0]['event_type'] == 'ORDER_FAILED'
 
     # Cleanup
-    await db_conn.execute("DELETE FROM \"Order\" WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)

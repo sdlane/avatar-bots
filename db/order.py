@@ -32,7 +32,7 @@ class Order:
         The pair (order_id, guild_id) must be unique.
         """
         query = """
-        INSERT INTO "Order" (
+        INSERT INTO WargameOrder (
             order_id, order_type, unit_ids, character_id, turn_number,
             phase, priority, status, order_data, result_data,
             submitted_at, updated_at, updated_turn, guild_id
@@ -78,7 +78,7 @@ class Order:
             SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
                    phase, priority, status, order_data, result_data,
                    submitted_at, updated_at, updated_turn, guild_id
-            FROM "Order"
+            FROM WargameOrder
             WHERE order_id = $1 AND guild_id = $2;
         """, order_id, guild_id)
         if not row:
@@ -100,7 +100,7 @@ class Order:
             SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
                    phase, priority, status, order_data, result_data,
                    submitted_at, updated_at, updated_turn, guild_id
-            FROM "Order"
+            FROM WargameOrder
             WHERE turn_number = $1 AND phase = $2 AND status = ANY($3) AND guild_id = $4
             ORDER BY priority, submitted_at;
         """, turn_number, phase, status, guild_id)
@@ -123,7 +123,7 @@ class Order:
             SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
                    phase, priority, status, order_data, result_data,
                    submitted_at, updated_at, updated_turn, guild_id
-            FROM "Order"
+            FROM WargameOrder
             WHERE unit_ids && $1::INTEGER[] AND status = ANY($2) AND guild_id = $3;
         """, unit_ids, statuses, guild_id)
         result = []
@@ -145,7 +145,7 @@ class Order:
             SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
                    phase, priority, status, order_data, result_data,
                    submitted_at, updated_at, updated_turn, guild_id
-            FROM "Order"
+            FROM WargameOrder
             WHERE character_id = $1 AND guild_id = $2
             AND status NOT IN ('SUCCESS', 'FAILED', 'CANCELLED')
             ORDER BY submitted_at;
@@ -170,7 +170,7 @@ class Order:
             SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
                    phase, priority, status, order_data, result_data,
                    submitted_at, updated_at, updated_turn, guild_id
-            FROM "Order"
+            FROM WargameOrder
             WHERE phase = $1 AND status IN ('PENDING', 'ONGOING') AND guild_id = $2
             ORDER BY priority, submitted_at;
         """, phase, guild_id)
@@ -183,11 +183,83 @@ class Order:
         return result
 
     @classmethod
+    async def get_count(cls, conn: asyncpg.Connection, guild_id: int) -> int:
+        """
+        Get the total count of orders for a guild.
+        """
+        return await conn.fetchval('SELECT COUNT(*) FROM WargameOrder WHERE guild_id = $1;', guild_id)
+
+    @classmethod
+    async def fetch_by_character_and_type(
+        cls, conn: asyncpg.Connection, character_id: int, guild_id: int,
+        order_type: str, status: str
+    ) -> List["Order"]:
+        """
+        Fetch all orders for a character with a specific order type and status.
+        """
+        rows = await conn.fetch("""
+            SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
+                   phase, priority, status, order_data, result_data,
+                   submitted_at, updated_at, updated_turn, guild_id
+            FROM WargameOrder
+            WHERE character_id = $1 AND guild_id = $2
+            AND status = $3
+            AND order_type = $4;
+        """, character_id, guild_id, status, order_type)
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['order_data'] = json.loads(data['order_data']) if data['order_data'] else {}
+            data['result_data'] = json.loads(data['result_data']) if data['result_data'] else None
+            result.append(cls(**data))
+        return result
+
+    @classmethod
+    async def fetch_by_type_and_target(
+        cls, conn: asyncpg.Connection, guild_id: int,
+        order_type: str, status: str, target_character_id: int
+    ) -> List["Order"]:
+        """
+        Fetch all orders for a specific type, status, and target character (from order_data).
+        """
+        rows = await conn.fetch("""
+            SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
+                   phase, priority, status, order_data, result_data,
+                   submitted_at, updated_at, updated_turn, guild_id
+            FROM WargameOrder
+            WHERE guild_id = $1
+            AND status = $2
+            AND order_type = $3
+            AND order_data->>'target_character_id' = $4;
+        """, guild_id, status, order_type, str(target_character_id))
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['order_data'] = json.loads(data['order_data']) if data['order_data'] else {}
+            data['result_data'] = json.loads(data['result_data']) if data['result_data'] else None
+            result.append(cls(**data))
+        return result
+
+    @classmethod
+    async def count_by_phase_and_status(
+        cls, conn: asyncpg.Connection, guild_id: int, phase: str, statuses: List[str]
+    ) -> int:
+        """
+        Count orders for a specific phase with given statuses.
+        """
+        return await conn.fetchval("""
+            SELECT COUNT(*) FROM WargameOrder
+            WHERE guild_id = $1
+            AND status = ANY($2)
+            AND phase = $3;
+        """, guild_id, statuses, phase)
+
+    @classmethod
     async def delete(cls, conn: asyncpg.Connection, order_id: str, guild_id: int) -> bool:
         """
         Delete an Order by order_id and guild_id.
         """
-        result = await conn.execute('DELETE FROM "Order" WHERE order_id = $1 AND guild_id = $2;', order_id, guild_id)
+        result = await conn.execute('DELETE FROM WargameOrder WHERE order_id = $1 AND guild_id = $2;', order_id, guild_id)
         deleted = result.startswith("DELETE 1")
         logger.info(f"Deleted Order with order_id='{order_id}'. Result: {result}")
         return deleted

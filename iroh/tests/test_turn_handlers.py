@@ -133,7 +133,7 @@ async def test_resolve_turn_with_orders(db_conn, test_server):
 
     # Cleanup
     await db_conn.execute('DELETE FROM TurnLog WHERE guild_id = $1;', TEST_GUILD_ID)
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -233,7 +233,7 @@ async def test_execute_beginning_phase_with_join_order(db_conn, test_server):
     assert processed_order.status in [OrderStatus.SUCCESS.value, OrderStatus.FAILED.value]
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -314,7 +314,7 @@ async def test_execute_beginning_phase_with_leave_order(db_conn, test_server):
         assert remaining_member is None
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -333,7 +333,7 @@ async def test_execute_beginning_phase_with_unknown_order_type(db_conn, test_ser
 
     # Create an order with an unknown type (manually insert to bypass validation)
     await db_conn.execute("""
-        INSERT INTO "Order" (
+        INSERT INTO WargameOrder (
             order_id, order_type, character_id, phase, priority,
             status, turn_number, submitted_at, order_data, guild_id
         ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10);
@@ -352,7 +352,7 @@ async def test_execute_beginning_phase_with_unknown_order_type(db_conn, test_ser
     assert 'no handler found' in failed_order.result_data.get('error', '').lower()
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
 
 
 @pytest.mark.asyncio
@@ -449,7 +449,7 @@ async def test_execute_beginning_phase_multiple_orders(db_conn, test_server):
     assert processed_join.status in [OrderStatus.SUCCESS.value, OrderStatus.FAILED.value]
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -570,7 +570,7 @@ async def test_get_turn_status_with_pending_orders(db_conn, test_server):
     assert status['pending_orders'][TurnPhase.MOVEMENT.value] == 2
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
@@ -616,7 +616,7 @@ async def test_get_turn_status_with_completed_orders(db_conn, test_server):
     assert status['total_pending'] == 0
 
     # Cleanup
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
@@ -747,7 +747,7 @@ async def test_resolve_turn_logs_all_events(db_conn, test_server):
 
     # Cleanup
     await db_conn.execute('DELETE FROM TurnLog WHERE guild_id = $1;', TEST_GUILD_ID)
-    await db_conn.execute('DELETE FROM "Order" WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)

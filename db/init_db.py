@@ -447,9 +447,12 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS max_movement_stat INTEGER DEFAULT 4;")
     await conn.execute("ALTER TABLE WargameConfig ADD COLUMN IF NOT EXISTS gm_reports_channel_id BIGINT;")
 
-    # --- Order table ---
+    # --- Drop old "Order" table if it exists ---
+    await conn.execute('DROP TABLE IF EXISTS "Order" CASCADE;')
+
+    # --- WargameOrder table ---
     await conn.execute("""
-    CREATE TABLE IF NOT EXISTS "Order" (
+    CREATE TABLE IF NOT EXISTS WargameOrder (
         id SERIAL PRIMARY KEY,
         order_id VARCHAR(50) NOT NULL,
         order_type VARCHAR(50) NOT NULL,
@@ -469,29 +472,29 @@ async def ensure_tables():
     );
     """)
 
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS order_id VARCHAR(50);")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS order_type VARCHAR(50);")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS unit_ids INTEGER[] DEFAULT '{}';")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS character_id INTEGER;")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS turn_number INTEGER;")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS phase VARCHAR(50);")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0;")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'PENDING';")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS order_data JSONB;")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS result_data JSONB;")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP DEFAULT NOW();")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS updated_turn INTEGER;")
-    await conn.execute("ALTER TABLE \"Order\" ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS order_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS order_type VARCHAR(50);")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS unit_ids INTEGER[] DEFAULT '{}';")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS character_id INTEGER;")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS turn_number INTEGER;")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS phase VARCHAR(50);")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS priority INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'PENDING';")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS order_data JSONB;")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS result_data JSONB;")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS submitted_at TIMESTAMP DEFAULT NOW();")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP;")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS updated_turn INTEGER;")
+    await conn.execute("ALTER TABLE WargameOrder ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
-    # Create indexes for Order table
+    # Create indexes for WargameOrder table
     await conn.execute("""
     CREATE INDEX IF NOT EXISTS idx_order_turn_phase_status_submitted
-        ON "Order"(turn_number, phase, status, priority, submitted_at, guild_id);
+        ON WargameOrder(turn_number, phase, status, priority, submitted_at, guild_id);
     """)
     await conn.execute("""
     CREATE INDEX IF NOT EXISTS idx_order_character
-        ON "Order"(character_id, guild_id);
+        ON WargameOrder(character_id, guild_id);
     """)
 
     # --- FactionJoinRequest table ---
