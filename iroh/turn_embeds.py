@@ -171,7 +171,7 @@ def create_character_turn_report_embed(
     # Group events by phase
     phases = {}
     for event in events:
-        phase = event.get('phase', 'UNKNOWN')
+        phase = event.phase or 'UNKNOWN'
         if phase not in phases:
             phases[phase] = []
         phases[phase].append(event)
@@ -185,8 +185,8 @@ def create_character_turn_report_embed(
         lines = []
 
         for event in phase_events:
-            event_type = event.get('event_type', 'UNKNOWN')
-            event_data = event.get('event_data', {})
+            event_type = event.event_type or 'UNKNOWN'
+            event_data = event.event_data or {}
 
             # Use EVENT_HANDLERS if available, otherwise skip unknown event types
             if event_type in EVENT_HANDLERS:
@@ -250,7 +250,7 @@ def create_gm_turn_report_embed(
     # Group events by phase
     phases = {}
     for event in events:
-        phase = event.get('phase', 'UNKNOWN')
+        phase = event.phase or 'UNKNOWN'
         if phase not in phases:
             phases[phase] = []
         phases[phase].append(event)
@@ -267,8 +267,8 @@ def create_gm_turn_report_embed(
 
         # Limit to first 10 events per phase to avoid embed limits
         for event in phase_events[:10]:
-            event_type = event.get('event_type', 'UNKNOWN')
-            event_data = event.get('event_data', {})
+            event_type = event.event_type or 'UNKNOWN'
+            event_data = event.event_data or {}
 
             # Use EVENT_HANDLERS if available, otherwise skip unknown event types
             if event_type in EVENT_HANDLERS:

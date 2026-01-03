@@ -1187,6 +1187,61 @@ async def order_move_units_cmd(interaction: discord.Interaction, unit_ids: str, 
 
 
 @tree.command(
+    name="order-resource-transfer",
+    description="Submit a resource transfer order to send resources to another character"
+)
+async def order_resource_transfer_cmd(interaction: discord.Interaction):
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.response.send_message(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        # Open modal
+        modal = ResourceTransferModal(character, db_pool)
+        await interaction.response.send_modal(modal)
+
+
+@tree.command(
+    name="order-cancel-transfer",
+    description="Submit an order to cancel an ongoing resource transfer"
+)
+@app_commands.describe(
+    order_id="The order ID of the ongoing transfer to cancel (e.g., 'ORD-0001')"
+)
+async def order_cancel_transfer_cmd(interaction: discord.Interaction, order_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_cancel_transfer_order(
+            conn, character, order_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted cancel transfer order for '{order_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit cancel transfer order for '{order_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
     name="my-orders",
     description="View your pending and ongoing orders"
 )
@@ -1282,10 +1337,10 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
             # Generate GM report
             summary = {
                 'total_events': len(all_events),
-                'beginning_events': len([e for e in all_events if e['phase'] == 'BEGINNING']),
-                'movement_events': len([e for e in all_events if e['phase'] == 'MOVEMENT']),
-                'resource_collection_events': len([e for e in all_events if e['phase'] == 'RESOURCE_COLLECTION']),
-                'upkeep_events': len([e for e in all_events if e['phase'] == 'UPKEEP'])
+                'beginning_events': len([e for e in all_events if e.phase == 'BEGINNING']),
+                'movement_events': len([e for e in all_events if e.phase == 'MOVEMENT']),
+                'resource_collection_events': len([e for e in all_events if e.phase == 'RESOURCE_COLLECTION']),
+                'upkeep_events': len([e for e in all_events if e.phase == 'UPKEEP'])
             }
 
             gm_embed = turn_embeds.create_gm_turn_report_embed(
@@ -1310,7 +1365,7 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
                 # Filter events relevant to this character using affected_character_ids
                 character_events = []
                 for event in all_events:
-                    event_data = event.get('event_data', {})
+                    event_data = event.event_data or {}
                     affected_ids = event_data.get('affected_character_ids', [])
 
                     if character.id in affected_ids:

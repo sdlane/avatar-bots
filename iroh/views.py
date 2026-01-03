@@ -4,6 +4,7 @@ Discord UI components (modals, views, buttons) for Iroh wargame bot.
 import discord
 from typing import Optional
 from db import Territory, UnitType, PlayerResources, Character, WargameConfig
+import handlers
 import logging
 
 logger = logging.getLogger(__name__)
@@ -577,4 +578,143 @@ class EditWargameConfigModal(discord.ui.Modal, title="Edit Wargame Config"):
         await interaction.response.send_message(
             emotive_message("Wargame configuration updated successfully."),
             ephemeral=False
+        )
+
+
+class ResourceTransferModal(discord.ui.Modal, title="Resource Transfer Order"):
+    """Modal for submitting a resource transfer order."""
+
+    def __init__(self, from_character: Character, db_pool):
+        super().__init__()
+        self.from_character = from_character
+        self.db_pool = db_pool
+
+        # Recipient character identifier
+        self.recipient_input = discord.ui.TextInput(
+            label="Recipient Character Identifier",
+            placeholder="e.g., 'zuko' or 'iroh'",
+            required=True,
+            max_length=100
+        )
+        self.add_item(self.recipient_input)
+
+        # Resources field (comma-separated)
+        self.resources_input = discord.ui.TextInput(
+            label="Resources (ore,lumber,coal,rations,cloth)",
+            placeholder="e.g., 10,5,0,0,0",
+            required=True,
+            max_length=50
+        )
+        self.add_item(self.resources_input)
+
+        # Transfer type
+        self.transfer_type_input = discord.ui.TextInput(
+            label="Transfer Type (one-time / ongoing)",
+            placeholder="one-time or ongoing",
+            default="one-time",
+            required=True,
+            max_length=10
+        )
+        self.add_item(self.transfer_type_input)
+
+        # Term (for ongoing transfers)
+        self.term_input = discord.ui.TextInput(
+            label="Term (ongoing only, empty = indefinite)",
+            placeholder="Number of turns, or leave empty",
+            required=False,
+            max_length=10
+        )
+        self.add_item(self.term_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle form submission."""
+        from helpers import emotive_message
+
+        # Parse recipient
+        recipient_identifier = self.recipient_input.value.strip()
+
+        # Parse resources
+        try:
+            resource_parts = [int(x.strip()) for x in self.resources_input.value.split(',')]
+            if len(resource_parts) != 5:
+                await interaction.response.send_message(
+                    emotive_message("Resources must have exactly 5 values (ore, lumber, coal, rations, cloth)."),
+                    ephemeral=True
+                )
+                return
+
+            ore, lumber, coal, rations, cloth = resource_parts
+
+            if any(x < 0 for x in resource_parts):
+                await interaction.response.send_message(
+                    emotive_message("Resource values cannot be negative."),
+                    ephemeral=True
+                )
+                return
+
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid resource values. Use integers separated by commas."),
+                ephemeral=True
+            )
+            return
+
+        # Parse transfer type
+        transfer_type = self.transfer_type_input.value.strip().lower()
+        if transfer_type not in ['one-time', 'ongoing']:
+            await interaction.response.send_message(
+                emotive_message("Transfer type must be 'one-time' or 'ongoing'."),
+                ephemeral=True
+            )
+            return
+
+        is_ongoing = transfer_type == 'ongoing'
+
+        # Parse term
+        term = None
+        if self.term_input.value.strip():
+            try:
+                term = int(self.term_input.value.strip())
+                if term < 2:
+                    await interaction.response.send_message(
+                        emotive_message("Term must be at least 2 turns if specified."),
+                        ephemeral=True
+                    )
+                    return
+            except ValueError:
+                await interaction.response.send_message(
+                    emotive_message("Invalid term value. Use an integer or leave empty."),
+                    ephemeral=True
+                )
+                return
+
+        # Build resources dict
+        resources = {
+            'ore': ore,
+            'lumber': lumber,
+            'coal': coal,
+            'rations': rations,
+            'cloth': cloth
+        }
+
+        # Submit order via handler
+        async with self.db_pool.acquire() as conn:
+            success, message = await handlers.submit_resource_transfer_order(
+                conn,
+                self.from_character,
+                recipient_identifier,
+                resources,
+                is_ongoing,
+                term,
+                interaction.guild_id
+            )
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted resource transfer order from '{self.from_character.name}' to '{recipient_identifier}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit resource transfer order: {message}")
+
+        await interaction.response.send_message(
+            emotive_message(message),
+            ephemeral=not success
         )
