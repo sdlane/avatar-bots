@@ -168,7 +168,7 @@ async def ensure_tables():
         coal_production INTEGER DEFAULT 0,
         rations_production INTEGER DEFAULT 0,
         cloth_production INTEGER DEFAULT 0,
-        controller_faction_id INTEGER,
+        controller_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
         original_nation VARCHAR(50),
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(territory_id, guild_id)
@@ -183,9 +183,18 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS coal_production INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS rations_production INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS cloth_production INTEGER DEFAULT 0;")
-    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS controller_faction_id INTEGER;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS controller_character_id INTEGER;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS original_nation VARCHAR(50);")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Remove old controller_faction_id column if it exists
+    await conn.execute("ALTER TABLE Territory DROP COLUMN IF EXISTS controller_faction_id;")
+
+    # Add index for controller_character_id
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_territory_controller
+    ON Territory(controller_character_id, guild_id);
+    """)
 
     # --- Faction table ---
     await conn.execute("""

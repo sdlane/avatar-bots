@@ -219,7 +219,8 @@ async def execute_resource_collection_phase(
     """
     Execute the Resource Collection phase.
 
-    For each territory, give production to the person controlling the territory.
+    For each territory, give production to the character controlling the territory.
+    Aggregates resources per character and generates ONE event per character.
 
     Args:
         conn: Database connection
@@ -230,11 +231,100 @@ async def execute_resource_collection_phase(
         List of event dicts for TurnLog
     """
     events = []
-    logger.info(f"Resource collection phase: starting resource collection phase for guild {guild_id}, turn {turn_number}")
+    logger.info(f"Resource collection phase: starting for guild {guild_id}, turn {turn_number}")
 
-    # Placeholder for now
+    # Fetch all territories in the guild
+    territories = await Territory.fetch_all(conn, guild_id)
 
-    logger.info(f"Resource collection phase: finished resource collection phase for guild {guild_id}, turn {turn_number}")
+    # Dictionary to aggregate resources per character
+    # Structure: {character_id: {ore: amount, lumber: amount, ...}}
+    character_resources = {}
+
+    for territory in territories:
+        # Skip territories with no controller
+        if territory.controller_character_id is None:
+            logger.debug(f"Resource collection: Territory {territory.territory_id} has no controller, skipping")
+            continue
+
+        char_id = territory.controller_character_id
+
+        # Initialize character entry if not exists
+        if char_id not in character_resources:
+            character_resources[char_id] = {
+                'ore': 0,
+                'lumber': 0,
+                'coal': 0,
+                'rations': 0,
+                'cloth': 0
+            }
+
+        # Aggregate resources
+        character_resources[char_id]['ore'] += territory.ore_production
+        character_resources[char_id]['lumber'] += territory.lumber_production
+        character_resources[char_id]['coal'] += territory.coal_production
+        character_resources[char_id]['rations'] += territory.rations_production
+        character_resources[char_id]['cloth'] += territory.cloth_production
+
+    # Process each character's aggregated resources
+    for char_id, resources in character_resources.items():
+        # Fetch character
+        character = await Character.fetch_by_id(conn, char_id)
+        if not character:
+            logger.warning(f"Resource collection: Character {char_id} not found, skipping resource allocation")
+            continue
+
+        # Check if character has any resources to collect
+        total_resources = sum(resources.values())
+        if total_resources == 0:
+            logger.debug(f"Resource collection: Character {char_id} has no resources to collect")
+            continue
+
+        # Fetch or create PlayerResources
+        player_resources = await PlayerResources.fetch_by_character(conn, char_id, guild_id)
+
+        if not player_resources:
+            # Create new PlayerResources entry
+            player_resources = PlayerResources(
+                character_id=char_id,
+                ore=resources['ore'],
+                lumber=resources['lumber'],
+                coal=resources['coal'],
+                rations=resources['rations'],
+                cloth=resources['cloth'],
+                guild_id=guild_id
+            )
+        else:
+            # Add to existing resources
+            player_resources.ore += resources['ore']
+            player_resources.lumber += resources['lumber']
+            player_resources.coal += resources['coal']
+            player_resources.rations += resources['rations']
+            player_resources.cloth += resources['cloth']
+
+        # Update database
+        await player_resources.upsert(conn)
+
+        logger.info(f"Resource collection: Awarded {resources} to character {character.name} (ID: {char_id})")
+
+        # Create single event for this character with aggregated resources
+        events.append({
+            'phase': 'RESOURCE_COLLECTION',
+            'event_type': 'RESOURCE_COLLECTION',
+            'entity_type': 'character',
+            'entity_id': char_id,
+            'event_data': {
+                'leader_name': character.name,
+                'resources': {
+                    'ore': resources['ore'],
+                    'lumber': resources['lumber'],
+                    'coal': resources['coal'],
+                    'rations': resources['rations'],
+                    'cloth': resources['cloth']
+                }
+            }
+        })
+
+    logger.info(f"Resource collection phase: finished for guild {guild_id}, turn {turn_number}. Processed {len(character_resources)} characters.")
     return events
 
 

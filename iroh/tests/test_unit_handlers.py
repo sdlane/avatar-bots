@@ -59,7 +59,7 @@ async def test_create_unit_success(db_conn, test_server):
 
     # Create unit
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 1, TEST_GUILD_ID
+        db_conn, "UNIT-001", "infantry", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
     )
 
     # Verify
@@ -131,13 +131,13 @@ async def test_create_unit_duplicate(db_conn, test_server):
 
     # Create first unit
     success1, _ = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 1, TEST_GUILD_ID
+        db_conn, "UNIT-001", "infantry", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
     )
     assert success1 is True
 
     # Try to create duplicate
     success2, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 1, TEST_GUILD_ID
+        db_conn, "UNIT-001", "infantry", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
     )
 
     # Verify failure
@@ -175,7 +175,7 @@ async def test_create_unit_nonexistent_owner(db_conn, test_server):
 
     # Try to create unit with nonexistent owner
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "nonexistent-owner", 1, TEST_GUILD_ID
+        db_conn, "UNIT-001", "infantry", "nonexistent-owner", 1, "fire-nation", TEST_GUILD_ID
     )
 
     # Verify failure
@@ -218,7 +218,7 @@ async def test_create_unit_owner_not_in_faction(db_conn, test_server):
 
     # Create unit (should succeed with null faction_id)
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "solo-char", 1, TEST_GUILD_ID
+        db_conn, "UNIT-001", "infantry", "solo-char", 1, "fire-nation", TEST_GUILD_ID
     )
 
     # Verify success (owner without faction is allowed)
@@ -258,7 +258,7 @@ async def test_create_unit_nonexistent_territory(db_conn, test_server):
 
     # Try to create unit in nonexistent territory
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 999, TEST_GUILD_ID
+        db_conn, "UNIT-001", "infantry", "unit-owner", 999, "fire-nation", TEST_GUILD_ID
     )
 
     # Verify failure
@@ -289,7 +289,7 @@ async def test_create_unit_nonexistent_unit_type(db_conn, test_server):
 
     # Try to create unit with nonexistent unit type
     success, message = await create_unit(
-        db_conn, "UNIT-001", "nonexistent-type", "unit-owner", 1, TEST_GUILD_ID
+        db_conn, "UNIT-001", "nonexistent-type", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
     )
 
     # Verify failure
@@ -331,7 +331,7 @@ async def test_create_unit_stats_copied_from_type(db_conn, test_server):
 
     # Create unit
     success, _ = await create_unit(
-        db_conn, "UNIT-001", "custom-unit", "unit-owner", 1, TEST_GUILD_ID
+        db_conn, "UNIT-001", "custom-unit", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
     )
     assert success is True
 
@@ -817,7 +817,7 @@ async def test_create_unit_rollback_on_error(db_conn, test_server):
 
     # Try to create unit in nonexistent territory (should fail validation)
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 999, TEST_GUILD_ID
+        db_conn, "UNIT-001", "infantry", "unit-owner", 999, "fire-nation", TEST_GUILD_ID
     )
 
     # Verify failure

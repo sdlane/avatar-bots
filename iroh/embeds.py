@@ -36,10 +36,10 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
             value=controller_name,
             inline=True
         )
-    elif territory.controller_faction_id:
+    elif territory.controller_character_id:
         embed.add_field(
             name="Controller",
-            value=f"Faction ID: {territory.controller_faction_id}",
+            value=f"Character ID: {territory.controller_character_id}",
             inline=True
         )
     else:

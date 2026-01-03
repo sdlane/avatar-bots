@@ -39,7 +39,7 @@ async def list_territories(conn: asyncpg.Connection, guild_id: int) -> Tuple[boo
     Returns:
         (success, message, data) where data is list of dicts with:
         - territory: Territory object
-        - controller_name: Name of controlling faction (or "Uncontrolled")
+        - controller_name: Name of controlling character (or "Uncontrolled")
     """
     territories = await Territory.fetch_all(conn, guild_id)
 
@@ -48,12 +48,12 @@ async def list_territories(conn: asyncpg.Connection, guild_id: int) -> Tuple[boo
 
     territory_list = []
     for territory in territories:
-        # Get controller faction name
+        # Get controller character name
         controller_name = "Uncontrolled"
-        if territory.controller_faction_id:
-            faction = await Faction.fetch_by_id(conn, territory.controller_faction_id)
-            if faction:
-                controller_name = faction.name
+        if territory.controller_character_id:
+            character = await Character.fetch_by_id(conn, territory.controller_character_id)
+            if character:
+                controller_name = character.name
 
         territory_list.append({
             'territory': territory,

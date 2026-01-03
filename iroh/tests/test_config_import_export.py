@@ -147,7 +147,7 @@ territories:
     name: "Test Territory"
     terrain_type: "plains"
     original_nation: "test-faction-1"
-    controller_faction_id: "test-faction-1"
+    controller_character_identifier: "test-char-1"
     production:
       ore: 5
       lumber: 3
@@ -243,7 +243,7 @@ territories:
   - territory_id: 1
     terrain_type: "plains"
     original_nation: "test-faction-1"
-    controller_faction_id: "test-faction-1"
+    controller_character_identifier: "test-char-1"
     production:
       ore: 0
       lumber: 0
@@ -253,7 +253,7 @@ territories:
 
   - territory_id: 2
     terrain_type: "plains"
-    controller_faction_id: "test-faction-1"
+    controller_character_identifier: "test-char-2"
     production:
       ore: 0
       lumber: 0
@@ -338,7 +338,7 @@ territories:
   - territory_id: 101
     terrain_type: "plains"
     original_nation: "export-faction"
-    controller_faction_id: "export-faction"
+    controller_character_identifier: "test-char-1"
     production:
       ore: 5
       lumber: 3
@@ -445,7 +445,7 @@ factions:
 territories:
   - territory_id: 99
     terrain_type: "plains"
-    controller_faction_id: "roundtrip-faction"
+    controller_character_identifier: "test-char-1"
     production:
       ore: 1
       lumber: 2
@@ -532,7 +532,7 @@ factions:
 territories:
   - territory_id: 1
     terrain_type: "plains"
-    controller_faction_id: "test-faction"
+    controller_character_identifier: "test-char-1"
     production:
       ore: 0
       lumber: 0

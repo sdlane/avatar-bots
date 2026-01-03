@@ -20,18 +20,18 @@ from tests.conftest import TEST_GUILD_ID, TEST_GUILD_ID_2
 @pytest.mark.asyncio
 async def test_view_territory_success(db_conn, test_server):
     """Test viewing a territory with adjacencies and controller."""
-    # Create faction
-    faction = Faction(
-        faction_id="test-faction", name="Test Faction",
-        guild_id=TEST_GUILD_ID
+    # Create character
+    character = Character(
+        identifier="territory-owner", name="Territory Owner",
+        channel_id=900000000000000050, guild_id=TEST_GUILD_ID
     )
-    await faction.upsert(db_conn)
-    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "territory-owner", TEST_GUILD_ID)
 
     # Create territories
     territory1 = Territory(
         territory_id=1, terrain_type="plains", name="Territory 1",
-        controller_faction_id=faction.id, guild_id=TEST_GUILD_ID
+        controller_character_id=character.id, guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
@@ -58,12 +58,12 @@ async def test_view_territory_success(db_conn, test_server):
     assert 'controller_name' in data
     assert data['territory'].territory_id == 1
     assert 2 in data['adjacent_ids']
-    assert data['controller_name'] == "Test Faction"
+    assert data['controller_name'] == "Territory Owner"
 
     # Cleanup
     await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
-    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Character WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
 @pytest.mark.asyncio
@@ -895,13 +895,13 @@ async def test_view_territories_for_character_success(db_conn, test_server):
     # Create territories
     territory1 = Territory(
         territory_id=1, terrain_type="plains", name="Territory 1",
-        controller_faction_id=faction.id, guild_id=TEST_GUILD_ID
+        controller_character_id=faction.id, guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
         territory_id=2, terrain_type="mountain", name="Territory 2",
-        controller_faction_id=faction.id, guild_id=TEST_GUILD_ID
+        controller_character_id=faction.id, guild_id=TEST_GUILD_ID
     )
     await territory2.upsert(db_conn)
 

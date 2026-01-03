@@ -53,7 +53,7 @@ territories:
     name: "Fire Nation Capital"
     terrain_type: "plains"
     original_nation: "fire-nation"
-    controller_faction_id: "fire-nation"
+    controller_character_identifier: "taiso"
     production:
       ore: 5
       lumber: 3
@@ -66,7 +66,7 @@ territories:
     name: "Earth Kingdom Territory"
     terrain_type: "mountain"
     original_nation: "earth-kingdom"
-    controller_faction_id: "earth-kingdom"
+    controller_character_identifier: "jialun"
     production:
       ore: 10
       lumber: 1

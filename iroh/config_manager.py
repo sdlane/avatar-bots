@@ -103,11 +103,11 @@ class ConfigManager:
             if territory.original_nation:
                 territory_dict['original_nation'] = territory.original_nation
 
-            # Get controller faction_id
-            if territory.controller_faction_id:
-                controller = await Faction.fetch_by_id(conn, territory.controller_faction_id)
+            # Get controller character identifier
+            if territory.controller_character_id:
+                controller = await Character.fetch_by_id(conn, territory.controller_character_id)
                 if controller:
-                    territory_dict['controller_faction_id'] = controller.faction_id
+                    territory_dict['controller_character_identifier'] = controller.identifier
 
             # Production
             territory_dict['production'] = {
@@ -252,6 +252,11 @@ class ConfigManager:
                 if 'commander' in unit:
                     character_identifiers_needed.add(unit['commander'])
 
+        if 'territories' in config_dict:
+            for territory in config_dict['territories']:
+                if 'controller_character_identifier' in territory:
+                    character_identifiers_needed.add(territory['controller_character_identifier'])
+
         # Validate characters exist
         missing_characters = []
         character_map = {}  # identifier -> Character object
@@ -342,9 +347,11 @@ class ConfigManager:
         # Import Territories
         if 'territories' in config_dict:
             for territory_data in config_dict['territories']:
-                controller_faction_id = None
-                if 'controller_faction_id' in territory_data:
-                    controller_faction_id = faction_map.get(territory_data['controller_faction_id'])
+                controller_character_id = None
+                if 'controller_character_identifier' in territory_data:
+                    character = character_map.get(territory_data['controller_character_identifier'])
+                    if character:
+                        controller_character_id = character.id
 
                 production = territory_data.get('production', {})
                 territory = Territory(
@@ -356,7 +363,7 @@ class ConfigManager:
                     coal_production=production.get('coal', 0),
                     rations_production=production.get('rations', 0),
                     cloth_production=production.get('cloth', 0),
-                    controller_faction_id=controller_faction_id,
+                    controller_character_id=controller_character_id,
                     original_nation=territory_data.get('original_nation'),
                     guild_id=guild_id
                 )
@@ -431,15 +438,6 @@ class ConfigManager:
                         faction_obj = await Faction.fetch_by_faction_id(conn, unit_data['faction_id'], guild_id)
                         if faction_obj:
                             faction_internal_id = faction_obj.id
-
-                    # Try to find faction's nation from territories it controls
-                    if faction_internal_id:
-                        territory_with_nation = await conn.fetchrow(
-                            "SELECT original_nation FROM Territory WHERE controller_faction_id = $1 AND guild_id = $2 AND original_nation IS NOT NULL LIMIT 1;",
-                            faction_internal_id, guild_id
-                        )
-                        if territory_with_nation:
-                            faction_nation = territory_with_nation['original_nation']
 
                 # Get unit type to determine stats
                 unit_type = await UnitType.fetch_by_type_id(conn, unit_data['type'], guild_id)

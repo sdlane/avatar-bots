@@ -203,46 +203,46 @@ async def test_delete_territory_with_units(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_set_territory_controller_success(db_conn, test_server):
-    """Test assigning faction as controller."""
-    # Create territory and faction
+    """Test assigning character as controller."""
+    # Create territory and character
     territory = Territory(
         territory_id=500, terrain_type="plains", guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
 
-    faction = Faction(
-        faction_id="control-faction", name="Control Faction",
-        guild_id=TEST_GUILD_ID
+    character = Character(
+        identifier="controller", name="Controller Character",
+        channel_id=123, guild_id=TEST_GUILD_ID
     )
-    await faction.upsert(db_conn)
-    faction = await Faction.fetch_by_faction_id(db_conn, "control-faction", TEST_GUILD_ID)
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "controller", TEST_GUILD_ID)
 
     # Set controller
     success, message = await set_territory_controller(
-        db_conn, 500, "control-faction", TEST_GUILD_ID
+        db_conn, 500, "controller", TEST_GUILD_ID
     )
 
     assert success is True
 
     # Verify controller
     territory = await Territory.fetch_by_territory_id(db_conn, 500, TEST_GUILD_ID)
-    assert territory.controller_faction_id == faction.id
+    assert territory.controller_character_id == character.id
 
 
 @pytest.mark.asyncio
 async def test_set_territory_controller_remove(db_conn, test_server):
     """Test setting controller to 'none'."""
     # Create territory with controller
-    faction = Faction(
-        faction_id="remove-faction", name="Remove Faction",
-        guild_id=TEST_GUILD_ID
+    character = Character(
+        identifier="remover", name="Remove Character",
+        channel_id=124, guild_id=TEST_GUILD_ID
     )
-    await faction.upsert(db_conn)
-    faction = await Faction.fetch_by_faction_id(db_conn, "remove-faction", TEST_GUILD_ID)
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "remover", TEST_GUILD_ID)
 
     territory = Territory(
         territory_id=501, terrain_type="plains",
-        controller_faction_id=faction.id,
+        controller_character_id=character.id,
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -256,12 +256,12 @@ async def test_set_territory_controller_remove(db_conn, test_server):
 
     # Verify controller removed
     territory = await Territory.fetch_by_territory_id(db_conn, 501, TEST_GUILD_ID)
-    assert territory.controller_faction_id is None
+    assert territory.controller_character_id is None
 
 
 @pytest.mark.asyncio
 async def test_set_territory_controller_nonexistent_faction(db_conn, test_server):
-    """Test setting controller to invalid faction_id."""
+    """Test setting controller to invalid character identifier."""
     # Create territory
     territory = Territory(
         territory_id=502, terrain_type="plains", guild_id=TEST_GUILD_ID
@@ -270,7 +270,7 @@ async def test_set_territory_controller_nonexistent_faction(db_conn, test_server
 
     # Try to set invalid controller
     success, message = await set_territory_controller(
-        db_conn, 502, "nonexistent-faction", TEST_GUILD_ID
+        db_conn, 502, "nonexistent-character", TEST_GUILD_ID
     )
 
     assert success is False
@@ -442,26 +442,26 @@ async def test_territory_guild_isolation(db_conn, test_server_multi_guild):
     )
     await territory_b.upsert(db_conn)
 
-    # Create faction in guild A and set as controller
-    faction_a = Faction(
-        faction_id="test-faction", name="Guild A Faction",
-        guild_id=TEST_GUILD_ID
+    # Create character in guild A and set as controller
+    character_a = Character(
+        identifier="test-character", name="Guild A Character",
+        channel_id=125, guild_id=TEST_GUILD_ID
     )
-    await faction_a.upsert(db_conn)
-    faction_a = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    await character_a.upsert(db_conn)
+    character_a = await Character.fetch_by_identifier(db_conn, "test-character", TEST_GUILD_ID)
 
-    await set_territory_controller(db_conn, 1, "test-faction", TEST_GUILD_ID)
+    await set_territory_controller(db_conn, 1, "test-character", TEST_GUILD_ID)
 
     # Verify guild B's territory is unchanged
     territory_b_check = await Territory.fetch_by_territory_id(db_conn, 1, TEST_GUILD_ID_2)
     assert territory_b_check.name == "Guild B Territory"
     assert territory_b_check.terrain_type == "mountain"
     assert territory_b_check.ore_production == 10
-    assert territory_b_check.controller_faction_id is None
+    assert territory_b_check.controller_character_id is None
 
     # Verify guild A's territory was modified
     territory_a_check = await Territory.fetch_by_territory_id(db_conn, 1, TEST_GUILD_ID)
-    assert territory_a_check.controller_faction_id == faction_a.id
+    assert territory_a_check.controller_character_id == character_a.id
 
     # Edit territory in guild A
     await edit_territory(db_conn, 1, TEST_GUILD_ID, name="Modified Name", lumber=7)

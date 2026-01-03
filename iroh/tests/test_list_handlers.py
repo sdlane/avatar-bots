@@ -95,24 +95,24 @@ async def test_list_factions_empty(db_conn, test_server):
 @pytest.mark.asyncio
 async def test_list_territories_success(db_conn, test_server):
     """Test listing territories with controllers."""
-    # Create faction
-    faction = Faction(
-        faction_id="territory-faction", name="Territory Faction",
-        guild_id=TEST_GUILD_ID
+    # Create character
+    character = Character(
+        identifier="territory-controller", name="Territory Controller",
+        channel_id=900000000000000099, guild_id=TEST_GUILD_ID
     )
-    await faction.upsert(db_conn)
-    faction = await Faction.fetch_by_faction_id(db_conn, "territory-faction", TEST_GUILD_ID)
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "territory-controller", TEST_GUILD_ID)
 
     # Create territories
     territory1 = Territory(
         territory_id=1, terrain_type="plains", name="Territory 1",
-        controller_faction_id=faction.id, guild_id=TEST_GUILD_ID
+        controller_character_id=character.id, guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
         territory_id=2, terrain_type="mountain", name="Territory 2",
-        controller_faction_id=None, guild_id=TEST_GUILD_ID
+        controller_character_id=None, guild_id=TEST_GUILD_ID
     )
     await territory2.upsert(db_conn)
 
@@ -127,14 +127,14 @@ async def test_list_territories_success(db_conn, test_server):
 
     # Verify controller names
     terr1_data = next(item for item in data if item['territory'].territory_id == 1)
-    assert terr1_data['controller_name'] == "Territory Faction"
+    assert terr1_data['controller_name'] == "Territory Controller"
 
     terr2_data = next(item for item in data if item['territory'].territory_id == 2)
     assert terr2_data['controller_name'] == "Uncontrolled"
 
     # Cleanup
     await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
-    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Character WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
 @pytest.mark.asyncio

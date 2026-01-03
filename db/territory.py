@@ -17,7 +17,7 @@ class Territory:
     coal_production: int = 0
     rations_production: int = 0
     cloth_production: int = 0
-    controller_faction_id: Optional[int] = None
+    controller_character_id: Optional[int] = None
     original_nation: Optional[str] = None
     guild_id: Optional[int] = None
 
@@ -30,7 +30,7 @@ class Territory:
         INSERT INTO Territory (
             territory_id, name, terrain_type, ore_production, lumber_production,
             coal_production, rations_production, cloth_production,
-            controller_faction_id, original_nation, guild_id
+            controller_character_id, original_nation, guild_id
         )
         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
         ON CONFLICT (territory_id, guild_id) DO UPDATE
@@ -41,7 +41,7 @@ class Territory:
             coal_production = EXCLUDED.coal_production,
             rations_production = EXCLUDED.rations_production,
             cloth_production = EXCLUDED.cloth_production,
-            controller_faction_id = EXCLUDED.controller_faction_id,
+            controller_character_id = EXCLUDED.controller_character_id,
             original_nation = EXCLUDED.original_nation;
         """
         await conn.execute(
@@ -54,7 +54,7 @@ class Territory:
             self.coal_production,
             self.rations_production,
             self.cloth_production,
-            self.controller_faction_id,
+            self.controller_character_id,
             self.original_nation,
             self.guild_id
         )
@@ -67,7 +67,7 @@ class Territory:
         row = await conn.fetchrow("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production,
-                   controller_faction_id, original_nation, guild_id
+                   controller_character_id, original_nation, guild_id
             FROM Territory
             WHERE id = $1;
         """, territory_internal_id)
@@ -81,7 +81,7 @@ class Territory:
         row = await conn.fetchrow("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production,
-                   controller_faction_id, original_nation, guild_id
+                   controller_character_id, original_nation, guild_id
             FROM Territory
             WHERE territory_id = $1 AND guild_id = $2;
         """, territory_id, guild_id)
@@ -95,7 +95,7 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production,
-                   controller_faction_id, original_nation, guild_id
+                   controller_character_id, original_nation, guild_id
             FROM Territory
             WHERE guild_id = $1
             ORDER BY territory_id;
@@ -103,18 +103,18 @@ class Territory:
         return [cls(**row) for row in rows]
 
     @classmethod
-    async def fetch_by_controller(cls, conn: asyncpg.Connection, faction_id: int, guild_id: int) -> List["Territory"]:
+    async def fetch_by_controller(cls, conn: asyncpg.Connection, character_id: int, guild_id: int) -> List["Territory"]:
         """
-        Fetch all Territories controlled by a specific faction.
+        Fetch all Territories controlled by a specific character.
         """
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production,
-                   controller_faction_id, original_nation, guild_id
+                   controller_character_id, original_nation, guild_id
             FROM Territory
-            WHERE controller_faction_id = $1 AND guild_id = $2
+            WHERE controller_character_id = $1 AND guild_id = $2
             ORDER BY territory_id;
-        """, faction_id, guild_id)
+        """, character_id, guild_id)
         return [cls(**row) for row in rows]
 
     @classmethod

@@ -6,8 +6,22 @@ from typing import Tuple
 from db import Unit, UnitType, Character, FactionMember, Faction, Territory
 
 
-async def create_unit(conn: asyncpg.Connection, unit_id: str, unit_type: str, owner_identifier: str, territory_id: int, guild_id: int) -> Tuple[bool, str]:
-    """Create a new unit."""
+async def create_unit(conn: asyncpg.Connection, unit_id: str, unit_type: str, owner_identifier: str, territory_id: int, nation: str, guild_id: int) -> Tuple[bool, str]:
+    """
+    Create a new unit.
+
+    Args:
+        conn: Database connection
+        unit_id: Unique identifier for the unit
+        unit_type: Type identifier for the unit type
+        owner_identifier: Character identifier for the owner
+        territory_id: Territory where unit is created
+        nation: Nation for the unit (required)
+        guild_id: Guild ID
+
+    Returns:
+        (success, message) tuple
+    """
     # Check if unit already exists
     existing = await Unit.fetch_by_unit_id(conn, unit_id, guild_id)
     if existing:
@@ -22,24 +36,15 @@ async def create_unit(conn: asyncpg.Connection, unit_id: str, unit_type: str, ow
     faction_member = await FactionMember.fetch_by_character(conn, owner_char.id, guild_id)
     faction_id = faction_member.faction_id if faction_member else None
 
-    # Determine nation from faction
-    faction_nation = None
-    if faction_id:
-        faction_obj = await Faction.fetch_by_id(conn, faction_id)
-        if faction_obj:
-            # Get nation from faction's controlled territories
-            territory_with_nation = await conn.fetchrow(
-                "SELECT original_nation FROM Territory WHERE controller_faction_id = $1 AND guild_id = $2 AND original_nation IS NOT NULL LIMIT 1;",
-                faction_id, guild_id
-            )
-            if territory_with_nation:
-                faction_nation = territory_with_nation['original_nation']
-
-    # Fetch unit type
+    # Fetch unit type - must match the specified nation
     unit_type_obj = await UnitType.fetch_by_type_id(conn, unit_type, guild_id)
 
     if not unit_type_obj:
         return False, f"Unit type '{unit_type}' not found."
+
+    # Validate that unit type matches the specified nation
+    if unit_type_obj.nation and unit_type_obj.nation != nation:
+        return False, f"Unit type '{unit_type}' belongs to nation '{unit_type_obj.nation}', but you specified nation '{nation}'."
 
     # Validate territory
     territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
