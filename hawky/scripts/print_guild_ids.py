@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """
-Print unique guild IDs from wargame-related database tables.
-Excludes the Character table as requested.
+Print unique guild IDs from hawky-related database tables.
 """
 import asyncio
 import asyncpg
@@ -13,20 +12,13 @@ parent_dir = Path(__file__).parent
 sys.path.insert(0, str(parent_dir))
 
 
-# Wargame-related tables with guild_id column (excluding Character)
-WARGAME_TABLES = [
-    'Faction',
-    'FactionMember',
-    'FactionJoinRequest',
-    'Territory',
-    'TerritoryAdjacency',
-    'Unit',
-    'UnitType',
-    'PlayerResources',
-    'ResourceTransfer',
-    'WargameConfig',
-    'TurnLog',
-    'WargameOrder'
+# Hawky-related tables with guild_id column
+HAWKY_TABLES = [
+    'ServerConfig',
+    'Character',
+    'Alias',
+    'HawkyTask',
+    'SentLetter',
 ]
 
 
@@ -43,7 +35,7 @@ async def get_guild_ids_from_table(conn: asyncpg.Connection, table_name: str) ->
 
 async def main():
     """Main function to connect to database and print guild IDs."""
-    # Database connection parameters (from conftest.py)
+    # Database connection parameters
     conn = await asyncpg.connect(
         host='db',
         port=5432,
@@ -53,13 +45,13 @@ async def main():
     )
 
     try:
-        print("Scanning wargame-related tables for unique guild IDs...")
+        print("Scanning hawky-related tables for unique guild IDs...")
         print("=" * 60)
 
         all_guild_ids = set()
         table_guild_ids = {}
 
-        for table_name in WARGAME_TABLES:
+        for table_name in HAWKY_TABLES:
             guild_ids = await get_guild_ids_from_table(conn, table_name)
             table_guild_ids[table_name] = guild_ids
             all_guild_ids.update(guild_ids)
@@ -72,7 +64,7 @@ async def main():
                 print(f"\n{table_name}: (no guild IDs found)")
 
         print("\n" + "=" * 60)
-        print("\nSUMMARY - All unique guild IDs across wargame tables:")
+        print("\nSUMMARY - All unique guild IDs across hawky tables:")
         print("=" * 60)
 
         if all_guild_ids:
@@ -81,7 +73,7 @@ async def main():
                 table_count = sum(1 for guild_ids in table_guild_ids.values() if guild_id in guild_ids)
                 print(f"  {guild_id} (present in {table_count} table(s))")
         else:
-            print("  (no guild IDs found in any wargame tables)")
+            print("  (no guild IDs found in any hawky tables)")
 
         print()
 
