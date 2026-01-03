@@ -477,6 +477,186 @@ async def view_pending_orders(
     return True, f"Found {len(orders)} pending order(s) for {character.name}.", orders_list
 
 
+async def submit_resource_transfer_order(
+    conn: asyncpg.Connection,
+    from_character: Character,
+    to_character_identifier: str,
+    resources: dict,
+    is_ongoing: bool,
+    term: Optional[int],
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Submit a resource transfer order (one-time or ongoing).
+
+    Args:
+        conn: Database connection
+        from_character: Character sending resources
+        to_character_identifier: Character identifier receiving resources
+        resources: Dict with keys: ore, lumber, coal, rations, cloth
+        is_ongoing: True for ongoing transfer, False for one-time
+        term: Number of turns (ongoing only), None = indefinite
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate recipient character exists
+    to_character = await Character.fetch_by_identifier(conn, to_character_identifier, guild_id)
+    if not to_character:
+        return False, f"Character '{to_character_identifier}' not found."
+
+    # Cannot transfer to self
+    if from_character.id == to_character.id:
+        return False, "Cannot transfer resources to yourself."
+
+    # Validate resources dict
+    resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth']
+    for resource_type in resource_types:
+        if resource_type not in resources:
+            resources[resource_type] = 0
+        if resources[resource_type] < 0:
+            return False, f"Resource amounts cannot be negative."
+
+    # Check at least one resource > 0
+    total_resources = sum(resources.values())
+    if total_resources <= 0:
+        return False, "Must transfer at least one resource."
+
+    # Validate term if ongoing
+    if is_ongoing and term is not None:
+        if term < 2:
+            return False, "Term must be at least 2 turns if specified."
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create order data
+    order_data = {
+        'to_character_id': to_character.id,
+        'ore': resources['ore'],
+        'lumber': resources['lumber'],
+        'coal': resources['coal'],
+        'rations': resources['rations'],
+        'cloth': resources['cloth']
+    }
+
+    # Add ongoing-specific fields
+    if is_ongoing:
+        order_data['term'] = term
+        order_data['turns_executed'] = 0
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.RESOURCE_TRANSFER.value,
+        unit_ids=[],
+        character_id=from_character.id,
+        turn_number=current_turn + 1,  # Execute next turn
+        phase=ORDER_PHASE_MAP[OrderType.RESOURCE_TRANSFER].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.RESOURCE_TRANSFER],
+        status=OrderStatus.ONGOING.value if is_ongoing else OrderStatus.PENDING.value,
+        order_data=order_data,
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    # Format response message
+    resource_strs = []
+    for resource_type in resource_types:
+        if resources[resource_type] > 0:
+            resource_strs.append(f"{resources[resource_type]} {resource_type}")
+
+    transfer_type = "Ongoing" if is_ongoing else "One-time"
+    term_str = f" (for {term} turns)" if is_ongoing and term else " (indefinite)" if is_ongoing else ""
+
+    return True, f"{transfer_type} transfer order submitted: {from_character.name} → {to_character.name}: {', '.join(resource_strs)}{term_str} (Order #{order_id})."
+
+
+async def submit_cancel_transfer_order(
+    conn: asyncpg.Connection,
+    character: Character,
+    original_order_id: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Submit an order to cancel an ongoing resource transfer.
+
+    Args:
+        conn: Database connection
+        character: Character submitting the cancel order
+        original_order_id: The order ID to cancel
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate original order exists
+    original_order = await Order.fetch_by_order_id(conn, original_order_id, guild_id)
+    if not original_order:
+        return False, f"Order '{original_order_id}' not found."
+
+    # Validate it's a RESOURCE_TRANSFER order
+    if original_order.order_type != OrderType.RESOURCE_TRANSFER.value:
+        return False, f"Order '{original_order_id}' is not a RESOURCE_TRANSFER order."
+
+    # Validate it has ONGOING status
+    if original_order.status != OrderStatus.ONGOING.value:
+        return False, f"Order '{original_order_id}' is not ONGOING. Only ongoing transfers can be cancelled."
+
+    # Validate it belongs to the character
+    if original_order.character_id != character.id:
+        return False, f"Order '{original_order_id}' does not belong to you."
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Validate at least 1 turn has passed since submission
+    original_submitted_at = original_order.submitted_at
+    original_turn = original_order.turn_number
+
+    # Check if the original order was submitted in a previous turn
+    if original_turn >= current_turn:
+        return False, f"Cannot cancel order '{original_order_id}' on the same turn it was submitted. Wait until next turn."
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create cancel order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.CANCEL_TRANSFER.value,
+        unit_ids=[],
+        character_id=character.id,
+        turn_number=current_turn + 1,  # Execute next turn
+        phase=ORDER_PHASE_MAP[OrderType.CANCEL_TRANSFER].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.CANCEL_TRANSFER],
+        status=OrderStatus.PENDING.value,
+        order_data={'original_order_id': original_order_id},
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    return True, f"Cancel transfer order submitted for '{original_order_id}' (Order #{order_id}). Cancellation will be processed next turn."
+
+
 async def validate_path(
     conn: asyncpg.Connection,
     path: List[int],
