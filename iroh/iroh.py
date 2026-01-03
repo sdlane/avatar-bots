@@ -385,7 +385,6 @@ async def clear_wargame_config(interaction: discord.Interaction):
         await conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Territory WHERE guild_id = $1;", interaction.guild_id)
-        await conn.execute("DELETE FROM ResourceTransfer WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Faction WHERE guild_id = $1;", interaction.guild_id)

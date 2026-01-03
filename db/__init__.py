@@ -13,7 +13,6 @@ from .faction_join_request import *
 from .unit import *
 from .unit_type import *
 from .player_resources import *
-from .resource_transfer import *
 from .territory_adjacency import *
 from .wargame_config import *
 from .order import *

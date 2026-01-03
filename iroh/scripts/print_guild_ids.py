@@ -23,7 +23,6 @@ WARGAME_TABLES = [
     'Unit',
     'UnitType',
     'PlayerResources',
-    'ResourceTransfer',
     'WargameConfig',
     'TurnLog',
     'WargameOrder'

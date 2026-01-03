@@ -392,35 +392,8 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS cloth INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
-    # --- ResourceTransfer table ---
-    await conn.execute("""
-    CREATE TABLE IF NOT EXISTS ResourceTransfer (
-        id SERIAL PRIMARY KEY,
-        from_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
-        to_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
-        ore INTEGER DEFAULT 0,
-        lumber INTEGER DEFAULT 0,
-        coal INTEGER DEFAULT 0,
-        rations INTEGER DEFAULT 0,
-        cloth INTEGER DEFAULT 0,
-        reason VARCHAR(255),
-        transfer_time TIMESTAMP NOT NULL DEFAULT NOW(),
-        turn_number INTEGER,
-        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE
-    );
-    """)
-
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS from_character_id INTEGER;")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS to_character_id INTEGER;")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS ore INTEGER DEFAULT 0;")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS lumber INTEGER DEFAULT 0;")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS coal INTEGER DEFAULT 0;")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS rations INTEGER DEFAULT 0;")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS cloth INTEGER DEFAULT 0;")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS reason VARCHAR(255);")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS transfer_time TIMESTAMP DEFAULT NOW();")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS turn_number INTEGER;")
-    await conn.execute("ALTER TABLE ResourceTransfer ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+    # Drop old ResourceTransfer table if it exists
+    await conn.execute('DROP TABLE IF EXISTS ResourceTransfer CASCADE;')
 
     # --- TerritoryAdjacency table ---
     await conn.execute("""
