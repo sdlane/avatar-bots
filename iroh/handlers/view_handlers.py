@@ -251,12 +251,12 @@ async def view_units_for_character(conn: asyncpg.Connection, user_id: int, guild
 
 async def view_territories_for_character(conn: asyncpg.Connection, user_id: int, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
     """
-    Fetch territories controlled by player's faction.
+    Fetch territories controlled by the player's character.
 
     Returns:
         (success, message, data) where data contains:
         - character: Character object
-        - faction: Faction object
+        - faction: Faction object (optional, for display)
         - territories: List of Territory objects
         - adjacencies: Dict mapping territory_id to list of adjacent territory IDs
     """
@@ -265,23 +265,17 @@ async def view_territories_for_character(conn: asyncpg.Connection, user_id: int,
     if not character:
         return False, "You don't have a character assigned. Ask a GM to assign you one using hawky.", None
 
-    # Find faction membership
-    faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
-
-    if not faction_member:
-        return False, f"{character.name} is not a member of any faction.", None
-
-    # Fetch faction
-    faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
-
-    if not faction:
-        return False, "Faction data not found.", None
-
-    # Fetch territories controlled by this faction
-    territories = await Territory.fetch_by_controller(conn, faction.id, guild_id)
+    # Fetch territories controlled by this character
+    territories = await Territory.fetch_by_controller(conn, character.id, guild_id)
 
     if not territories:
-        return False, f"The {faction.name} doesn't control any territories.", None
+        return False, f"{character.name} doesn't control any territories.", None
+
+    # Fetch faction for display (optional)
+    faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
+    faction = None
+    if faction_member:
+        faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
 
     # Fetch adjacencies for each territory
     adjacencies = {}
