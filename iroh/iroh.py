@@ -267,7 +267,7 @@ async def my_units_cmd(interaction: discord.Interaction):
 
 @tree.command(
     name="my-territories",
-    description="View territories controlled by your faction"
+    description="View territories controlled by your character"
 )
 async def my_territories_cmd(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
@@ -280,8 +280,9 @@ async def my_territories_cmd(interaction: discord.Interaction):
             return
 
         # Create summary embed
+        character_name = data['character'].name
         embed = discord.Embed(
-            title=f"🗺️ {data['faction'].name} Territories",
+            title=f"🗺️ {character_name}'s Territories",
             description=f"{len(data['territories'])} territories controlled",
             color=discord.Color.green()
         )
@@ -347,7 +348,7 @@ async def my_units_list_cmd(interaction: discord.Interaction):
 
 @tree.command(
     name="my-territories-list",
-    description="List IDs of territories controlled by your faction"
+    description="List IDs of territories controlled by your character"
 )
 async def my_territories_list_cmd(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
@@ -361,9 +362,10 @@ async def my_territories_list_cmd(interaction: discord.Interaction):
 
         # Create list of territory IDs
         territory_ids = [str(t.territory_id) for t in data['territories']]
+        character_name = data['character'].name
 
         await interaction.followup.send(
-            f"**{data['faction'].name} territory IDs:**\n`{', '.join(territory_ids)}`\n\nUse `/view-territory <territory_id>` for details.",
+            f"**{character_name}'s territory IDs:**\n`{', '.join(territory_ids)}`\n\nUse `/view-territory <territory_id>` for details.",
             ephemeral=True
         )
 
