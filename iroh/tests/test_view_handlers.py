@@ -867,7 +867,7 @@ async def test_view_units_for_character_none(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_view_territories_for_character_success(db_conn, test_server):
-    """Test viewing territories for a character whose faction controls territories."""
+    """Test viewing territories for a character who controls territories."""
     # Create character
     char = Character(
         identifier="faction-member", name="Faction Member",
@@ -892,16 +892,16 @@ async def test_view_territories_for_character_success(db_conn, test_server):
     )
     await member.insert(db_conn)
 
-    # Create territories
+    # Create territories controlled by the character
     territory1 = Territory(
         territory_id=1, terrain_type="plains", name="Territory 1",
-        controller_character_id=faction.id, guild_id=TEST_GUILD_ID
+        controller_character_id=char.id, guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
         territory_id=2, terrain_type="mountain", name="Territory 2",
-        controller_character_id=faction.id, guild_id=TEST_GUILD_ID
+        controller_character_id=char.id, guild_id=TEST_GUILD_ID
     )
     await territory2.upsert(db_conn)
 
@@ -934,7 +934,7 @@ async def test_view_territories_for_character_success(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_view_territories_for_character_not_in_faction(db_conn, test_server):
-    """Test viewing territories for character not in a faction."""
+    """Test viewing territories for character who controls no territories."""
     # Create character
     char = Character(
         identifier="no-faction-char", name="No Faction Character",
@@ -943,18 +943,18 @@ async def test_view_territories_for_character_not_in_faction(db_conn, test_serve
     )
     await char.upsert(db_conn)
 
-    # View territories
+    # View territories (character has no territories)
     success, message, data = await view_territories_for_character(db_conn, 100000000000000002, TEST_GUILD_ID)
 
     # Verify failure
     assert success is False
-    assert "not a member" in message.lower()
+    assert "doesn't control any territories" in message.lower()
     assert data is None
 
 
 @pytest.mark.asyncio
 async def test_view_territories_for_character_no_territories(db_conn, test_server):
-    """Test viewing territories for character whose faction controls no territories."""
+    """Test viewing territories for character who controls no territories (but is in a faction)."""
     # Create character
     char = Character(
         identifier="faction-member", name="Faction Member",
@@ -979,7 +979,7 @@ async def test_view_territories_for_character_no_territories(db_conn, test_serve
     )
     await member.insert(db_conn)
 
-    # View territories
+    # View territories (character controls no territories even though they're in a faction)
     success, message, data = await view_territories_for_character(db_conn, 100000000000000003, TEST_GUILD_ID)
 
     # Verify failure
