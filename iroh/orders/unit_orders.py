@@ -37,6 +37,7 @@ async def handle_assign_commander_order(
         # Extract order data
         unit_id = order.order_data.get('unit_id')
         new_commander_id = order.order_data.get('new_commander_id')
+        new_commander_name = order.order_data.get('new_commander_name', 'Unknown')
 
         # Fetch the unit
         unit = await Unit.fetch_by_unit_id(conn, unit_id, guild_id)
@@ -56,7 +57,10 @@ async def handle_assign_commander_order(
                     'order_type': 'ASSIGN_COMMANDER',
                     'order_id': order.order_id,
                     'error': 'Unit not found',
-                    'affected_character_ids': [order.character_id]
+                    'unit_id': unit_id,
+                    'new_commander_id': new_commander_id,
+                    'new_commander_name': new_commander_name,
+                    'affected_character_ids': [order.character_id, new_commander_id] if new_commander_id else [order.character_id]
                 },
                 guild_id=guild_id
             )]
@@ -78,7 +82,11 @@ async def handle_assign_commander_order(
                     'order_type': 'ASSIGN_COMMANDER',
                     'order_id': order.order_id,
                     'error': 'Only the unit owner can assign a commander',
-                    'affected_character_ids': [order.character_id]
+                    'unit_id': unit.unit_id,
+                    'unit_name': unit.name or unit.unit_id,
+                    'new_commander_id': new_commander_id,
+                    'new_commander_name': new_commander_name,
+                    'affected_character_ids': [order.character_id, new_commander_id] if new_commander_id else [order.character_id]
                 },
                 guild_id=guild_id
             )]
@@ -101,6 +109,10 @@ async def handle_assign_commander_order(
                     'order_type': 'ASSIGN_COMMANDER',
                     'order_id': order.order_id,
                     'error': 'New commander not found',
+                    'unit_id': unit.unit_id,
+                    'unit_name': unit.name or unit.unit_id,
+                    'new_commander_id': new_commander_id,
+                    'new_commander_name': new_commander_name,
                     'affected_character_ids': [order.character_id]
                 },
                 guild_id=guild_id
@@ -113,6 +125,10 @@ async def handle_assign_commander_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
+            # Build affected list - include new commander if different from submitter
+            affected = [order.character_id]
+            if new_commander_id != order.character_id:
+                affected.append(new_commander_id)
             return [TurnLog(
                 turn_number=turn_number,
                 phase=TurnPhase.BEGINNING.value,
@@ -123,7 +139,11 @@ async def handle_assign_commander_order(
                     'order_type': 'ASSIGN_COMMANDER',
                     'order_id': order.order_id,
                     'error': 'New commander is the same as current commander',
-                    'affected_character_ids': [order.character_id]
+                    'unit_id': unit.unit_id,
+                    'unit_name': unit.name or unit.unit_id,
+                    'new_commander_id': new_commander_id,
+                    'new_commander_name': new_commander.name,
+                    'affected_character_ids': affected
                 },
                 guild_id=guild_id
             )]
@@ -143,6 +163,10 @@ async def handle_assign_commander_order(
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
+            # Build affected list - include new commander if different from submitter
+            affected = [order.character_id]
+            if new_commander_id != order.character_id:
+                affected.append(new_commander_id)
             return [TurnLog(
                 turn_number=turn_number,
                 phase=TurnPhase.BEGINNING.value,
@@ -153,7 +177,11 @@ async def handle_assign_commander_order(
                     'order_type': 'ASSIGN_COMMANDER',
                     'order_id': order.order_id,
                     'error': 'Owner and new commander are no longer in the same faction',
-                    'affected_character_ids': [order.character_id]
+                    'unit_id': unit.unit_id,
+                    'unit_name': unit.name or unit.unit_id,
+                    'new_commander_id': new_commander_id,
+                    'new_commander_name': new_commander.name,
+                    'affected_character_ids': affected
                 },
                 guild_id=guild_id
             )]
@@ -221,6 +249,13 @@ async def handle_assign_commander_order(
         order.updated_at = datetime.now()
         order.updated_turn = turn_number
         await order.upsert(conn)
+        # Extract what info we can from order_data for the error event
+        err_unit_id = order.order_data.get('unit_id')
+        err_new_commander_id = order.order_data.get('new_commander_id')
+        err_new_commander_name = order.order_data.get('new_commander_name', 'Unknown')
+        affected = [order.character_id]
+        if err_new_commander_id and err_new_commander_id != order.character_id:
+            affected.append(err_new_commander_id)
         return [TurnLog(
             turn_number=turn_number,
             phase=TurnPhase.BEGINNING.value,
@@ -231,7 +266,10 @@ async def handle_assign_commander_order(
                 'order_type': 'ASSIGN_COMMANDER',
                 'order_id': order.order_id,
                 'error': str(e),
-                'affected_character_ids': [order.character_id]
+                'unit_id': err_unit_id,
+                'new_commander_id': err_new_commander_id,
+                'new_commander_name': err_new_commander_name,
+                'affected_character_ids': affected
             },
             guild_id=guild_id
         )]

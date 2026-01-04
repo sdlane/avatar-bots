@@ -568,3 +568,85 @@ async def test_handle_assign_commander_order_faction_changed_together(db_conn, t
     assert order.status == OrderStatus.SUCCESS.value
 
     await cleanup_test_data(db_conn)
+
+
+@pytest.mark.asyncio
+async def test_handle_assign_commander_order_failure_notifies_recipient(db_conn, test_server):
+    """Test that failure events include new commander info and notify the recipient."""
+    owner, new_commander, faction, unit = await setup_basic_test_data(db_conn)
+
+    # Create order
+    order = Order(
+        order_id="ORDER-007",
+        order_type=OrderType.ASSIGN_COMMANDER.value,
+        unit_ids=[unit.id],
+        character_id=owner.id,
+        turn_number=6,
+        phase=TurnPhase.BEGINNING.value,
+        priority=2,
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'unit_id': "UNIT-001",
+            'new_commander_id': new_commander.id,
+            'new_commander_name': new_commander.name
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Remove new_commander from faction to cause failure
+    await db_conn.execute(
+        "DELETE FROM FactionMember WHERE character_id = $1 AND guild_id = $2;",
+        new_commander.id, TEST_GUILD_ID
+    )
+
+    # Execute - should fail
+    events = await handle_assign_commander_order(db_conn, order, TEST_GUILD_ID, 6)
+
+    # Verify failure event contains recipient info
+    assert len(events) == 1
+    assert events[0].event_type == 'ORDER_FAILED'
+    event_data = events[0].event_data
+
+    # Check that unit and commander info is in event_data
+    assert event_data.get('unit_id') == "UNIT-001"
+    assert event_data.get('unit_name') is not None
+    assert event_data.get('new_commander_id') == new_commander.id
+    assert event_data.get('new_commander_name') == new_commander.name
+
+    # Check that both owner AND new commander are notified
+    affected = event_data.get('affected_character_ids', [])
+    assert owner.id in affected
+    assert new_commander.id in affected
+
+    await cleanup_test_data(db_conn)
+
+
+@pytest.mark.asyncio
+async def test_order_failed_event_formatter_assign_commander(db_conn, test_server):
+    """Test that ORDER_FAILED event formatter shows context for ASSIGN_COMMANDER."""
+    from event_logging.faction_events import order_failed_character_line, order_failed_gm_line
+
+    event_data = {
+        'order_type': 'ASSIGN_COMMANDER',
+        'order_id': 'ORDER-TEST',
+        'error': 'Owner and new commander are no longer in the same faction',
+        'unit_id': 'UNIT-001',
+        'unit_name': 'Test Unit',
+        'new_commander_id': 123,
+        'new_commander_name': 'Bob Smith',
+        'affected_character_ids': [1, 123]
+    }
+
+    # Test character line
+    char_line = order_failed_character_line(event_data)
+    assert 'Bob Smith' in char_line
+    assert 'Test Unit' in char_line
+    assert 'faction' in char_line.lower()
+
+    # Test GM line
+    gm_line = order_failed_gm_line(event_data)
+    assert 'UNIT-001' in gm_line
+    assert 'Bob Smith' in gm_line
+    assert 'faction' in gm_line.lower()

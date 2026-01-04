@@ -78,6 +78,13 @@ def order_failed_character_line(event_data: Dict[str, Any], character_id: Option
     """Generate character report line for ORDER_FAILED event."""
     order_type = event_data.get('order_type', 'Unknown')
     error = event_data.get('error', 'Unknown error')
+
+    # Add context for ASSIGN_COMMANDER orders
+    if order_type == 'ASSIGN_COMMANDER':
+        unit_name = event_data.get('unit_name') or event_data.get('unit_id', 'Unknown Unit')
+        new_commander_name = event_data.get('new_commander_name', 'Unknown')
+        return f"❌ Order failed: Assign **{new_commander_name}** as commander of **{unit_name}** - {error}"
+
     return f"❌ Order failed: **{order_type}** - {error}"
 
 
@@ -85,4 +92,11 @@ def order_failed_gm_line(event_data: Dict[str, Any]) -> str:
     """Generate GM report line for ORDER_FAILED event."""
     order_type = event_data.get('order_type', 'Unknown')
     error = event_data.get('error', 'Unknown')
+
+    # Add context for ASSIGN_COMMANDER orders
+    if order_type == 'ASSIGN_COMMANDER':
+        unit_id = event_data.get('unit_id', '?')
+        new_commander_name = event_data.get('new_commander_name', '?')
+        return f"❌ ASSIGN_COMMANDER ({unit_id} → {new_commander_name}): {error}"
+
     return f"❌ {order_type}: {error}"

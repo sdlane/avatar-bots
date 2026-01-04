@@ -1207,6 +1207,56 @@ async def order_move_units_cmd(interaction: discord.Interaction, unit_ids: str, 
 
 
 @tree.command(
+    name="order-assign-commander",
+    description="[Unit Owner] Submit an order to assign a new commander to your unit"
+)
+@app_commands.describe(
+    unit_id="The unit ID to assign a new commander to",
+    new_commander="Character identifier of the new commander"
+)
+async def order_assign_commander_cmd(interaction: discord.Interaction, unit_id: str, new_commander: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message, needs_confirmation = await handlers.submit_assign_commander_order(
+            conn, unit_id, new_commander, interaction.guild_id, character.id
+        )
+
+        if needs_confirmation:
+            # Show confirmation dialog for faction mismatch
+            view = AssignCommanderConfirmView(
+                unit_id=unit_id,
+                new_commander_identifier=new_commander,
+                new_commander_name=message.split("**")[1] if "**" in message else new_commander,
+                warning_message=message,
+                db_pool=db_pool,
+                guild_id=interaction.guild_id,
+                submitting_character_id=character.id
+            )
+            await interaction.followup.send(message, view=view, ephemeral=True)
+            return
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted assign commander order for unit '{unit_id}' to '{new_commander}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit assign commander order for unit '{unit_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
     name="order-resource-transfer",
     description="Submit a one-time resource transfer order"
 )
