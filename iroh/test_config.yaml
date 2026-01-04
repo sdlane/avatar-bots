@@ -76,3 +76,36 @@ unit_types:
     upkeep:
       rations: 3
       cloth: 2
+
+units:
+  # Zuko's units - Fire Nation
+  - unit_id: "fire-1st-infantry"
+    name: "1st Fire Infantry"
+    type: "infantry"
+    owner: "zuko"
+    current_territory_id: 1
+
+  - unit_id: "fire-2nd-infantry"
+    name: "2nd Fire Infantry"
+    type: "infantry"
+    owner: "zuko"
+    current_territory_id: 1
+
+  # Toph's units - Earth Kingdom
+  - unit_id: "earth-1st-cavalry"
+    name: "1st Earth Cavalry"
+    type: "cavalry"
+    owner: "toph"
+    current_territory_id: 2
+
+  - unit_id: "earth-2nd-cavalry"
+    name: "2nd Earth Cavalry"
+    type: "cavalry"
+    owner: "toph"
+    current_territory_id: 2
+
+  - unit_id: "earth-3rd-cavalry"
+    name: "3rd Earth Cavalry"
+    type: "cavalry"
+    owner: "toph"
+    current_territory_id: 2
