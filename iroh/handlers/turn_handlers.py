@@ -469,9 +469,11 @@ async def execute_upkeep_phase(
                 guild_id=guild_id
             )
 
-        # Track total spent for summary event
+        # Track total spent and deficits for summary events
         total_spent = {rt: 0 for rt in resource_types}
+        total_deficit = {rt: 0 for rt in resource_types}
         units_maintained = 0
+        units_with_deficit = 0
 
         for unit in units:
             unit_deficit = {}
@@ -488,11 +490,13 @@ async def execute_upkeep_phase(
                 # Track deficit
                 if deducted < needed:
                     unit_deficit[rt] = needed - deducted
+                    total_deficit[rt] += needed - deducted
 
             units_maintained += 1
 
             # If there was a deficit, penalize organization
             if unit_deficit:
+                units_with_deficit += 1
                 penalty = sum(unit_deficit.values())
                 unit.organization -= penalty
                 await unit.upsert(conn)
@@ -535,6 +539,25 @@ async def execute_upkeep_phase(
                 guild_id=guild_id
             ))
             logger.info(f"Upkeep phase: {owner.name} spent {total_spent} on {units_maintained} units")
+
+        # Generate total deficit summary event if any deficits occurred
+        if units_with_deficit > 0:
+            non_zero_deficit = {rt: v for rt, v in total_deficit.items() if v > 0}
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.UPKEEP.value,
+                event_type='UPKEEP_TOTAL_DEFICIT',
+                entity_type='character',
+                entity_id=owner_id,
+                event_data={
+                    'character_name': owner.name,
+                    'total_deficit': non_zero_deficit,
+                    'units_affected': units_with_deficit,
+                    'affected_character_ids': [owner_id]
+                },
+                guild_id=guild_id
+            ))
+            logger.info(f"Upkeep phase: {owner.name} total deficit {non_zero_deficit} affecting {units_with_deficit} units")
 
     logger.info(f"Upkeep phase: finished upkeep phase for guild {guild_id}, turn {turn_number}")
     return events

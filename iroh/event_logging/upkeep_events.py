@@ -38,6 +38,35 @@ def upkeep_summary_gm_line(event_data: Dict[str, Any]) -> str:
     return f"💰 {character_name}: {resources_str} ({units_maintained}u)"
 
 
+def _format_deficit(deficit: Dict[str, int]) -> str:
+    """Helper to format deficit dict into readable string like '2 cloth, 3 rations'."""
+    deficit_strs = []
+    if deficit.get('ore', 0) > 0:
+        deficit_strs.append(f"{deficit['ore']} ore")
+    if deficit.get('lumber', 0) > 0:
+        deficit_strs.append(f"{deficit['lumber']} lumber")
+    if deficit.get('coal', 0) > 0:
+        deficit_strs.append(f"{deficit['coal']} coal")
+    if deficit.get('rations', 0) > 0:
+        deficit_strs.append(f"{deficit['rations']} rations")
+    if deficit.get('cloth', 0) > 0:
+        deficit_strs.append(f"{deficit['cloth']} cloth")
+    return ', '.join(deficit_strs) if deficit_strs else 'none'
+
+
+def upkeep_total_deficit_character_line(event_data: Dict[str, Any]) -> str:
+    """Generate character report line for UPKEEP_TOTAL_DEFICIT event."""
+    total_deficit = event_data.get('total_deficit', {})
+    units_affected = event_data.get('units_affected', 0)
+    deficit_str = _format_deficit(total_deficit)
+    return f"⚠️ Total resources lacking: {deficit_str} ({units_affected} unit{'s' if units_affected != 1 else ''} affected)"
+
+
+def upkeep_total_deficit_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for UPKEEP_TOTAL_DEFICIT event (not shown in GM report)."""
+    return ""
+
+
 def upkeep_paid_character_line(event_data: Dict[str, Any]) -> str:
     """Generate character report line for UPKEEP_PAID event."""
     unit_id = event_data.get('unit_id', 'Unknown')

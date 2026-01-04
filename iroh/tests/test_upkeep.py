@@ -11,6 +11,8 @@ from tests.conftest import TEST_GUILD_ID
 from event_logging.upkeep_events import (
     upkeep_summary_character_line,
     upkeep_summary_gm_line,
+    upkeep_total_deficit_character_line,
+    upkeep_total_deficit_gm_line,
     upkeep_deficit_character_line,
     upkeep_deficit_gm_line,
 )
@@ -289,10 +291,15 @@ async def test_upkeep_no_resources(db_conn, test_server):
     # Execute upkeep phase
     events = await execute_upkeep_phase(db_conn, TEST_GUILD_ID, 1)
 
-    # Verify UPKEEP_DEFICIT event (no UPKEEP_SUMMARY since nothing spent)
-    assert len(events) == 1
-    deficit_event = events[0]
-    assert deficit_event.event_type == 'UPKEEP_DEFICIT'
+    # Verify UPKEEP_DEFICIT and UPKEEP_TOTAL_DEFICIT events (no UPKEEP_SUMMARY since nothing spent)
+    assert len(events) == 2
+    deficit_events = [e for e in events if e.event_type == 'UPKEEP_DEFICIT']
+    total_deficit_events = [e for e in events if e.event_type == 'UPKEEP_TOTAL_DEFICIT']
+
+    assert len(deficit_events) == 1
+    assert len(total_deficit_events) == 1
+
+    deficit_event = deficit_events[0]
     assert deficit_event.event_data['resources_deficit'] == {
         'ore': 2, 'lumber': 3, 'coal': 1, 'rations': 4
     }
@@ -637,3 +644,90 @@ def test_upkeep_deficit_gm_line_format():
     line = upkeep_deficit_gm_line(event_data)
     assert 'unit-test' in line
     assert 'org -3' in line
+
+
+def test_upkeep_total_deficit_character_line_format():
+    """Test UPKEEP_TOTAL_DEFICIT character line formatting."""
+    event_data = {
+        'character_name': 'Test Player',
+        'total_deficit': {
+            'rations': 7,
+            'cloth': 6
+        },
+        'units_affected': 3,
+        'affected_character_ids': [123]
+    }
+    line = upkeep_total_deficit_character_line(event_data)
+    assert 'Total resources lacking' in line
+    assert '7 rations' in line
+    assert '6 cloth' in line
+    assert '3 units' in line
+
+
+def test_upkeep_total_deficit_gm_line_empty():
+    """Test UPKEEP_TOTAL_DEFICIT GM line returns empty (not shown in GM report)."""
+    event_data = {
+        'character_name': 'Test Player',
+        'total_deficit': {'rations': 5},
+        'units_affected': 2,
+        'affected_character_ids': [123]
+    }
+    line = upkeep_total_deficit_gm_line(event_data)
+    assert line == ""
+
+
+@pytest.mark.asyncio
+async def test_upkeep_total_deficit_event_generated(db_conn, test_server):
+    """Test that UPKEEP_TOTAL_DEFICIT event is generated when units have deficits."""
+    # Create character
+    character = Character(
+        identifier="total-deficit-char", name="Total Deficit Player",
+        channel_id=999000000000000011, guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "total-deficit-char", TEST_GUILD_ID)
+
+    # Create two units with upkeep costs
+    unit1 = Unit(
+        unit_id="deficit-unit-1", name="Deficit Unit 1", unit_type="infantry",
+        owner_character_id=character.id,
+        organization=10, max_organization=10,
+        upkeep_ore=0, upkeep_lumber=0, upkeep_coal=0,
+        upkeep_rations=5, upkeep_cloth=2,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit1.upsert(db_conn)
+
+    unit2 = Unit(
+        unit_id="deficit-unit-2", name="Deficit Unit 2", unit_type="infantry",
+        owner_character_id=character.id,
+        organization=10, max_organization=10,
+        upkeep_ore=0, upkeep_lumber=0, upkeep_coal=0,
+        upkeep_rations=5, upkeep_cloth=2,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit2.upsert(db_conn)
+
+    # Create resources that can only partially cover upkeep
+    # Need: 10 rations, 4 cloth. Have: 3 rations, 1 cloth
+    resources = PlayerResources(
+        character_id=character.id,
+        ore=0, lumber=0, coal=0, rations=3, cloth=1,
+        guild_id=TEST_GUILD_ID
+    )
+    await resources.upsert(db_conn)
+
+    # Execute upkeep phase
+    events = await execute_upkeep_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Verify UPKEEP_TOTAL_DEFICIT event generated
+    total_deficit_events = [e for e in events if e.event_type == 'UPKEEP_TOTAL_DEFICIT']
+    assert len(total_deficit_events) == 1
+
+    event = total_deficit_events[0]
+    assert event.entity_id == character.id
+    assert event.event_data['units_affected'] == 2
+    # Total deficit: needed 10 rations, had 3 = 7 missing; needed 4 cloth, had 1 = 3 missing
+    assert event.event_data['total_deficit']['rations'] == 7
+    assert event.event_data['total_deficit']['cloth'] == 3
+    assert event.event_data['affected_character_ids'] == [character.id]
