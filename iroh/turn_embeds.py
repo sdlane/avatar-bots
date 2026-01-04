@@ -236,7 +236,7 @@ def create_gm_turn_report_embed(
     if summary.get('total_events', 0) > 0:
         summary_lines.append(f"📊 Total Events: {summary['total_events']}")
 
-    for phase in ['BEGINNING', 'MOVEMENT', 'RESOURCE_COLLECTION', 'UPKEEP']:
+    for phase in PHASE_ORDER:
         count = summary.get(f'{phase.lower()}_events', 0)
         if count > 0:
             phase_name = phase.replace('_', ' ').title()
@@ -258,9 +258,7 @@ def create_gm_turn_report_embed(
         phases[phase].append(event)
 
     # Display each phase (limited to avoid embed size limits)
-    phase_order = ['BEGINNING', 'MOVEMENT', 'RESOURCE_COLLECTION', 'RESOURCE_TRANSFER', 'UPKEEP']
-
-    for phase in phase_order:
+    for phase in PHASE_ORDER:
         if phase not in phases:
             continue
 

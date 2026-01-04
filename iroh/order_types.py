@@ -62,6 +62,13 @@ class OrderStatus(Enum):
     CANCELLED = "CANCELLED"      # Cancelled by player
 
 
+# Unit status values
+class UnitStatus(Enum):
+    """Status values for units."""
+    ACTIVE = "ACTIVE"            # Unit is active and operational
+    DISBANDED = "DISBANDED"      # Unit has been disbanded (organization <= 0)
+
+
 # Display each phase
 PHASE_ORDER = [
     TurnPhase.BEGINNING.value,

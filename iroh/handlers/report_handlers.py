@@ -4,6 +4,7 @@ Handlers for generating turn reports from historical turn log data.
 import asyncpg
 from typing import Tuple, List, Dict, Optional
 from db import Character, TurnLog, WargameConfig
+from order_types import PHASE_ORDER
 import logging
 
 logger = logging.getLogger(__name__)
@@ -105,13 +106,9 @@ async def generate_gm_report(
     turn_logs = await TurnLog.fetch_by_turn(conn, turn_number, guild_id)
 
     # Generate summary
-    summary = {
-        'total_events': len(turn_logs),
-        'beginning_events': len([e for e in turn_logs if e.phase == 'BEGINNING']),
-        'movement_events': len([e for e in turn_logs if e.phase == 'MOVEMENT']),
-        'resource_collection_events': len([e for e in turn_logs if e.phase == 'RESOURCE_COLLECTION']),
-        'upkeep_events': len([e for e in turn_logs if e.phase == 'UPKEEP'])
-    }
+    summary = {'total_events': len(turn_logs)}
+    for phase in PHASE_ORDER:
+        summary[f'{phase.lower()}_events'] = len([e for e in turn_logs if e.phase == phase])
 
     return True, "Report generated successfully.", {
         'turn_number': turn_number,
