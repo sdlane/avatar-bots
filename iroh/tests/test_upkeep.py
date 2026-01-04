@@ -731,3 +731,157 @@ async def test_upkeep_total_deficit_event_generated(db_conn, test_server):
     assert event.event_data['total_deficit']['rations'] == 7
     assert event.event_data['total_deficit']['cloth'] == 3
     assert event.event_data['affected_character_ids'] == [character.id]
+
+
+# Commander notification tests
+
+@pytest.mark.asyncio
+async def test_upkeep_deficit_commander_notified(db_conn, test_server):
+    """Test that commander is included in affected_character_ids when different from owner."""
+    # Create owner character
+    owner = Character(
+        identifier="unit-owner", name="Unit Owner",
+        channel_id=999000000000000012, guild_id=TEST_GUILD_ID
+    )
+    await owner.upsert(db_conn)
+    owner = await Character.fetch_by_identifier(db_conn, "unit-owner", TEST_GUILD_ID)
+
+    # Create commander character
+    commander = Character(
+        identifier="unit-commander", name="Unit Commander",
+        channel_id=999000000000000013, guild_id=TEST_GUILD_ID
+    )
+    await commander.upsert(db_conn)
+    commander = await Character.fetch_by_identifier(db_conn, "unit-commander", TEST_GUILD_ID)
+
+    # Create unit with different owner and commander
+    unit = Unit(
+        unit_id="commanded-unit", name="Commanded Unit", unit_type="infantry",
+        owner_character_id=owner.id,
+        commander_character_id=commander.id,
+        organization=10, max_organization=10,
+        upkeep_ore=5, upkeep_lumber=0, upkeep_coal=0,
+        upkeep_rations=0, upkeep_cloth=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+
+    # No resources available - will cause deficit
+    # Execute upkeep phase
+    events = await execute_upkeep_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Verify UPKEEP_DEFICIT event includes both owner and commander
+    deficit_events = [e for e in events if e.event_type == 'UPKEEP_DEFICIT']
+    assert len(deficit_events) == 1
+
+    event = deficit_events[0]
+    assert owner.id in event.event_data['affected_character_ids']
+    assert commander.id in event.event_data['affected_character_ids']
+    assert event.event_data['owner_character_id'] == owner.id
+    assert event.event_data['owner_name'] == 'Unit Owner'
+
+
+@pytest.mark.asyncio
+async def test_upkeep_deficit_no_commander(db_conn, test_server):
+    """Test that when no commander, only owner is in affected_character_ids."""
+    # Create owner character
+    owner = Character(
+        identifier="solo-owner", name="Solo Owner",
+        channel_id=999000000000000014, guild_id=TEST_GUILD_ID
+    )
+    await owner.upsert(db_conn)
+    owner = await Character.fetch_by_identifier(db_conn, "solo-owner", TEST_GUILD_ID)
+
+    # Create unit with no commander
+    unit = Unit(
+        unit_id="no-commander-unit", name="No Commander Unit", unit_type="infantry",
+        owner_character_id=owner.id,
+        commander_character_id=None,
+        organization=10, max_organization=10,
+        upkeep_ore=5, upkeep_lumber=0, upkeep_coal=0,
+        upkeep_rations=0, upkeep_cloth=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+
+    # Execute upkeep phase
+    events = await execute_upkeep_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Verify UPKEEP_DEFICIT event only has owner
+    deficit_events = [e for e in events if e.event_type == 'UPKEEP_DEFICIT']
+    assert len(deficit_events) == 1
+
+    event = deficit_events[0]
+    assert event.event_data['affected_character_ids'] == [owner.id]
+
+
+@pytest.mark.asyncio
+async def test_upkeep_deficit_commander_is_owner(db_conn, test_server):
+    """Test that when commander equals owner, only one entry in affected_character_ids."""
+    # Create owner character (also the commander)
+    owner = Character(
+        identifier="owner-commander", name="Owner Commander",
+        channel_id=999000000000000015, guild_id=TEST_GUILD_ID
+    )
+    await owner.upsert(db_conn)
+    owner = await Character.fetch_by_identifier(db_conn, "owner-commander", TEST_GUILD_ID)
+
+    # Create unit where commander is same as owner
+    unit = Unit(
+        unit_id="self-commanded-unit", name="Self Commanded Unit", unit_type="infantry",
+        owner_character_id=owner.id,
+        commander_character_id=owner.id,
+        organization=10, max_organization=10,
+        upkeep_ore=5, upkeep_lumber=0, upkeep_coal=0,
+        upkeep_rations=0, upkeep_cloth=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+
+    # Execute upkeep phase
+    events = await execute_upkeep_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Verify UPKEEP_DEFICIT event only has one entry (no duplicate)
+    deficit_events = [e for e in events if e.event_type == 'UPKEEP_DEFICIT']
+    assert len(deficit_events) == 1
+
+    event = deficit_events[0]
+    assert event.event_data['affected_character_ids'] == [owner.id]
+
+
+def test_upkeep_deficit_owner_view_format():
+    """Test UPKEEP_DEFICIT character line formatting for owner view."""
+    event_data = {
+        'unit_id': 'unit-test',
+        'unit_name': 'Test Unit',
+        'resources_deficit': {'ore': 3},
+        'organization_penalty': 3,
+        'new_organization': 7,
+        'owner_character_id': 123,
+        'owner_name': 'Owner Name',
+        'affected_character_ids': [123, 456]
+    }
+    # Owner viewing their own unit
+    line = upkeep_deficit_character_line(event_data, character_id=123)
+    assert 'unit-test' in line
+    assert 'Insufficient upkeep' in line
+    assert 'owned by' not in line  # Owner doesn't see "owned by" text
+
+
+def test_upkeep_deficit_commander_view_format():
+    """Test UPKEEP_DEFICIT character line formatting for commander view."""
+    event_data = {
+        'unit_id': 'unit-test',
+        'unit_name': 'Test Unit',
+        'resources_deficit': {'ore': 3},
+        'organization_penalty': 3,
+        'new_organization': 7,
+        'owner_character_id': 123,
+        'owner_name': 'Owner Name',
+        'affected_character_ids': [123, 456]
+    }
+    # Commander (456) viewing a unit they don't own
+    line = upkeep_deficit_character_line(event_data, character_id=456)
+    assert 'unit-test' in line
+    assert 'owned by Owner Name' in line  # Commander sees owner info
+    assert 'Insufficient upkeep' in line

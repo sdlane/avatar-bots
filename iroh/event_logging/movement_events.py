@@ -1,10 +1,10 @@
 """
 Event handlers for movement-related events.
 """
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
-def transit_complete_character_line(event_data: Dict[str, Any]) -> str:
+def transit_complete_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for TRANSIT_COMPLETE event."""
     units = event_data.get('units', [])
     final_territory = event_data.get('final_territory', 'Unknown')
@@ -18,7 +18,7 @@ def transit_complete_gm_line(event_data: Dict[str, Any]) -> str:
     return f"🎯 {', '.join(units)} → T{final_territory}"
 
 
-def transit_progress_character_line(event_data: Dict[str, Any]) -> str:
+def transit_progress_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for TRANSIT_PROGRESS event."""
     units = event_data.get('units', [])
     current_territory = event_data.get('current_territory', 'Unknown')

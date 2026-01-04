@@ -4,7 +4,7 @@ Event logging module for turn resolution reports.
 This module provides a centralized registry of event handlers for generating
 character and GM report lines for different event types.
 """
-from typing import Dict, Callable, Any
+from typing import Dict, Callable, Any, Optional
 from dataclasses import dataclass
 
 from .faction_events import (
@@ -59,7 +59,7 @@ from .upkeep_events import (
 @dataclass
 class EventHandler:
     """Container for event handler functions."""
-    get_character_line: Callable[[Dict[str, Any]], str]
+    get_character_line: Callable[[Dict[str, Any], Optional[int]], str]
     get_gm_line: Callable[[Dict[str, Any]], str]
 
 

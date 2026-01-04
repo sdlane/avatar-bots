@@ -501,6 +501,11 @@ async def execute_upkeep_phase(
                 unit.organization -= penalty
                 await unit.upsert(conn)
 
+                # Build affected_character_ids - include commander if different from owner
+                affected_ids = [owner_id]
+                if unit.commander_character_id and unit.commander_character_id != owner_id:
+                    affected_ids.append(unit.commander_character_id)
+
                 events.append(TurnLog(
                     turn_number=turn_number,
                     phase=TurnPhase.UPKEEP.value,
@@ -513,7 +518,9 @@ async def execute_upkeep_phase(
                         'resources_deficit': unit_deficit,
                         'organization_penalty': penalty,
                         'new_organization': unit.organization,
-                        'affected_character_ids': [owner_id]
+                        'owner_character_id': owner_id,
+                        'owner_name': owner.name,
+                        'affected_character_ids': affected_ids
                     },
                     guild_id=guild_id
                 ))

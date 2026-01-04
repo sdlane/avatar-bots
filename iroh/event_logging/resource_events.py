@@ -1,10 +1,10 @@
 """
 Event handlers for resource-related events.
 """
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
-def resource_collection_character_line(event_data: Dict[str, Any]) -> str:
+def resource_collection_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for RESOURCE_COLLECTION event."""
     resources = event_data.get('resources', {})
     resource_strs = []
@@ -80,7 +80,7 @@ def _format_ongoing_status(event_data: Dict[str, Any]) -> str:
         return f" [ongoing - {turns_remaining} turns remaining]"
 
 
-def resource_transfer_success_character_line(event_data: Dict[str, Any]) -> str:
+def resource_transfer_success_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for RESOURCE_TRANSFER_SUCCESS event."""
     from_character_name = event_data.get('from_character_name', 'Unknown')
     to_character_name = event_data.get('to_character_name', 'Unknown')
@@ -102,7 +102,7 @@ def resource_transfer_success_gm_line(event_data: Dict[str, Any]) -> str:
     return f"📦 Transfer: {from_character_name} → {to_character_name} ({resources_str}){ongoing_str}"
 
 
-def resource_transfer_partial_character_line(event_data: Dict[str, Any]) -> str:
+def resource_transfer_partial_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for RESOURCE_TRANSFER_PARTIAL event."""
     from_character_name = event_data.get('from_character_name', 'Unknown')
     to_character_name = event_data.get('to_character_name', 'Unknown')
@@ -128,7 +128,7 @@ def resource_transfer_partial_gm_line(event_data: Dict[str, Any]) -> str:
     return f"⚠️ Partial transfer: {from_character_name} → {to_character_name} (requested: {requested_str}, sent: {transferred_str}){ongoing_str}"
 
 
-def resource_transfer_failed_character_line(event_data: Dict[str, Any]) -> str:
+def resource_transfer_failed_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for RESOURCE_TRANSFER_FAILED event."""
     from_character_name = event_data.get('from_character_name', 'Unknown')
     to_character_name = event_data.get('to_character_name', 'Unknown')
@@ -146,7 +146,7 @@ def resource_transfer_failed_gm_line(event_data: Dict[str, Any]) -> str:
     return f"❌ Transfer failed: {from_character_name} → {to_character_name} ({reason})"
 
 
-def transfer_cancelled_character_line(event_data: Dict[str, Any]) -> str:
+def transfer_cancelled_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for TRANSFER_CANCELLED event."""
     from_character_name = event_data.get('from_character_name', 'Unknown')
     to_character_name = event_data.get('to_character_name', 'Unknown')

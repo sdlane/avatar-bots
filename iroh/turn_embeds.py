@@ -145,7 +145,8 @@ def create_turn_status_embed(status_data: Dict) -> discord.Embed:
 def create_character_turn_report_embed(
     character_name: str,
     turn_number: int,
-    events: List[Dict]
+    events: List[Dict],
+    character_id: Optional[int] = None
 ) -> discord.Embed:
     """
     Create an embed with a character's turn report.
@@ -154,6 +155,7 @@ def create_character_turn_report_embed(
         character_name: Name of the character
         turn_number: Turn number
         events: List of event dicts relevant to this character
+        character_id: ID of the viewing character (for context-aware formatting)
 
     Returns:
         Discord embed
@@ -191,7 +193,7 @@ def create_character_turn_report_embed(
             # Use EVENT_HANDLERS if available, otherwise skip unknown event types
             if event_type in EVENT_HANDLERS:
                 handler = EVENT_HANDLERS[event_type]
-                line = handler.get_character_line(event_data)
+                line = handler.get_character_line(event_data, character_id)
                 if line:  # Only add non-empty lines
                     lines.append(line)
 

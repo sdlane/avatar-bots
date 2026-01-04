@@ -1510,7 +1510,7 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
                         char_channel = client.get_channel(character.channel_id)
                         if char_channel:
                             char_embed = turn_embeds.create_character_turn_report_embed(
-                                character.name, config.current_turn, character_events
+                                character.name, config.current_turn, character_events, character.id
                             )
                             await char_channel.send(embed=char_embed)
                     except Exception as e:
@@ -1596,7 +1596,8 @@ async def turn_report_cmd(interaction: discord.Interaction, turn_number: int = N
         embed = turn_embeds.create_character_turn_report_embed(
             data['character'].name,
             data['turn_number'],
-            data['events']
+            data['events'],
+            data['character'].id
         )
         await interaction.followup.send(embed=embed, ephemeral=True)
 

@@ -91,6 +91,14 @@ units:
     owner: "zuko"
     current_territory_id: 1
 
+  # Unit with different owner and commander for testing commander notifications
+  - unit_id: "fire-commanded-unit"
+    name: "Fire Commanded Unit"
+    type: "infantry"
+    owner: "zuko"
+    commander: "taiso"
+    current_territory_id: 1
+
   # Toph's units - Earth Kingdom
   - unit_id: "earth-1st-cavalry"
     name: "1st Earth Cavalry"
@@ -108,4 +116,12 @@ units:
     name: "3rd Earth Cavalry"
     type: "cavalry"
     owner: "toph"
+    current_territory_id: 2
+
+  # Unit with different owner and commander for testing commander notifications
+  - unit_id: "earth-commanded-unit"
+    name: "Earth Commanded Unit"
+    type: "cavalry"
+    owner: "toph"
+    commander: "jialun"
     current_territory_id: 2

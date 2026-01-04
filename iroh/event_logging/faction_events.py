@@ -1,10 +1,10 @@
 """
 Event handlers for faction-related events.
 """
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 
 
-def join_faction_character_line(event_data: Dict[str, Any]) -> str:
+def join_faction_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for JOIN_FACTION event."""
     faction_name = event_data.get('faction_name', 'Unknown')
     return f"✅ Joined faction: **{faction_name}**"
@@ -17,7 +17,7 @@ def join_faction_gm_line(event_data: Dict[str, Any]) -> str:
     return f"✅ {char} → {faction}"
 
 
-def join_faction_completed_character_line(event_data: Dict[str, Any]) -> str:
+def join_faction_completed_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for JOIN_FACTION_COMPLETED event."""
     char_name = event_data.get('character_name', 'Unknown')
     faction_name = event_data.get('faction_name', 'Unknown')
@@ -31,7 +31,7 @@ def join_faction_completed_gm_line(event_data: Dict[str, Any]) -> str:
     return f"✅ {char} → {faction}"
 
 
-def join_faction_pending_character_line(event_data: Dict[str, Any]) -> str:
+def join_faction_pending_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for JOIN_FACTION_PENDING event."""
     faction_name = event_data.get('faction_name', 'Unknown')
     waiting_for = event_data.get('waiting_for', 'approval')
@@ -46,7 +46,7 @@ def join_faction_pending_gm_line(event_data: Dict[str, Any]) -> str:
     return f"⏳ {char} → {faction} (pending: {waiting_for})"
 
 
-def leave_faction_character_line(event_data: Dict[str, Any]) -> str:
+def leave_faction_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for LEAVE_FACTION event."""
     char_name = event_data.get('character_name', 'Unknown')
     faction_name = event_data.get('faction_name', 'Unknown')
@@ -60,7 +60,7 @@ def leave_faction_gm_line(event_data: Dict[str, Any]) -> str:
     return f"❌ {char} ← {faction}"
 
 
-def kick_from_faction_character_line(event_data: Dict[str, Any]) -> str:
+def kick_from_faction_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for KICK_FROM_FACTION event."""
     char_name = event_data.get('character_name', 'Unknown')
     faction_name = event_data.get('faction_name', 'Unknown')
@@ -74,7 +74,7 @@ def kick_from_faction_gm_line(event_data: Dict[str, Any]) -> str:
     return f"🚫 {char} ← {faction} (kicked)"
 
 
-def order_failed_character_line(event_data: Dict[str, Any]) -> str:
+def order_failed_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for ORDER_FAILED event."""
     order_type = event_data.get('order_type', 'Unknown')
     error = event_data.get('error', 'Unknown error')
