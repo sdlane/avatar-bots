@@ -23,6 +23,7 @@ OrderHandlerMap: Dict[str, function] = {
     OrderType.LEAVE_FACTION.value: handle_leave_faction_order,
     OrderType.KICK_FROM_FACTION.value: handle_kick_from_faction_order,
     OrderType.JOIN_FACTION.value: handle_join_faction_order,
+    OrderType.ASSIGN_COMMANDER.value: handle_assign_commander_order,
     OrderType.CANCEL_TRANSFER.value: handle_cancel_transfer_order,
     OrderType.RESOURCE_TRANSFER.value: handle_resource_transfer_order,
 }

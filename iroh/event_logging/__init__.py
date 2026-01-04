@@ -55,6 +55,11 @@ from .upkeep_events import (
     unit_dissolved_gm_line,
 )
 
+from .unit_events import (
+    commander_assigned_character_line,
+    commander_assigned_gm_line,
+)
+
 
 @dataclass
 class EventHandler:
@@ -143,6 +148,12 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'UNIT_DISSOLVED': EventHandler(
         get_character_line=unit_dissolved_character_line,
         get_gm_line=unit_dissolved_gm_line
+    ),
+
+    # Unit events
+    'COMMANDER_ASSIGNED': EventHandler(
+        get_character_line=commander_assigned_character_line,
+        get_gm_line=commander_assigned_gm_line
     ),
 }
 

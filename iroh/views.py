@@ -578,3 +578,69 @@ class EditWargameConfigModal(discord.ui.Modal, title="Edit Wargame Config"):
             emotive_message("Wargame configuration updated successfully."),
             ephemeral=False
         )
+
+
+class AssignCommanderConfirmView(discord.ui.View):
+    """Confirmation view for assigning a commander from a different faction."""
+
+    def __init__(
+        self,
+        unit_id: str,
+        new_commander_identifier: str,
+        new_commander_name: str,
+        warning_message: str,
+        db_pool,
+        guild_id: int,
+        submitting_character_id: int
+    ):
+        super().__init__(timeout=60)  # 60 second timeout
+        self.unit_id = unit_id
+        self.new_commander_identifier = new_commander_identifier
+        self.new_commander_name = new_commander_name
+        self.warning_message = warning_message
+        self.db_pool = db_pool
+        self.guild_id = guild_id
+        self.submitting_character_id = submitting_character_id
+
+    @discord.ui.button(label="Confirm", style=discord.ButtonStyle.danger)
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Handle confirmation - proceed with the order."""
+        from helpers import emotive_message
+        from handlers.order_handlers import submit_assign_commander_order
+
+        # Disable buttons
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+
+        # Submit the order with confirmed=True
+        async with self.db_pool.acquire() as conn:
+            success, message, _ = await submit_assign_commander_order(
+                conn,
+                self.unit_id,
+                self.new_commander_identifier,
+                self.guild_id,
+                self.submitting_character_id,
+                confirmed=True
+            )
+
+        if success:
+            await interaction.followup.send(emotive_message(message), ephemeral=False)
+        else:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+
+        logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) confirmed commander assignment: {self.unit_id} -> {self.new_commander_name} in guild {self.guild_id}")
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Handle cancellation - do not proceed."""
+        from helpers import emotive_message
+
+        # Disable buttons
+        for item in self.children:
+            item.disabled = True
+        await interaction.response.edit_message(view=self)
+
+        await interaction.followup.send(emotive_message("Commander assignment cancelled."), ephemeral=True)
+
+        logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) cancelled commander assignment: {self.unit_id} -> {self.new_commander_name} in guild {self.guild_id}")

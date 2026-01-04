@@ -657,6 +657,122 @@ async def submit_cancel_transfer_order(
     return True, f"Cancel transfer order submitted for '{original_order_id}' (Order #{order_id}). Cancellation will be processed next turn."
 
 
+async def submit_assign_commander_order(
+    conn: asyncpg.Connection,
+    unit_id: str,
+    new_commander_identifier: str,
+    guild_id: int,
+    submitting_character_id: int,
+    confirmed: bool = False
+) -> Tuple[bool, str, bool]:
+    """
+    Submit an order to assign a new commander to a unit.
+
+    Only the unit owner can submit this order.
+
+    Args:
+        conn: Database connection
+        unit_id: The unit ID to reassign
+        new_commander_identifier: Character identifier for new commander
+        guild_id: Guild ID
+        submitting_character_id: ID of character submitting (must be owner)
+        confirmed: If True, skip faction mismatch check (user already confirmed)
+
+    Returns:
+        (success, message, needs_confirmation)
+        - needs_confirmation=True means faction mismatch detected, show confirmation dialog
+    """
+    # Fetch unit
+    unit = await Unit.fetch_by_unit_id(conn, unit_id, guild_id)
+    if not unit:
+        return False, f"Unit '{unit_id}' not found.", False
+
+    # Validate submitter is the owner
+    if unit.owner_character_id != submitting_character_id:
+        return False, "Only the unit owner can assign a commander.", False
+
+    # Fetch new commander
+    new_commander = await Character.fetch_by_identifier(conn, new_commander_identifier, guild_id)
+    if not new_commander:
+        return False, f"Character '{new_commander_identifier}' not found.", False
+
+    # Validate new commander is different from current
+    if unit.commander_character_id == new_commander.id:
+        return False, f"{new_commander.name} is already the commander of this unit.", False
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Validate 2-turn cooldown
+    if unit.commander_assigned_turn is not None:
+        turns_since_assignment = current_turn - unit.commander_assigned_turn
+        if turns_since_assignment < 2:
+            turns_remaining = 2 - turns_since_assignment
+            return False, f"Cannot change commander yet. {turns_remaining} more turn(s) required before reassignment.", False
+
+    # Check faction membership - owner and new commander must be in same faction
+    owner_membership = await FactionMember.fetch_by_character(conn, unit.owner_character_id, guild_id)
+    commander_membership = await FactionMember.fetch_by_character(conn, new_commander.id, guild_id)
+
+    owner_faction_id = owner_membership.faction_id if owner_membership else None
+    commander_faction_id = commander_membership.faction_id if commander_membership else None
+
+    if owner_faction_id != commander_faction_id and not confirmed:
+        # Faction mismatch - need confirmation
+        owner = await Character.fetch_by_id(conn, unit.owner_character_id)
+        owner_name = owner.name if owner else "Unknown"
+
+        if owner_faction_id is None and commander_faction_id is None:
+            faction_msg = "Neither you nor the new commander are in a faction."
+        elif owner_faction_id is None:
+            faction_msg = f"You are not in a faction, but {new_commander.name} is."
+        elif commander_faction_id is None:
+            faction_msg = f"{new_commander.name} is not in a faction, but you are."
+        else:
+            faction_msg = f"You and {new_commander.name} are in different factions."
+
+        return False, f"Warning: {faction_msg} Once assigned, the commander cannot be changed for 2 turns. Do you want to proceed?", True
+
+    # Check for existing pending ASSIGN_COMMANDER orders for this unit
+    existing_orders = await Order.fetch_by_units(
+        conn, [unit.id], [OrderStatus.PENDING.value], guild_id
+    )
+    for existing_order in existing_orders:
+        if existing_order.order_type == OrderType.ASSIGN_COMMANDER.value:
+            return False, f"There is already a pending commander assignment order for this unit.", False
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.ASSIGN_COMMANDER.value,
+        unit_ids=[unit.id],
+        character_id=submitting_character_id,
+        turn_number=current_turn + 1,  # Execute next turn
+        phase=ORDER_PHASE_MAP[OrderType.ASSIGN_COMMANDER].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.ASSIGN_COMMANDER],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'unit_id': unit_id,
+            'new_commander_id': new_commander.id,
+            'new_commander_name': new_commander.name
+        },
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    return True, f"Order submitted: {new_commander.name} will be assigned as commander of {unit.name or unit.unit_id} next turn (Order #{order_id}).", False
+
+
 async def validate_path(
     conn: asyncpg.Connection,
     path: List[int],

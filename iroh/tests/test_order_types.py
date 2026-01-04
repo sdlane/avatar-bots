@@ -66,6 +66,23 @@ def test_resource_transfer_priority_ordering():
     assert ORDER_PRIORITY_MAP[OrderType.CANCEL_TRANSFER] < ORDER_PRIORITY_MAP[OrderType.RESOURCE_TRANSFER]
 
 
+def test_assign_commander_order_type_exists():
+    """Test that ASSIGN_COMMANDER order type exists."""
+    assert OrderType.ASSIGN_COMMANDER.value == "ASSIGN_COMMANDER"
+
+
+def test_assign_commander_phase_mapping():
+    """Test that ASSIGN_COMMANDER maps to BEGINNING phase."""
+    assert ORDER_PHASE_MAP[OrderType.ASSIGN_COMMANDER] == TurnPhase.BEGINNING
+
+
+def test_assign_commander_priority():
+    """Test that ASSIGN_COMMANDER has priority 2 (after faction orders)."""
+    assert ORDER_PRIORITY_MAP[OrderType.ASSIGN_COMMANDER] == 2
+    # Executes after faction joins (priority 1)
+    assert ORDER_PRIORITY_MAP[OrderType.ASSIGN_COMMANDER] > ORDER_PRIORITY_MAP[OrderType.JOIN_FACTION]
+
+
 # Test completeness
 def test_all_order_types_have_phase_mapping():
     """Test that all order types have a phase mapping."""
@@ -81,8 +98,8 @@ def test_all_order_types_have_priority():
 
 def test_total_order_type_count():
     """Test that we have the expected number of order types."""
-    # JOIN_FACTION, LEAVE_FACTION, KICK_FROM_FACTION, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER
-    assert len(OrderType) == 6
+    # JOIN_FACTION, LEAVE_FACTION, KICK_FROM_FACTION, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER, ASSIGN_COMMANDER
+    assert len(OrderType) == 7
 
 
 # Test order status values
