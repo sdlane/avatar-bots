@@ -43,6 +43,8 @@ from .resource_events import (
 )
 
 from .upkeep_events import (
+    upkeep_summary_character_line,
+    upkeep_summary_gm_line,
     upkeep_paid_character_line,
     upkeep_paid_gm_line,
     upkeep_deficit_character_line,
@@ -120,6 +122,10 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     ),
 
     # Upkeep events
+    'UPKEEP_SUMMARY': EventHandler(
+        get_character_line=upkeep_summary_character_line,
+        get_gm_line=upkeep_summary_gm_line
+    ),
     'UPKEEP_PAID': EventHandler(
         get_character_line=upkeep_paid_character_line,
         get_gm_line=upkeep_paid_gm_line

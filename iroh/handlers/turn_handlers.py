@@ -422,7 +422,7 @@ async def execute_upkeep_phase(
     - Deduct upkeep from owner's resources
     - If insufficient resources, deduct what's available
     - Reduce organization by 1 for EACH missing resource unit
-    - If organization <= 0, mark unit for dissolution
+    - If organization <= 0, do nothing special (handled later)
 
     Args:
         conn: Database connection
@@ -435,7 +435,106 @@ async def execute_upkeep_phase(
     events = []
     logger.info(f"Upkeep phase: starting upkeep phase for guild {guild_id}, turn {turn_number}")
 
-    # Placeholder for now
+    # Fetch all units for the guild
+    all_units = await Unit.fetch_all(conn, guild_id)
+    if not all_units:
+        logger.info(f"Upkeep phase: no units found for guild {guild_id}")
+        logger.info(f"Upkeep phase: finished upkeep phase for guild {guild_id}, turn {turn_number}")
+        return events
+
+    # Group units by owner
+    units_by_owner: Dict[int, List[Unit]] = {}
+    for unit in all_units:
+        owner_id = unit.owner_character_id
+        if owner_id not in units_by_owner:
+            units_by_owner[owner_id] = []
+        units_by_owner[owner_id].append(unit)
+
+    # Process upkeep for each owner
+    resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth']
+
+    for owner_id, units in units_by_owner.items():
+        # Fetch owner character for name
+        owner = await Character.fetch_by_id(conn, owner_id)
+        if not owner:
+            logger.warning(f"Upkeep phase: owner character {owner_id} not found, skipping units")
+            continue
+
+        # Fetch or create player resources
+        resources = await PlayerResources.fetch_by_character(conn, owner_id, guild_id)
+        if not resources:
+            resources = PlayerResources(
+                character_id=owner_id,
+                ore=0, lumber=0, coal=0, rations=0, cloth=0,
+                guild_id=guild_id
+            )
+
+        # Track total spent for summary event
+        total_spent = {rt: 0 for rt in resource_types}
+        units_maintained = 0
+
+        for unit in units:
+            unit_deficit = {}
+
+            for rt in resource_types:
+                needed = getattr(unit, f'upkeep_{rt}')
+                available = getattr(resources, rt)
+                deducted = min(needed, available)
+
+                # Deduct from resources
+                setattr(resources, rt, available - deducted)
+                total_spent[rt] += deducted
+
+                # Track deficit
+                if deducted < needed:
+                    unit_deficit[rt] = needed - deducted
+
+            units_maintained += 1
+
+            # If there was a deficit, penalize organization
+            if unit_deficit:
+                penalty = sum(unit_deficit.values())
+                unit.organization -= penalty
+                await unit.upsert(conn)
+
+                events.append(TurnLog(
+                    turn_number=turn_number,
+                    phase=TurnPhase.UPKEEP.value,
+                    event_type='UPKEEP_DEFICIT',
+                    entity_type='unit',
+                    entity_id=unit.id,
+                    event_data={
+                        'unit_id': unit.unit_id,
+                        'unit_name': unit.name or unit.unit_id,
+                        'resources_deficit': unit_deficit,
+                        'organization_penalty': penalty,
+                        'new_organization': unit.organization,
+                        'affected_character_ids': [owner_id]
+                    },
+                    guild_id=guild_id
+                ))
+                logger.info(f"Upkeep phase: unit {unit.unit_id} deficit {unit_deficit}, org -{penalty} -> {unit.organization}")
+
+        # Save updated resources
+        await resources.upsert(conn)
+
+        # Generate summary event if any resources were spent
+        if any(total_spent[rt] > 0 for rt in resource_types):
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.UPKEEP.value,
+                event_type='UPKEEP_SUMMARY',
+                entity_type='character',
+                entity_id=owner_id,
+                event_data={
+                    'character_name': owner.name,
+                    'resources_spent': total_spent,
+                    'units_maintained': units_maintained,
+                    'affected_character_ids': [owner_id]
+                },
+                guild_id=guild_id
+            ))
+            logger.info(f"Upkeep phase: {owner.name} spent {total_spent} on {units_maintained} units")
 
     logger.info(f"Upkeep phase: finished upkeep phase for guild {guild_id}, turn {turn_number}")
     return events

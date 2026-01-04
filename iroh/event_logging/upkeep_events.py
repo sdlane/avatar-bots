@@ -4,6 +4,40 @@ Event handlers for upkeep-related events.
 from typing import Dict, Any
 
 
+def _format_resources(resources: Dict[str, int]) -> str:
+    """Helper to format resource dict into emoji string."""
+    resource_strs = []
+    if resources.get('ore', 0) > 0:
+        resource_strs.append(f"ore:{resources['ore']}")
+    if resources.get('lumber', 0) > 0:
+        resource_strs.append(f"lumber:{resources['lumber']}")
+    if resources.get('coal', 0) > 0:
+        resource_strs.append(f"coal:{resources['coal']}")
+    if resources.get('rations', 0) > 0:
+        resource_strs.append(f"rations:{resources['rations']}")
+    if resources.get('cloth', 0) > 0:
+        resource_strs.append(f"cloth:{resources['cloth']}")
+    return ', '.join(resource_strs) if resource_strs else 'none'
+
+
+def upkeep_summary_character_line(event_data: Dict[str, Any]) -> str:
+    """Generate character report line for UPKEEP_SUMMARY event."""
+    character_name = event_data.get('character_name', 'Unknown')
+    resources_spent = event_data.get('resources_spent', {})
+    units_maintained = event_data.get('units_maintained', 0)
+    resources_str = _format_resources(resources_spent)
+    return f"💰 Upkeep paid: {resources_str} ({units_maintained} unit{'s' if units_maintained != 1 else ''})"
+
+
+def upkeep_summary_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for UPKEEP_SUMMARY event."""
+    character_name = event_data.get('character_name', 'Unknown')
+    resources_spent = event_data.get('resources_spent', {})
+    units_maintained = event_data.get('units_maintained', 0)
+    resources_str = _format_resources(resources_spent)
+    return f"💰 {character_name}: {resources_str} ({units_maintained}u)"
+
+
 def upkeep_paid_character_line(event_data: Dict[str, Any]) -> str:
     """Generate character report line for UPKEEP_PAID event."""
     unit_id = event_data.get('unit_id', 'Unknown')
