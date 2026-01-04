@@ -540,6 +540,7 @@ async def create_test_config(interaction: discord.Interaction):
 
     from config_manager import ConfigManager
     import os
+    import yaml
 
     # Load test config from file
     test_config_path = os.path.join(os.path.dirname(__file__), 'test_config.yaml')
@@ -563,8 +564,27 @@ async def create_test_config(interaction: discord.Interaction):
         success, message = await ConfigManager.import_config(conn, interaction.guild_id, test_config)
 
         if success:
+            # Parse config to count entities
+            config_dict = yaml.safe_load(test_config)
+            num_factions = len(config_dict.get('factions', []))
+            num_territories = len(config_dict.get('territories', []))
+            num_unit_types = len(config_dict.get('unit_types', []))
+            num_units = len(config_dict.get('units', []))
+
+            created_items = []
+            if num_factions:
+                created_items.append(f"• {num_factions} faction{'s' if num_factions != 1 else ''}")
+            if num_territories:
+                created_items.append(f"• {num_territories} territor{'ies' if num_territories != 1 else 'y'}")
+            if num_unit_types:
+                created_items.append(f"• {num_unit_types} unit type{'s' if num_unit_types != 1 else ''}")
+            if num_units:
+                created_items.append(f"• {num_units} unit{'s' if num_units != 1 else ''}")
+
+            created_str = '\n'.join(created_items) if created_items else '• (empty config)'
+
             await interaction.followup.send(
-                emotive_message(f"Test wargame configuration created successfully!\n\nCreated:\n• 2 factions\n• 2 territories\n• 2 unit types\n\nYou can now use `/view-territory`, `/view-faction`, and `/view-unit-type` commands.")
+                emotive_message(f"Test wargame configuration created successfully!\n\nCreated:\n{created_str}")
             )
         else:
             await interaction.followup.send(
