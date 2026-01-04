@@ -571,13 +571,152 @@ async def execute_upkeep_phase(
     return events
 
 
+async def disband_low_organization_units(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    turn_number: int,
+    phase: str
+) -> List[TurnLog]:
+    """
+    Disband all units with organization <= 0 by setting their status to DISBANDED.
+
+    This function is designed to be reusable from multiple phases (ORGANIZATION, COMBAT).
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        turn_number: Current turn number
+        phase: The phase calling this function (for event logging)
+
+    Returns:
+        List of TurnLog events for disbanded units
+    """
+    events = []
+
+    # Fetch all units and filter for active ones with org <= 0
+    all_units = await Unit.fetch_all(conn, guild_id)
+    units_to_disband = [u for u in all_units if u.organization <= 0 and u.status == 'ACTIVE']
+
+    for unit in units_to_disband:
+        # Set status to DISBANDED
+        unit.status = 'DISBANDED'
+        await unit.upsert(conn)
+
+        # Build affected_character_ids list
+        affected_ids = [unit.owner_character_id]
+        if unit.commander_character_id and unit.commander_character_id != unit.owner_character_id:
+            affected_ids.append(unit.commander_character_id)
+
+        # Fetch owner name for event
+        owner = await Character.fetch_by_id(conn, unit.owner_character_id)
+        owner_name = owner.name if owner else 'Unknown'
+
+        # Create UNIT_DISBANDED event
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase=phase,
+            event_type='UNIT_DISBANDED',
+            entity_type='unit',
+            entity_id=unit.id,
+            event_data={
+                'unit_id': unit.unit_id,
+                'unit_name': unit.name or unit.unit_id,
+                'owner_character_id': unit.owner_character_id,
+                'owner_name': owner_name,
+                'final_organization': unit.organization,
+                'affected_character_ids': affected_ids
+            },
+            guild_id=guild_id
+        ))
+
+        logger.info(f"Organization phase: Disbanded unit {unit.unit_id} (org={unit.organization})")
+
+    return events
+
+
+async def recover_organization_in_friendly_territory(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Increase organization by 1 for units in territory controlled by their faction.
+
+    "Territory controlled by faction" means:
+    - territory.controller_character_id is a member of unit.faction_id
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog events for recovered units
+    """
+    events = []
+
+    # Fetch all units and filter for active ones with faction and territory
+    all_units = await Unit.fetch_all(conn, guild_id)
+    active_units = [u for u in all_units if u.status == 'ACTIVE' and u.faction_id and u.current_territory_id is not None]
+
+    for unit in active_units:
+        # Skip if already at max organization
+        if unit.organization >= unit.max_organization:
+            continue
+
+        # Fetch territory
+        territory = await Territory.fetch_by_territory_id(conn, unit.current_territory_id, guild_id)
+        if not territory or not territory.controller_character_id:
+            continue
+
+        # Check if territory controller is in unit's faction
+        controller_faction = await FactionMember.fetch_by_character(conn, territory.controller_character_id, guild_id)
+        if not controller_faction or controller_faction.faction_id != unit.faction_id:
+            continue
+
+        # Increase organization by 1 (capped at max)
+        old_org = unit.organization
+        unit.organization = min(unit.organization + 1, unit.max_organization)
+        await unit.upsert(conn)
+
+        # Build affected_character_ids
+        affected_ids = [unit.owner_character_id]
+        if unit.commander_character_id and unit.commander_character_id != unit.owner_character_id:
+            affected_ids.append(unit.commander_character_id)
+
+        # Create ORG_RECOVERY event
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.ORGANIZATION.value,
+            event_type='ORG_RECOVERY',
+            entity_type='unit',
+            entity_id=unit.id,
+            event_data={
+                'unit_id': unit.unit_id,
+                'unit_name': unit.name or unit.unit_id,
+                'old_organization': old_org,
+                'new_organization': unit.organization,
+                'territory_id': unit.current_territory_id,
+                'affected_character_ids': affected_ids
+            },
+            guild_id=guild_id
+        ))
+
+        logger.info(f"Organization phase: Unit {unit.unit_id} recovered org {old_org} -> {unit.organization}")
+
+    return events
+
+
 async def execute_organization_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
 ) -> List[TurnLog]:
     """
-    Execute the Organization phase
+    Execute the Organization phase.
+
+    1. Disband units with organization <= 0
+    2. Recover organization for units in friendly territory
 
     Args:
         conn: Database connection
@@ -590,9 +729,20 @@ async def execute_organization_phase(
     events = []
     logger.info(f"Organization phase: starting organization phase for guild {guild_id}, turn {turn_number}")
 
-    # Placeholder for now
+    # Step 1: Disband units with organization <= 0
+    disband_events = await disband_low_organization_units(
+        conn, guild_id, turn_number, TurnPhase.ORGANIZATION.value
+    )
+    events.extend(disband_events)
 
-    logger.info(f"Organization phase: finished organization phase for guild {guild_id}, turn {turn_number}")
+    # Step 2: Recover organization for units in friendly territory
+    recovery_events = await recover_organization_in_friendly_territory(
+        conn, guild_id, turn_number
+    )
+    events.extend(recovery_events)
+
+    logger.info(f"Organization phase: finished organization phase for guild {guild_id}, turn {turn_number}. "
+                f"Disbanded {len(disband_events)} units, recovered {len(recovery_events)} units.")
     return events
 
 

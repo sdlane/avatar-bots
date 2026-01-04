@@ -289,6 +289,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS keywords TEXT[];")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ACTIVE';")
 
     # --- UnitType table ---
     await conn.execute("""

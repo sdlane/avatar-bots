@@ -60,6 +60,13 @@ from .unit_events import (
     commander_assigned_gm_line,
 )
 
+from .organization_events import (
+    unit_disbanded_character_line,
+    unit_disbanded_gm_line,
+    org_recovery_character_line,
+    org_recovery_gm_line,
+)
+
 
 @dataclass
 class EventHandler:
@@ -154,6 +161,16 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'COMMANDER_ASSIGNED': EventHandler(
         get_character_line=commander_assigned_character_line,
         get_gm_line=commander_assigned_gm_line
+    ),
+
+    # Organization events
+    'UNIT_DISBANDED': EventHandler(
+        get_character_line=unit_disbanded_character_line,
+        get_gm_line=unit_disbanded_gm_line
+    ),
+    'ORG_RECOVERY': EventHandler(
+        get_character_line=org_recovery_character_line,
+        get_gm_line=org_recovery_gm_line
     ),
 }
 

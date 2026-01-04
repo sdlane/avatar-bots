@@ -34,6 +34,7 @@ class Unit:
     upkeep_cloth: int = 0
     keywords: Optional[List[str]] = None
     guild_id: Optional[int] = None
+    status: str = "ACTIVE"
 
     async def upsert(self, conn: asyncpg.Connection):
         """
@@ -46,9 +47,9 @@ class Unit:
             commander_assigned_turn, faction_id, movement, organization, max_organization,
             attack, defense, siege_attack, siege_defense, size, capacity,
             current_territory_id, is_naval, upkeep_ore, upkeep_lumber, upkeep_coal,
-            upkeep_rations, upkeep_cloth, keywords, guild_id
+            upkeep_rations, upkeep_cloth, keywords, guild_id, status
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
         ON CONFLICT (unit_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             unit_type = EXCLUDED.unit_type,
@@ -72,7 +73,8 @@ class Unit:
             upkeep_coal = EXCLUDED.upkeep_coal,
             upkeep_rations = EXCLUDED.upkeep_rations,
             upkeep_cloth = EXCLUDED.upkeep_cloth,
-            keywords = EXCLUDED.keywords;
+            keywords = EXCLUDED.keywords,
+            status = EXCLUDED.status;
         """
         await conn.execute(
             query,
@@ -82,7 +84,7 @@ class Unit:
             self.defense, self.siege_attack, self.siege_defense, self.size,
             self.capacity, self.current_territory_id, self.is_naval, self.upkeep_ore,
             self.upkeep_lumber, self.upkeep_coal, self.upkeep_rations, self.upkeep_cloth,
-            self.keywords if self.keywords else [], self.guild_id
+            self.keywords if self.keywords else [], self.guild_id, self.status
         )
 
     @classmethod
@@ -95,7 +97,7 @@ class Unit:
                    commander_assigned_turn, faction_id, movement, organization, max_organization,
                    attack, defense, siege_attack, siege_defense, size, capacity,
                    current_territory_id, is_naval, upkeep_ore, upkeep_lumber, upkeep_coal,
-                   upkeep_rations, upkeep_cloth, keywords, guild_id
+                   upkeep_rations, upkeep_cloth, keywords, guild_id, status
             FROM Unit
             WHERE id = $1;
         """, unit_internal_id)
@@ -115,7 +117,7 @@ class Unit:
                    commander_assigned_turn, faction_id, movement, organization, max_organization,
                    attack, defense, siege_attack, siege_defense, size, capacity,
                    current_territory_id, is_naval, upkeep_ore, upkeep_lumber, upkeep_coal,
-                   upkeep_rations, upkeep_cloth, keywords, guild_id
+                   upkeep_rations, upkeep_cloth, keywords, guild_id, status
             FROM Unit
             WHERE unit_id = $1 AND guild_id = $2;
         """, unit_id, guild_id)
@@ -135,7 +137,7 @@ class Unit:
                    commander_assigned_turn, faction_id, movement, organization, max_organization,
                    attack, defense, siege_attack, siege_defense, size, capacity,
                    current_territory_id, is_naval, upkeep_ore, upkeep_lumber, upkeep_coal,
-                   upkeep_rations, upkeep_cloth, keywords, guild_id
+                   upkeep_rations, upkeep_cloth, keywords, guild_id, status
             FROM Unit
             WHERE guild_id = $1
             ORDER BY unit_id;
@@ -157,7 +159,7 @@ class Unit:
                    commander_assigned_turn, faction_id, movement, organization, max_organization,
                    attack, defense, siege_attack, siege_defense, size, capacity,
                    current_territory_id, is_naval, upkeep_ore, upkeep_lumber, upkeep_coal,
-                   upkeep_rations, upkeep_cloth, keywords, guild_id
+                   upkeep_rations, upkeep_cloth, keywords, guild_id, status
             FROM Unit
             WHERE faction_id = $1 AND guild_id = $2
             ORDER BY unit_id;
@@ -179,7 +181,7 @@ class Unit:
                    commander_assigned_turn, faction_id, movement, organization, max_organization,
                    attack, defense, siege_attack, siege_defense, size, capacity,
                    current_territory_id, is_naval, upkeep_ore, upkeep_lumber, upkeep_coal,
-                   upkeep_rations, upkeep_cloth, keywords, guild_id
+                   upkeep_rations, upkeep_cloth, keywords, guild_id, status
             FROM Unit
             WHERE owner_character_id = $1 AND guild_id = $2
             ORDER BY unit_id;
@@ -201,7 +203,7 @@ class Unit:
                    commander_assigned_turn, faction_id, movement, organization, max_organization,
                    attack, defense, siege_attack, siege_defense, size, capacity,
                    current_territory_id, is_naval, upkeep_ore, upkeep_lumber, upkeep_coal,
-                   upkeep_rations, upkeep_cloth, keywords, guild_id
+                   upkeep_rations, upkeep_cloth, keywords, guild_id, status
             FROM Unit
             WHERE commander_character_id = $1 AND guild_id = $2
             ORDER BY unit_id;

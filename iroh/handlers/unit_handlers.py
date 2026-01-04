@@ -137,3 +137,34 @@ async def set_unit_commander(conn: asyncpg.Connection, unit_id: str, commander_i
     await unit.upsert(conn)
 
     return True, f"{commander_char.name} is now the commander of unit '{unit_id}'."
+
+
+async def set_unit_status(conn: asyncpg.Connection, unit_id: str, status: str, guild_id: int) -> Tuple[bool, str]:
+    """
+    Set a unit's status (ACTIVE or DISBANDED).
+
+    Args:
+        conn: Database connection
+        unit_id: Unit identifier
+        status: New status value (ACTIVE or DISBANDED)
+        guild_id: Guild ID
+
+    Returns:
+        (success, message) tuple
+    """
+    unit = await Unit.fetch_by_unit_id(conn, unit_id, guild_id)
+
+    if not unit:
+        return False, f"Unit '{unit_id}' not found."
+
+    # Validate status
+    valid_statuses = ['ACTIVE', 'DISBANDED']
+    status_upper = status.upper()
+    if status_upper not in valid_statuses:
+        return False, f"Invalid status '{status}'. Valid values: {', '.join(valid_statuses)}"
+
+    old_status = unit.status
+    unit.status = status_upper
+    await unit.upsert(conn)
+
+    return True, f"Unit '{unit_id}' status changed from {old_status} to {status_upper}."

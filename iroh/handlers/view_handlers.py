@@ -227,8 +227,9 @@ async def view_units_for_character(conn: asyncpg.Connection, user_id: int, guild
     Returns:
         (success, message, data) where data contains:
         - character: Character object
-        - owned_units: List of Unit objects
-        - commanded_units: List of Unit objects
+        - owned_units: List of ACTIVE Unit objects owned
+        - commanded_units: List of ACTIVE Unit objects commanded
+        - disbanded_units: List of DISBANDED Unit objects (owned or commanded)
     """
     character = await Character.fetch_by_user(conn, user_id, guild_id)
 
@@ -239,13 +240,22 @@ async def view_units_for_character(conn: asyncpg.Connection, user_id: int, guild
     owned_units = await Unit.fetch_by_owner(conn, character.id, guild_id)
     commanded_units = await Unit.fetch_by_commander(conn, character.id, guild_id)
 
-    if not owned_units and not commanded_units:
+    # Separate by status
+    active_owned = [u for u in owned_units if u.status == 'ACTIVE']
+    active_commanded = [u for u in commanded_units if u.status == 'ACTIVE']
+
+    # Get disbanded units (owned or commanded) - deduplicate by id
+    all_units = list({u.id: u for u in owned_units + commanded_units}.values())
+    disbanded_units = [u for u in all_units if u.status == 'DISBANDED']
+
+    if not active_owned and not active_commanded and not disbanded_units:
         return False, f"{character.name} doesn't own or command any units.", None
 
     return True, "", {
         'character': character,
-        'owned_units': owned_units,
-        'commanded_units': commanded_units
+        'owned_units': active_owned,
+        'commanded_units': active_commanded,
+        'disbanded_units': disbanded_units
     }
 
 

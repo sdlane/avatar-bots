@@ -224,27 +224,19 @@ async def my_units_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        # Combine and deduplicate
-        all_units = {unit.id: unit for unit in data['owned_units'] + data['commanded_units']}.values()
-
         # Create summary embed
         embed = discord.Embed(
-            title=f"🎖️ {data['character'].name}'s Units",
+            title=f"{data['character'].name}'s Units",
             color=discord.Color.blue()
         )
 
+        # Active owned units
         owned_list = []
-        commanded_list = []
-
-        for unit in all_units:
+        for unit in data['owned_units']:
             unit_str = f"`{unit.unit_id}`: {unit.name or unit.unit_type}"
             if unit.current_territory_id is not None:
                 unit_str += f" (Territory {unit.current_territory_id})"
-
-            if unit.owner_character_id == data['character'].id:
-                owned_list.append(unit_str)
-            if unit.commander_character_id == data['character'].id:
-                commanded_list.append(unit_str)
+            owned_list.append(unit_str)
 
         if owned_list:
             embed.add_field(
@@ -253,10 +245,34 @@ async def my_units_cmd(interaction: discord.Interaction):
                 inline=False
             )
 
+        # Active commanded units (exclude owned to avoid duplicates)
+        owned_ids = {u.id for u in data['owned_units']}
+        commanded_list = []
+        for unit in data['commanded_units']:
+            if unit.id not in owned_ids:
+                unit_str = f"`{unit.unit_id}`: {unit.name or unit.unit_type}"
+                if unit.current_territory_id is not None:
+                    unit_str += f" (Territory {unit.current_territory_id})"
+                commanded_list.append(unit_str)
+
         if commanded_list:
             embed.add_field(
                 name=f"Commanded Units ({len(commanded_list)})",
                 value="\n".join(commanded_list),
+                inline=False
+            )
+
+        # Disbanded units section
+        disbanded_list = []
+        for unit in data['disbanded_units']:
+            is_owner = unit.owner_character_id == data['character'].id
+            role = "owned" if is_owner else "commanded"
+            disbanded_list.append(f"`{unit.unit_id}`: {unit.name or unit.unit_type} ({role})")
+
+        if disbanded_list:
+            embed.add_field(
+                name=f"Disbanded Units ({len(disbanded_list)})",
+                value="\n".join(disbanded_list),
                 inline=False
             )
 
@@ -1022,6 +1038,36 @@ async def set_unit_commander_cmd(interaction: discord.Interaction, unit_id: str,
             logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set unit '{unit_id}' commander to '{commander}' in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set unit '{unit_id}' commander in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="set-unit-status",
+    description="[Admin] Set a unit's status (ACTIVE or DISBANDED)"
+)
+@app_commands.describe(
+    unit_id="The unit ID",
+    status="New status: ACTIVE or DISBANDED"
+)
+@app_commands.choices(status=[
+    app_commands.Choice(name="ACTIVE", value="ACTIVE"),
+    app_commands.Choice(name="DISBANDED", value="DISBANDED"),
+])
+@app_commands.checks.has_permissions(manage_guild=True)
+async def set_unit_status_cmd(interaction: discord.Interaction, unit_id: str, status: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.set_unit_status(conn, unit_id, status, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set unit '{unit_id}' status to '{status}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set unit '{unit_id}' status in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
