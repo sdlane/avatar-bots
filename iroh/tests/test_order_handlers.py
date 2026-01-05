@@ -1241,7 +1241,7 @@ async def test_cancel_order_wrong_character(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_cancel_order_ongoing_status(db_conn, test_server):
-    """Test that ONGOING orders cannot be cancelled."""
+    """Test that ONGOING orders can be cancelled (unless they have minimum commitment)."""
     # Create character
     char = Character(
         identifier="test-char", name="Test Character",
@@ -1286,13 +1286,12 @@ async def test_cancel_order_ongoing_status(db_conn, test_server):
         OrderStatus.ONGOING.value, order_id, TEST_GUILD_ID
     )
 
-    # Try to cancel ONGOING order
+    # Try to cancel ONGOING order (JOIN_FACTION has no minimum commitment, so should succeed)
     success, message = await cancel_order(db_conn, order_id, TEST_GUILD_ID, char.id)
 
-    # Verify failure
-    assert success is False
-    assert "cannot cancel" in message.lower()
-    assert "ongoing" in message.lower()
+    # Verify success (ONGOING orders without minimum commitment can be cancelled)
+    assert success is True
+    assert "cancelled" in message.lower()
 
     # Cleanup
     await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)

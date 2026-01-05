@@ -5,8 +5,9 @@ import asyncpg
 from typing import Optional, Tuple, List, Any
 from db import (
     Territory, Faction, FactionMember, Unit, UnitType,
-    PlayerResources, Character, TerritoryAdjacency
+    PlayerResources, Character, TerritoryAdjacency, Order
 )
+from order_types import OrderType, OrderStatus
 
 
 async def view_territory(conn: asyncpg.Connection, territory_id: int, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
@@ -298,4 +299,157 @@ async def view_territories_for_character(conn: asyncpg.Connection, user_id: int,
         'faction': faction,
         'territories': territories,
         'adjacencies': adjacencies
+    }
+
+
+async def view_victory_points(
+    conn: asyncpg.Connection,
+    user_id: int,
+    guild_id: int
+) -> Tuple[bool, str, Optional[dict]]:
+    """
+    Fetch victory point information for a character.
+
+    Returns:
+        (success, message, data) where data contains:
+        - character: Character object
+        - personal_vps: Total VPs from territories character controls
+        - territories: List of (Territory, vp_count) tuples
+        - faction: Faction object (if in a faction)
+        - faction_total_vps: Total VPs from all faction members' territories
+        - faction_members_vps: List of (Character, vp_count) for faction members
+        - assigned_to_faction: List of (Character, vp_count) assignments to faction
+    """
+    character = await Character.fetch_by_user(conn, user_id, guild_id)
+    if not character:
+        return False, "You don't have a character assigned. Ask a GM to assign you one using hawky.", None
+
+    # Get territories controlled by this character
+    territories = await Territory.fetch_by_controller(conn, character.id, guild_id)
+    personal_vps = sum(t.victory_points for t in territories)
+    territory_data = [(t, t.victory_points) for t in territories if t.victory_points > 0]
+
+    # Check faction membership
+    faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
+    faction = None
+    faction_total_vps = 0
+    faction_members_vps = []
+
+    if faction_member:
+        faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+
+        # Get all faction members and their VPs
+        members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
+        for member in members:
+            member_char = await Character.fetch_by_id(conn, member.character_id)
+            if member_char:
+                member_territories = await Territory.fetch_by_controller(conn, member.character_id, guild_id)
+                member_vps = sum(t.victory_points for t in member_territories)
+                faction_total_vps += member_vps
+                if member_vps > 0:
+                    faction_members_vps.append((member_char, member_vps))
+
+    # Get VP assignments TO this character's faction
+    assigned_to_faction = []
+    assigned_vps_total = 0
+    if faction:
+        # Find all ONGOING ASSIGN_VICTORY_POINTS orders targeting this faction
+        rows = await conn.fetch("""
+            SELECT wo.character_id
+            FROM WargameOrder wo
+            WHERE wo.guild_id = $1
+            AND wo.order_type = $2
+            AND wo.status = $3
+            AND wo.order_data->>'target_faction_id' = $4
+        """, guild_id, OrderType.ASSIGN_VICTORY_POINTS.value,
+             OrderStatus.ONGOING.value, faction.faction_id)
+
+        for row in rows:
+            assigning_char = await Character.fetch_by_id(conn, row['character_id'])
+            if assigning_char:
+                assigning_territories = await Territory.fetch_by_controller(conn, assigning_char.id, guild_id)
+                assigning_vps = sum(t.victory_points for t in assigning_territories)
+                if assigning_vps > 0:
+                    assigned_to_faction.append((assigning_char, assigning_vps))
+                    assigned_vps_total += assigning_vps
+
+        # Include assigned VPs in faction total
+        faction_total_vps += assigned_vps_total
+
+    return True, "", {
+        'character': character,
+        'personal_vps': personal_vps,
+        'territories': territory_data,
+        'faction': faction,
+        'faction_total_vps': faction_total_vps,
+        'faction_members_vps': faction_members_vps,
+        'assigned_to_faction': assigned_to_faction
+    }
+
+
+async def view_faction_victory_points(
+    conn: asyncpg.Connection,
+    faction_id: str,
+    guild_id: int
+) -> Tuple[bool, str, Optional[dict]]:
+    """
+    Fetch victory point information for a faction (admin view).
+
+    Returns:
+        (success, message, data) where data contains:
+        - faction: Faction object
+        - faction_total_vps: Total VPs from all faction members' territories + assigned VPs
+        - faction_members_vps: List of (Character, vp_count) for faction members
+        - assigned_to_faction: List of (Character, vp_count) assignments to faction
+    """
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found.", None
+
+    faction_total_vps = 0
+    faction_members_vps = []
+
+    # Get all faction members and their VPs
+    members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
+    for member in members:
+        member_char = await Character.fetch_by_id(conn, member.character_id)
+        if member_char:
+            member_territories = await Territory.fetch_by_controller(conn, member.character_id, guild_id)
+            member_vps = sum(t.victory_points for t in member_territories)
+            faction_total_vps += member_vps
+            if member_vps > 0:
+                faction_members_vps.append((member_char, member_vps))
+
+    # Get VP assignments TO this faction
+    assigned_to_faction = []
+    assigned_vps_total = 0
+
+    # Find all ONGOING ASSIGN_VICTORY_POINTS orders targeting this faction
+    rows = await conn.fetch("""
+        SELECT wo.character_id
+        FROM WargameOrder wo
+        WHERE wo.guild_id = $1
+        AND wo.order_type = $2
+        AND wo.status = $3
+        AND wo.order_data->>'target_faction_id' = $4
+    """, guild_id, OrderType.ASSIGN_VICTORY_POINTS.value,
+         OrderStatus.ONGOING.value, faction.faction_id)
+
+    for row in rows:
+        assigning_char = await Character.fetch_by_id(conn, row['character_id'])
+        if assigning_char:
+            assigning_territories = await Territory.fetch_by_controller(conn, assigning_char.id, guild_id)
+            assigning_vps = sum(t.victory_points for t in assigning_territories)
+            if assigning_vps > 0:
+                assigned_to_faction.append((assigning_char, assigning_vps))
+                assigned_vps_total += assigning_vps
+
+    # Include assigned VPs in faction total
+    faction_total_vps += assigned_vps_total
+
+    return True, "", {
+        'faction': faction,
+        'faction_total_vps': faction_total_vps,
+        'faction_members_vps': faction_members_vps,
+        'assigned_to_faction': assigned_to_faction
     }

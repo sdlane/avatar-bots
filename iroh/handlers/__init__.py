@@ -12,6 +12,8 @@ from .view_handlers import (
     view_faction_membership,
     view_units_for_character,
     view_territories_for_character,
+    view_victory_points,
+    view_faction_victory_points,
 )
 
 from .faction_handlers import (
@@ -62,6 +64,7 @@ from .order_handlers import (
     submit_resource_transfer_order,
     submit_cancel_transfer_order,
     submit_assign_commander_order,
+    submit_assign_victory_points_order,
     cancel_order,
     view_pending_orders,
     validate_path,
@@ -88,6 +91,8 @@ __all__ = [
     'view_faction_membership',
     'view_units_for_character',
     'view_territories_for_character',
+    'view_victory_points',
+    'view_faction_victory_points',
     # Faction handlers
     'create_faction',
     'delete_faction',
@@ -124,6 +129,7 @@ __all__ = [
     'submit_resource_transfer_order',
     'submit_cancel_transfer_order',
     'submit_assign_commander_order',
+    'submit_assign_victory_points_order',
     'cancel_order',
     'view_pending_orders',
     'validate_path',

@@ -5,11 +5,18 @@ wargame:
 factions:
   - faction_id: "fire-nation"
     name: "Fire Nation"
-    members: []
+    leader: "zuko"
+    members: ["zuko", "taiso"]
 
   - faction_id: "earth-kingdom"
     name: "Earth Kingdom"
-    members: []
+    leader: "toph"
+    members: ["toph", "jialun"]
+
+  - faction_id: "water-tribe"
+    name: "Water Tribe"
+    leader: "karliq"
+    members: ["karliq", "nai"]
 
 territories:
   - territory_id: 1
@@ -17,26 +24,42 @@ territories:
     terrain_type: "plains"
     original_nation: "fire-nation"
     controller_character_identifier: "zuko"
+    victory_points: 3
     production:
       ore: 5
       lumber: 3
       coal: 2
       rations: 8
       cloth: 4
-    adjacent_to: [2]
+    adjacent_to: [2, 3]
 
   - territory_id: 2
     name: "Earth Kingdom Territory"
     terrain_type: "mountain"
     original_nation: "earth-kingdom"
     controller_character_identifier: "toph"
+    victory_points: 2
     production:
       ore: 10
       lumber: 1
       coal: 5
       rations: 2
       cloth: 0
-    adjacent_to: [1]
+    adjacent_to: [1, 3]
+
+  - territory_id: 3
+    name: "Northern Water Tribe"
+    terrain_type: "tundra"
+    original_nation: "water-tribe"
+    controller_character_identifier: "karliq"
+    victory_points: 2
+    production:
+      ore: 2
+      lumber: 1
+      coal: 0
+      rations: 4
+      cloth: 3
+    adjacent_to: [1, 2]
 
 unit_types:
   - type_id: "infantry"
@@ -76,6 +99,25 @@ unit_types:
     upkeep:
       rations: 3
       cloth: 2
+
+  - type_id: "waterbenders"
+    name: "Waterbender Corps"
+    nation: "water-tribe"
+    stats:
+      movement: 3
+      organization: 10
+      attack: 6
+      defense: 6
+      siege_attack: 3
+      siege_defense: 4
+    cost:
+      ore: 2
+      lumber: 3
+      rations: 12
+      cloth: 6
+    upkeep:
+      rations: 2
+      cloth: 1
 
 units:
   # Zuko's units - Fire Nation
@@ -125,3 +167,11 @@ units:
     owner: "toph"
     commander: "jialun"
     current_territory_id: 2
+
+  # Water Tribe units
+  - unit_id: "water-1st-waterbenders"
+    name: "1st Waterbender Corps"
+    type: "waterbenders"
+    owner: "karliq"
+    commander: "nai"
+    current_territory_id: 3

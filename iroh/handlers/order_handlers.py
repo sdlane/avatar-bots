@@ -3,8 +3,8 @@ Order management command handlers.
 """
 import asyncpg
 from typing import Tuple, List, Optional
-from db import Order, Unit, Character, Faction, FactionMember, Territory
-from order_types import OrderType, ORDER_PHASE_MAP, ORDER_PRIORITY_MAP, OrderStatus
+from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog
+from order_types import OrderType, ORDER_PHASE_MAP, ORDER_PRIORITY_MAP, OrderStatus, TurnPhase
 from datetime import datetime
 
 
@@ -386,6 +386,13 @@ async def submit_transit_order(
     return True, f"Transit order submitted for {unit_list} -> Territory {path[-1]} (Order #{order_id}){ongoing_note}. Slowest unit: {slowest_unit.unit_id} (movement={slowest_movement})."
 
 
+# Minimum turns before cancellation for specific order types
+# Orders not in this dict default to 0 (immediate cancellation allowed)
+CANCEL_MINIMUM_TURNS = {
+    OrderType.ASSIGN_VICTORY_POINTS.value: 3,
+}
+
+
 async def cancel_order(
     conn: asyncpg.Connection,
     order_id: str,
@@ -393,7 +400,9 @@ async def cancel_order(
     character_id: int
 ) -> Tuple[bool, str]:
     """
-    Cancel a pending order.
+    Cancel a pending or ongoing order.
+
+    Some order types have minimum commitment periods before cancellation.
 
     Args:
         conn: Database connection
@@ -413,14 +422,66 @@ async def cancel_order(
     if order.character_id != character_id:
         return False, f"Order '{order_id}' does not belong to you."
 
-    # Validate status is PENDING (cannot cancel ONGOING orders)
-    if order.status != OrderStatus.PENDING.value:
-        return False, f"Cannot cancel order '{order_id}' with status '{order.status}'. Only PENDING orders can be cancelled."
+    # Check status - allow both PENDING and ONGOING
+    if order.status not in [OrderStatus.PENDING.value, OrderStatus.ONGOING.value]:
+        return False, f"Cannot cancel order '{order_id}' with status '{order.status}'."
+
+    # Get current turn (needed for minimum commitment check and TurnLog)
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Check minimum commitment for ONGOING orders
+    if order.status == OrderStatus.ONGOING.value:
+        min_turns = CANCEL_MINIMUM_TURNS.get(order.order_type, 0)
+        if min_turns > 0:
+            # Calculate turns active
+            turns_active = current_turn - order.turn_number
+            if turns_active < min_turns:
+                turns_remaining = min_turns - turns_active
+                return False, f"Cannot cancel '{order_id}' yet. Minimum commitment: {min_turns} turns. {turns_remaining} turn(s) remaining."
 
     # Update status to CANCELLED
     order.status = OrderStatus.CANCELLED.value
     order.updated_at = datetime.now()
     await order.upsert(conn)
+
+    # Create TurnLog entry for VP assignment cancellations
+    if order.order_type == OrderType.ASSIGN_VICTORY_POINTS.value:
+        # Get character and faction info for the event
+        character = await Character.fetch_by_id(conn, character_id)
+        target_faction_id = order.order_data.get('target_faction_id')
+        target_faction = await Faction.fetch_by_faction_id(conn, target_faction_id, guild_id) if target_faction_id else None
+
+        # Build affected character IDs: submitter + faction leader + all faction members
+        affected_character_ids = [character_id]
+        if target_faction:
+            if target_faction.leader_character_id and target_faction.leader_character_id not in affected_character_ids:
+                affected_character_ids.append(target_faction.leader_character_id)
+            faction_members = await FactionMember.fetch_by_faction(conn, target_faction.id, guild_id)
+            for member in faction_members:
+                if member.character_id not in affected_character_ids:
+                    affected_character_ids.append(member.character_id)
+
+        # Create and save the TurnLog entry (will appear in current turn's report)
+        turn_log = TurnLog(
+            turn_number=current_turn,
+            phase=TurnPhase.BEGINNING.value,
+            event_type='VP_ASSIGNMENT_CANCELLED',
+            entity_type='character',
+            entity_id=character_id,
+            event_data={
+                'character_name': character.name if character else 'Unknown',
+                'target_faction_id': target_faction_id,
+                'target_faction_name': target_faction.name if target_faction else 'Unknown',
+                'order_id': order_id,
+                'affected_character_ids': affected_character_ids
+            },
+            guild_id=guild_id
+        )
+        await turn_log.insert(conn)
 
     return True, f"Order '{order_id}' has been cancelled."
 
@@ -771,6 +832,84 @@ async def submit_assign_commander_order(
     await order.upsert(conn)
 
     return True, f"Order submitted: {new_commander.name} will be assigned as commander of {unit.name or unit.unit_id} next turn (Order #{order_id}).", False
+
+
+async def submit_assign_victory_points_order(
+    conn: asyncpg.Connection,
+    character: Character,
+    target_faction_id: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Submit an order to assign victory points to a faction.
+
+    Creates a PENDING order that will become ONGOING after first turn.
+    If the character already has an active VP assignment, it will be superceded.
+
+    Args:
+        conn: Database connection
+        character: Character submitting the order
+        target_faction_id: Faction ID to receive VPs
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate target faction exists
+    target_faction = await Faction.fetch_by_faction_id(conn, target_faction_id, guild_id)
+    if not target_faction:
+        return False, f"Faction '{target_faction_id}' not found."
+
+    # Check if character already has an active VP assignment order - supercede it
+    existing_orders = await Order.fetch_by_character_and_type(
+        conn, character.id, guild_id,
+        OrderType.ASSIGN_VICTORY_POINTS.value, OrderStatus.ONGOING.value
+    )
+    pending_orders = await Order.fetch_by_character_and_type(
+        conn, character.id, guild_id,
+        OrderType.ASSIGN_VICTORY_POINTS.value, OrderStatus.PENDING.value
+    )
+
+    superceded_order_id = None
+    for old_order in existing_orders + pending_orders:
+        old_order.status = OrderStatus.CANCELLED.value
+        old_order.updated_at = datetime.now()
+        old_order.result_data = {'superceded_by': 'new_order'}
+        await old_order.upsert(conn)
+        superceded_order_id = old_order.order_id
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create PENDING order (will become ONGOING after first turn)
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.ASSIGN_VICTORY_POINTS.value,
+        unit_ids=[],
+        character_id=character.id,
+        turn_number=current_turn + 1,
+        phase=ORDER_PHASE_MAP[OrderType.ASSIGN_VICTORY_POINTS].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.ASSIGN_VICTORY_POINTS],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_faction_id': target_faction_id
+        },
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    supercede_note = f" (superceded previous order {superceded_order_id})" if superceded_order_id else ""
+    return True, f"VP assignment order submitted: Your victory points will be assigned to {target_faction.name} (Order #{order_id}){supercede_note}. This order will remain active until cancelled."
 
 
 async def validate_path(

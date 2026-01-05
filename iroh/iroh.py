@@ -1748,4 +1748,85 @@ async def edit_wargame_config_cmd(interaction: discord.Interaction):
         await interaction.response.send_modal(modal)
 
 
+@tree.command(
+    name="my-victory-points",
+    description="View your victory points and faction VP totals"
+)
+async def my_victory_points_cmd(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.view_victory_points(
+            conn, interaction.user.id, interaction.guild_id
+        )
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        # Create and send embed
+        embed = create_victory_points_embed(data)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="view-victory-points",
+    description="[Admin] View victory points for a faction"
+)
+@app_commands.describe(
+    faction_id="The faction ID to view"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def view_victory_points_cmd(interaction: discord.Interaction, faction_id: str):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.view_faction_victory_points(
+            conn, faction_id, interaction.guild_id
+        )
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        # Create and send embed
+        embed = create_faction_victory_points_embed(data)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="order-assign-vp",
+    description="Submit an order to assign your victory points to a faction"
+)
+@app_commands.describe(
+    faction_id="The faction ID to assign your VPs to"
+)
+async def order_assign_vp_cmd(interaction: discord.Interaction, faction_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_assign_victory_points_order(
+            conn, character, faction_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} submitted VP assignment to '{faction_id}'")
+        else:
+            logger.warning(f"User {interaction.user.name} failed VP assignment: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
 client.run(BOT_TOKEN)

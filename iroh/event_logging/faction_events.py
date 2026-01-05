@@ -100,3 +100,49 @@ def order_failed_gm_line(event_data: Dict[str, Any]) -> str:
         return f"❌ ASSIGN_COMMANDER ({unit_id} → {new_commander_name}): {error}"
 
     return f"❌ {order_type}: {error}"
+
+
+def vp_assignment_started_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for VP_ASSIGNMENT_STARTED event."""
+    char_name = event_data.get('character_name', 'Unknown')
+    faction_name = event_data.get('target_faction_name', 'Unknown')
+    vps = event_data.get('vps_controlled', 0)
+    return f"🏆 **{char_name}** began assigning **{vps} VP** to **{faction_name}**"
+
+
+def vp_assignment_started_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for VP_ASSIGNMENT_STARTED event."""
+    char_name = event_data.get('character_name', 'Unknown')
+    faction_name = event_data.get('target_faction_name', 'Unknown')
+    vps = event_data.get('vps_controlled', 0)
+    return f"🏆 {char_name} → {faction_name} ({vps} VP) [started]"
+
+
+def vp_assignment_active_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for VP_ASSIGNMENT_ACTIVE event."""
+    char_name = event_data.get('character_name', 'Unknown')
+    faction_name = event_data.get('target_faction_name', 'Unknown')
+    vps = event_data.get('vps_controlled', 0)
+    return f"🏆 **{char_name}** is assigning **{vps} VP** to **{faction_name}**"
+
+
+def vp_assignment_active_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for VP_ASSIGNMENT_ACTIVE event."""
+    char_name = event_data.get('character_name', 'Unknown')
+    faction_name = event_data.get('target_faction_name', 'Unknown')
+    vps = event_data.get('vps_controlled', 0)
+    return f"🏆 {char_name} → {faction_name} ({vps} VP) [active]"
+
+
+def vp_assignment_cancelled_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for VP_ASSIGNMENT_CANCELLED event."""
+    char_name = event_data.get('character_name', 'Unknown')
+    faction_name = event_data.get('target_faction_name', 'Unknown')
+    return f"🚫 **{char_name}** stopped assigning VPs to **{faction_name}**"
+
+
+def vp_assignment_cancelled_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for VP_ASSIGNMENT_CANCELLED event."""
+    char_name = event_data.get('character_name', 'Unknown')
+    faction_name = event_data.get('target_faction_name', 'Unknown')
+    return f"🚫 {char_name} ✗ {faction_name} [cancelled]"

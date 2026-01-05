@@ -20,6 +20,12 @@ from .faction_events import (
     kick_from_faction_gm_line,
     order_failed_character_line,
     order_failed_gm_line,
+    vp_assignment_started_character_line,
+    vp_assignment_started_gm_line,
+    vp_assignment_active_character_line,
+    vp_assignment_active_gm_line,
+    vp_assignment_cancelled_character_line,
+    vp_assignment_cancelled_gm_line,
 )
 
 from .movement_events import (
@@ -101,6 +107,18 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'ORDER_FAILED': EventHandler(
         get_character_line=order_failed_character_line,
         get_gm_line=order_failed_gm_line
+    ),
+    'VP_ASSIGNMENT_STARTED': EventHandler(
+        get_character_line=vp_assignment_started_character_line,
+        get_gm_line=vp_assignment_started_gm_line
+    ),
+    'VP_ASSIGNMENT_ACTIVE': EventHandler(
+        get_character_line=vp_assignment_active_character_line,
+        get_gm_line=vp_assignment_active_gm_line
+    ),
+    'VP_ASSIGNMENT_CANCELLED': EventHandler(
+        get_character_line=vp_assignment_cancelled_character_line,
+        get_gm_line=vp_assignment_cancelled_gm_line
     ),
 
     # Movement events

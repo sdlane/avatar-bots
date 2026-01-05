@@ -118,6 +118,10 @@ class ConfigManager:
                 'cloth': territory.cloth_production
             }
 
+            # Victory points
+            if territory.victory_points > 0:
+                territory_dict['victory_points'] = territory.victory_points
+
             # Adjacent territories
             adjacent_ids = await TerritoryAdjacency.fetch_adjacent(conn, territory.territory_id, guild_id)
             if adjacent_ids:
@@ -363,6 +367,7 @@ class ConfigManager:
                     coal_production=production.get('coal', 0),
                     rations_production=production.get('rations', 0),
                     cloth_production=production.get('cloth', 0),
+                    victory_points=territory_data.get('victory_points', 0),
                     controller_character_id=controller_character_id,
                     original_nation=territory_data.get('original_nation'),
                     guild_id=guild_id

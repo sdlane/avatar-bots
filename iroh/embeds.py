@@ -2,7 +2,7 @@
 Helper functions for creating rich Discord embeds for wargame data display.
 """
 import discord
-from typing import List, Optional
+from typing import List, Optional, Tuple
 from db import (
     Territory, Faction, Unit, UnitType, PlayerResources,
     WargameConfig, Character, FactionMember
@@ -394,5 +394,133 @@ def create_resources_embed(character: Character, resources: PlayerResources) -> 
         value=str(total),
         inline=True
     )
+
+    return embed
+
+
+def create_victory_points_embed(data: dict) -> discord.Embed:
+    """Create embed for victory points view."""
+    character = data['character']
+
+    embed = discord.Embed(
+        title=f"Victory Points - {character.name}",
+        color=discord.Color.gold()
+    )
+
+    # Personal VPs
+    personal_vps = data['personal_vps']
+    if data['territories']:
+        territory_list = "\n".join([
+            f"  {t.name or f'Territory {t.territory_id}'}: {vp} VP"
+            for t, vp in data['territories']
+        ])
+        embed.add_field(
+            name=f"Your Territories ({personal_vps} VP)",
+            value=territory_list,
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Your Territories",
+            value=f"No territories with victory points ({personal_vps} VP total)",
+            inline=False
+        )
+
+    # Faction info
+    if data['faction']:
+        faction = data['faction']
+        embed.add_field(
+            name=f"Faction: {faction.name}",
+            value=f"Total faction VPs: {data['faction_total_vps']}",
+            inline=False
+        )
+
+        # Member breakdown
+        if data['faction_members_vps']:
+            member_list = "\n".join([
+                f"  {char.name}: {vp} VP"
+                for char, vp in data['faction_members_vps']
+            ])
+            embed.add_field(
+                name="Faction Member VPs",
+                value=member_list,
+                inline=False
+            )
+
+        # Assigned to faction
+        if data['assigned_to_faction']:
+            assigned_list = "\n".join([
+                f"  {char.name}: {vp} VP"
+                for char, vp in data['assigned_to_faction']
+            ])
+            assigned_total = sum(vp for _, vp in data['assigned_to_faction'])
+            embed.add_field(
+                name=f"VPs Assigned to {faction.name} ({assigned_total} VP)",
+                value=assigned_list,
+                inline=False
+            )
+    else:
+        embed.add_field(
+            name="Faction",
+            value="Not a member of any faction",
+            inline=False
+        )
+
+    return embed
+
+
+def create_faction_victory_points_embed(data: dict) -> discord.Embed:
+    """Create embed for faction victory points view (admin)."""
+    faction = data['faction']
+
+    embed = discord.Embed(
+        title=f"Victory Points - {faction.name}",
+        color=discord.Color.gold()
+    )
+
+    # Total VPs
+    embed.add_field(
+        name="Total Faction VPs",
+        value=str(data['faction_total_vps']),
+        inline=False
+    )
+
+    # Member breakdown
+    if data['faction_members_vps']:
+        member_list = "\n".join([
+            f"  {char.name}: {vp} VP"
+            for char, vp in data['faction_members_vps']
+        ])
+        member_total = sum(vp for _, vp in data['faction_members_vps'])
+        embed.add_field(
+            name=f"Member Territories ({member_total} VP)",
+            value=member_list,
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Member Territories",
+            value="No members with victory point territories",
+            inline=False
+        )
+
+    # Assigned to faction
+    if data['assigned_to_faction']:
+        assigned_list = "\n".join([
+            f"  {char.name}: {vp} VP"
+            for char, vp in data['assigned_to_faction']
+        ])
+        assigned_total = sum(vp for _, vp in data['assigned_to_faction'])
+        embed.add_field(
+            name=f"Assigned VPs ({assigned_total} VP)",
+            value=assigned_list,
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Assigned VPs",
+            value="No VPs assigned to this faction",
+            inline=False
+        )
 
     return embed
