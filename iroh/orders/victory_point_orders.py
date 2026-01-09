@@ -82,9 +82,10 @@ async def handle_assign_victory_points_order(
                 guild_id=guild_id
             )]
 
-        # Calculate VPs this character controls
+        # Calculate VPs this character controls (territory VPs + character's personal VPs)
         territories = await Territory.fetch_by_controller(conn, order.character_id, guild_id)
-        total_vps = sum(t.victory_points for t in territories)
+        territory_vps = sum(t.victory_points for t in territories)
+        total_vps = territory_vps + character.victory_points
 
         # Build affected character IDs list: submitter + faction leader + all faction members
         affected_character_ids = [order.character_id]

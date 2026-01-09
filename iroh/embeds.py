@@ -510,6 +510,15 @@ def create_victory_points_embed(data: dict) -> discord.Embed:
         inline=False
     )
 
+    # Show if this character is assigning VPs to another faction
+    assigning_vps_to = data.get('assigning_vps_to')
+    if assigning_vps_to:
+        embed.add_field(
+            name="VP Assignment Active",
+            value=f"Your {personal_vps} VP are being assigned to **{assigning_vps_to.name}**",
+            inline=False
+        )
+
     # Faction info
     if data['faction']:
         faction = data['faction']
@@ -528,6 +537,19 @@ def create_victory_points_embed(data: dict) -> discord.Embed:
             embed.add_field(
                 name="Faction Member VPs",
                 value=member_list,
+                inline=False
+            )
+
+        # Members assigning VPs elsewhere
+        members_assigning_away = data.get('members_assigning_away', [])
+        if members_assigning_away:
+            away_list = "\n".join([
+                f"  {char.name}: {vp} VP → {target_faction.name if target_faction else 'Unknown'}"
+                for char, vp, target_faction in members_assigning_away
+            ])
+            embed.add_field(
+                name="Members Assigning VPs Elsewhere",
+                value=away_list,
                 inline=False
             )
 
@@ -585,6 +607,19 @@ def create_faction_victory_points_embed(data: dict) -> discord.Embed:
         embed.add_field(
             name="Member VPs",
             value="No members with victory points",
+            inline=False
+        )
+
+    # Members assigning VPs elsewhere
+    members_assigning_away = data.get('members_assigning_away', [])
+    if members_assigning_away:
+        away_list = "\n".join([
+            f"  {char.name}: {vp} VP → {target_faction.name if target_faction else 'Unknown'}"
+            for char, vp, target_faction in members_assigning_away
+        ])
+        embed.add_field(
+            name="Members Assigning VPs Elsewhere",
+            value=away_list,
             inline=False
         )
 

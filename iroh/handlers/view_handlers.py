@@ -344,20 +344,58 @@ async def view_victory_points(
     faction_total_vps = 0
     faction_members_vps = []
 
+    # Check if this character has an active VP assignment to another faction
+    own_vp_assignment = await conn.fetchrow("""
+        SELECT wo.order_data->>'target_faction_id' as target_faction_id
+        FROM WargameOrder wo
+        WHERE wo.guild_id = $1
+        AND wo.character_id = $2
+        AND wo.order_type = $3
+        AND wo.status = $4
+    """, guild_id, character.id, OrderType.ASSIGN_VICTORY_POINTS.value,
+         OrderStatus.ONGOING.value)
+
+    assigning_vps_to = None
+    if own_vp_assignment:
+        target_faction = await Faction.fetch_by_faction_id(conn, own_vp_assignment['target_faction_id'], guild_id)
+        if target_faction:
+            assigning_vps_to = target_faction
+
     if faction_member:
         faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
 
         # Get all faction members and their VPs (including character VPs)
+        # But exclude members who have active VP assignments to OTHER factions
         members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
+        members_assigning_away = []  # Track members assigning VPs elsewhere
         for member in members:
             member_char = await Character.fetch_by_id(conn, member.character_id)
             if member_char:
+                # Check if this member has an active VP assignment to another faction
+                member_vp_assignment = await conn.fetchrow("""
+                    SELECT wo.order_data->>'target_faction_id' as target_faction_id
+                    FROM WargameOrder wo
+                    WHERE wo.guild_id = $1
+                    AND wo.character_id = $2
+                    AND wo.order_type = $3
+                    AND wo.status = $4
+                """, guild_id, member.character_id, OrderType.ASSIGN_VICTORY_POINTS.value,
+                     OrderStatus.ONGOING.value)
+
                 member_territories = await Territory.fetch_by_controller(conn, member.character_id, guild_id)
                 member_territory_vps = sum(t.victory_points for t in member_territories)
                 member_vps = member_territory_vps + member_char.victory_points
-                faction_total_vps += member_vps
-                if member_vps > 0:
-                    faction_members_vps.append((member_char, member_vps))
+
+                if member_vp_assignment and member_vp_assignment['target_faction_id'] != faction.faction_id:
+                    # This member is assigning their VPs to a different faction
+                    if member_vps > 0:
+                        target_f = await Faction.fetch_by_faction_id(conn, member_vp_assignment['target_faction_id'], guild_id)
+                        members_assigning_away.append((member_char, member_vps, target_f))
+                else:
+                    # Count their VPs toward this faction
+                    faction_total_vps += member_vps
+                    if member_vps > 0:
+                        faction_members_vps.append((member_char, member_vps))
 
     # Get VP assignments TO this character's faction
     assigned_to_faction = []
@@ -396,7 +434,9 @@ async def view_victory_points(
         'faction': faction,
         'faction_total_vps': faction_total_vps,
         'faction_members_vps': faction_members_vps,
-        'assigned_to_faction': assigned_to_faction
+        'assigned_to_faction': assigned_to_faction,
+        'assigning_vps_to': assigning_vps_to,  # Faction this character is assigning VPs to (if any)
+        'members_assigning_away': members_assigning_away if faction_member else [],  # Faction members assigning VPs elsewhere
     }
 
 
@@ -421,18 +461,39 @@ async def view_faction_victory_points(
 
     faction_total_vps = 0
     faction_members_vps = []
+    members_assigning_away = []  # Track members assigning VPs elsewhere
 
     # Get all faction members and their VPs (including character VPs)
+    # But exclude members who have active VP assignments to OTHER factions
     members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
     for member in members:
         member_char = await Character.fetch_by_id(conn, member.character_id)
         if member_char:
+            # Check if this member has an active VP assignment to another faction
+            member_vp_assignment = await conn.fetchrow("""
+                SELECT wo.order_data->>'target_faction_id' as target_faction_id
+                FROM WargameOrder wo
+                WHERE wo.guild_id = $1
+                AND wo.character_id = $2
+                AND wo.order_type = $3
+                AND wo.status = $4
+            """, guild_id, member.character_id, OrderType.ASSIGN_VICTORY_POINTS.value,
+                 OrderStatus.ONGOING.value)
+
             member_territories = await Territory.fetch_by_controller(conn, member.character_id, guild_id)
             member_territory_vps = sum(t.victory_points for t in member_territories)
             member_vps = member_territory_vps + member_char.victory_points
-            faction_total_vps += member_vps
-            if member_vps > 0:
-                faction_members_vps.append((member_char, member_vps))
+
+            if member_vp_assignment and member_vp_assignment['target_faction_id'] != faction.faction_id:
+                # This member is assigning their VPs to a different faction
+                if member_vps > 0:
+                    target_f = await Faction.fetch_by_faction_id(conn, member_vp_assignment['target_faction_id'], guild_id)
+                    members_assigning_away.append((member_char, member_vps, target_f))
+            else:
+                # Count their VPs toward this faction
+                faction_total_vps += member_vps
+                if member_vps > 0:
+                    faction_members_vps.append((member_char, member_vps))
 
     # Get VP assignments TO this faction
     assigned_to_faction = []
@@ -466,5 +527,6 @@ async def view_faction_victory_points(
         'faction': faction,
         'faction_total_vps': faction_total_vps,
         'faction_members_vps': faction_members_vps,
-        'assigned_to_faction': assigned_to_faction
+        'assigned_to_faction': assigned_to_faction,
+        'members_assigning_away': members_assigning_away,  # Faction members assigning VPs elsewhere
     }
