@@ -445,9 +445,11 @@ async def execute_upkeep_phase(
         logger.info(f"Upkeep phase: finished upkeep phase for guild {guild_id}, turn {turn_number}")
         return events
 
-    # Group units by owner
+    # Group units by owner (only active units need upkeep)
     units_by_owner: Dict[int, List[Unit]] = {}
     for unit in all_units:
+        if unit.status != 'ACTIVE':
+            continue
         owner_id = unit.owner_character_id
         if owner_id not in units_by_owner:
             units_by_owner[owner_id] = []

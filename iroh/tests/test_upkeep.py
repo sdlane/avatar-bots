@@ -885,3 +885,66 @@ def test_upkeep_deficit_commander_view_format():
     assert 'unit-test' in line
     assert 'owned by Owner Name' in line  # Commander sees owner info
     assert 'Insufficient upkeep' in line
+
+
+@pytest.mark.asyncio
+async def test_upkeep_skips_disbanded_units(db_conn, test_server):
+    """Test that disbanded units are not processed for upkeep."""
+    # Create character
+    character = Character(
+        identifier="disbanded-owner", name="Disbanded Owner",
+        channel_id=999000000000000016, guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "disbanded-owner", TEST_GUILD_ID)
+
+    # Create active unit with upkeep costs
+    active_unit = Unit(
+        unit_id="active-unit", name="Active Unit", unit_type="infantry",
+        owner_character_id=character.id,
+        organization=10, max_organization=10,
+        status='ACTIVE',
+        upkeep_ore=5, upkeep_lumber=0, upkeep_coal=0,
+        upkeep_rations=0, upkeep_cloth=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await active_unit.upsert(db_conn)
+
+    # Create disbanded unit with upkeep costs (should be skipped)
+    disbanded_unit = Unit(
+        unit_id="disbanded-unit", name="Disbanded Unit", unit_type="infantry",
+        owner_character_id=character.id,
+        organization=0, max_organization=10,
+        status='DISBANDED',
+        upkeep_ore=10, upkeep_lumber=0, upkeep_coal=0,
+        upkeep_rations=0, upkeep_cloth=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await disbanded_unit.upsert(db_conn)
+
+    # Create resources (enough for active unit only)
+    resources = PlayerResources(
+        character_id=character.id,
+        ore=5, lumber=0, coal=0, rations=0, cloth=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await resources.upsert(db_conn)
+
+    # Execute upkeep phase
+    events = await execute_upkeep_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Verify only active unit was processed (1 UPKEEP_SUMMARY for 5 ore, 1 unit)
+    assert len(events) == 1
+    summary = events[0]
+    assert summary.event_type == 'UPKEEP_SUMMARY'
+    assert summary.event_data['resources_spent']['ore'] == 5
+    assert summary.event_data['units_maintained'] == 1
+
+    # Verify resources deducted correctly (only for active unit)
+    updated_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
+    assert updated_resources.ore == 0  # 5 - 5 for active unit only
+
+    # Verify disbanded unit was not touched
+    updated_disbanded = await Unit.fetch_by_unit_id(db_conn, "disbanded-unit", TEST_GUILD_ID)
+    assert updated_disbanded.status == 'DISBANDED'
+    assert updated_disbanded.organization == 0  # Unchanged
