@@ -397,16 +397,19 @@ async def clear_wargame_config(interaction: discord.Interaction):
 
     async with db_pool.acquire() as conn:
         # Delete in reverse order of dependencies
+        await conn.execute("DELETE FROM TurnLog WHERE guild_id = $1;", interaction.guild_id)
+        await conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Unit WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Territory WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", interaction.guild_id)
+        await conn.execute("DELETE FROM FactionJoinRequest WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Faction WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", interaction.guild_id)
 
-        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) cleared all wargame config for guild {interaction.guild_id}")
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) cleared all wargame data for guild {interaction.guild_id}")
 
         await interaction.followup.send(
             emotive_message("All wargame configuration has been cleared. The slate is clean.")
@@ -1564,49 +1567,45 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
             config = await WargameConfig.fetch(conn, interaction.guild_id)
             logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) resolved turn {config.current_turn} in guild {interaction.guild_id} ({len(all_events)} events)")
 
-            # Generate GM report
-            summary = {
-                'total_events': len(all_events),
-                'beginning_events': len([e for e in all_events if e.phase == 'BEGINNING']),
-                'movement_events': len([e for e in all_events if e.phase == 'MOVEMENT']),
-                'resource_collection_events': len([e for e in all_events if e.phase == 'RESOURCE_COLLECTION']),
-                'upkeep_events': len([e for e in all_events if e.phase == 'UPKEEP'])
-            }
-
-            gm_embed = turn_embeds.create_gm_turn_report_embed(
-                config.current_turn, all_events, summary
+            # Generate and send GM report using the same function as gm-turn-report
+            gm_success, _, gm_data = await handlers.generate_gm_report(
+                conn, interaction.guild_id, config.current_turn
             )
-
-            # Send GM report to reports channel
-            if config.gm_reports_channel_id:
+            if gm_success and config.gm_reports_channel_id:
                 try:
                     reports_channel = client.get_channel(config.gm_reports_channel_id)
                     if reports_channel:
+                        gm_embed = turn_embeds.create_gm_turn_report_embed(
+                            gm_data['turn_number'],
+                            gm_data['events'],
+                            gm_data['summary']
+                        )
                         await reports_channel.send(embed=gm_embed)
                 except Exception as e:
                     logger.error(f"Failed to send GM report to channel: {e}")
 
-            # Send individual reports to each character
+            # Send individual reports to each character using the same function as turn-report
             characters = await Character.fetch_all(conn, interaction.guild_id)
             for character in characters:
+                logger.info(f"Sending report to character: {character.identifier}")
                 if not character.channel_id:
+                    logger.warn(f"Character {character.identifier} has no channel defined")
                     continue
 
-                # Filter events relevant to this character using affected_character_ids
-                character_events = []
-                for event in all_events:
-                    event_data = event.event_data or {}
-                    affected_ids = event_data.get('affected_character_ids', [])
+                # Use generate_character_report to get filtered events for this character
+                char_success, _, char_data = await handlers.generate_character_report(
+                    conn, character, interaction.guild_id, config.current_turn
+                )
 
-                    if character.id in affected_ids:
-                        character_events.append(event)
-
-                if character_events:
+                if char_success and char_data['events']:
                     try:
                         char_channel = client.get_channel(character.channel_id)
                         if char_channel:
                             char_embed = turn_embeds.create_character_turn_report_embed(
-                                character.name, config.current_turn, character_events, character.id
+                                char_data['character'].name,
+                                char_data['turn_number'],
+                                char_data['events'],
+                                char_data['character'].id
                             )
                             await char_channel.send(embed=char_embed)
                     except Exception as e:
@@ -1677,11 +1676,35 @@ async def turn_report_cmd(interaction: discord.Interaction, turn_number: int = N
     await interaction.response.defer(ephemeral=True)
 
     async with db_pool.acquire() as conn:
+        # Look up the character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        # Get wargame config for turn number
+        config = await WargameConfig.fetch(conn, interaction.guild_id)
+        if not config:
+            await interaction.followup.send(
+                emotive_message("No wargame configuration found for this server."),
+                ephemeral=True
+            )
+            return
+
+        # Determine and validate turn number
+        report_turn = turn_number if turn_number is not None else config.current_turn
+        if report_turn < 0 or report_turn > config.current_turn:
+            await interaction.followup.send(
+                emotive_message(f"Invalid turn number. Must be between 0 and {config.current_turn}."),
+                ephemeral=True
+            )
+            return
+
         success, message, data = await handlers.generate_character_report(
-            conn,
-            interaction.user.id,
-            interaction.guild_id,
-            turn_number
+            conn, character, interaction.guild_id, report_turn
         )
 
         if not success:

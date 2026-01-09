@@ -12,18 +12,18 @@ logger = logging.getLogger(__name__)
 
 async def generate_character_report(
     conn: asyncpg.Connection,
-    user_id: int,
+    character: Character,
     guild_id: int,
-    turn_number: Optional[int] = None
+    turn_number: int
 ) -> Tuple[bool, str, Optional[Dict]]:
     """
-    Generate a turn report for a character.
+    Generate a turn report for a specific character.
 
     Args:
         conn: Database connection
-        user_id: Discord user ID
+        character: Character object
         guild_id: Guild ID
-        turn_number: Optional turn number (defaults to most recent turn)
+        turn_number: Turn number to generate report for
 
     Returns:
         (success, message, data_dict)
@@ -32,24 +32,6 @@ async def generate_character_report(
         - turn_number: int
         - events: List of TurnLog objects
     """
-    # Get character for this user
-    character = await Character.fetch_by_user(conn, user_id, guild_id)
-    if not character:
-        return False, "You don't have a character in this wargame.", None
-
-    # Get wargame config
-    config = await WargameConfig.fetch(conn, guild_id)
-    if not config:
-        return False, "No wargame configuration found for this server.", None
-
-    # Determine turn number
-    if turn_number is None:
-        turn_number = config.current_turn
-
-    # Validate turn number
-    if turn_number < 0 or turn_number > config.current_turn:
-        return False, f"Invalid turn number. Must be between 0 and {config.current_turn}.", None
-
     # Fetch all turn logs for this turn
     turn_logs = await TurnLog.fetch_by_turn(conn, turn_number, guild_id)
 

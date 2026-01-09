@@ -434,11 +434,12 @@ async def cancel_order(
     current_turn = wargame_config['current_turn'] if wargame_config else 0
 
     # Check minimum commitment for ONGOING orders
+    # Relaxed by one turn since cancellation takes effect at start of next turn
     if order.status == OrderStatus.ONGOING.value:
         min_turns = CANCEL_MINIMUM_TURNS.get(order.order_type, 0)
         if min_turns > 0:
-            # Calculate turns active
-            turns_active = current_turn - order.turn_number
+            # Calculate turns active (including next turn when cancellation takes effect)
+            turns_active = current_turn - order.turn_number + 1
             if turns_active < min_turns:
                 turns_remaining = min_turns - turns_active
                 return False, f"Cannot cancel '{order_id}' yet. Minimum commitment: {min_turns} turns. {turns_remaining} turn(s) remaining."
@@ -465,9 +466,9 @@ async def cancel_order(
                 if member.character_id not in affected_character_ids:
                     affected_character_ids.append(member.character_id)
 
-        # Create and save the TurnLog entry (will appear in current turn's report)
+        # Create and save the TurnLog entry (will appear at beginning of next turn's report)
         turn_log = TurnLog(
-            turn_number=current_turn,
+            turn_number=current_turn + 1,
             phase=TurnPhase.BEGINNING.value,
             event_type='VP_ASSIGNMENT_CANCELLED',
             entity_type='character',
