@@ -487,7 +487,7 @@ async def test_view_resources_success(db_conn, test_server):
     # Create resources
     resources = PlayerResources(
         character_id=char.id,
-        ore=100, lumber=50, coal=200, rations=150, cloth=75,
+        ore=100, lumber=50, coal=200, rations=150, cloth=75, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)
@@ -1058,7 +1058,7 @@ async def test_view_handlers_guild_isolation(db_conn, test_server_multi_guild):
 
     resources_a = PlayerResources(
         character_id=char_a.id,
-        ore=100, lumber=50, coal=25, rations=200, cloth=75,
+        ore=100, lumber=50, coal=25, rations=200, cloth=75, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources_a.upsert(db_conn)
@@ -1074,7 +1074,7 @@ async def test_view_handlers_guild_isolation(db_conn, test_server_multi_guild):
 
     resources_b = PlayerResources(
         character_id=char_b.id,
-        ore=200, lumber=100, coal=50, rations=300, cloth=150,
+        ore=200, lumber=100, coal=50, rations=300, cloth=150, platinum=0,
         guild_id=TEST_GUILD_ID_2
     )
     await resources_b.upsert(db_conn)

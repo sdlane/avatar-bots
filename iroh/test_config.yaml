@@ -31,6 +31,7 @@ territories:
       coal: 2
       rations: 8
       cloth: 4
+      platinum: 0
     adjacent_to: [2, 3]
 
   - territory_id: 2
@@ -45,6 +46,7 @@ territories:
       coal: 5
       rations: 2
       cloth: 0
+      platinum: 0
     adjacent_to: [1, 3]
 
   - territory_id: 3
@@ -59,6 +61,7 @@ territories:
       coal: 0
       rations: 4
       cloth: 3
+      platinum: 0
     adjacent_to: [1, 2]
 
 unit_types:
@@ -77,9 +80,11 @@ unit_types:
       lumber: 2
       rations: 10
       cloth: 5
+      platinum: 0
     upkeep:
       rations: 2
       cloth: 1
+      platinum: 0
 
   - type_id: "cavalry"
     name: "Cavalry Division"
@@ -96,9 +101,11 @@ unit_types:
       lumber: 5
       rations: 15
       cloth: 8
+      platinum: 0
     upkeep:
       rations: 3
       cloth: 2
+      platinum: 0
 
   - type_id: "waterbenders"
     name: "Waterbender Corps"
@@ -115,9 +122,11 @@ unit_types:
       lumber: 3
       rations: 12
       cloth: 6
+      platinum: 0
     upkeep:
       rations: 2
       cloth: 1
+      platinum: 0
 
 units:
   # Zuko's units - Fire Nation

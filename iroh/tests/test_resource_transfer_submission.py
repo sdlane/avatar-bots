@@ -43,7 +43,7 @@ async def test_submit_one_time_transfer(db_conn, test_server):
     await config.upsert(db_conn)
 
     # Execute
-    resources = {'ore': 100, 'lumber': 50, 'coal': 0, 'rations': 0, 'cloth': 0}
+    resources = {'ore': 100, 'lumber': 50, 'coal': 0, 'rations': 0, 'cloth': 0, 'platinum': 0}
     success, message = await submit_resource_transfer_order(
         db_conn, sender, "recipient-submit1", resources, False, None, TEST_GUILD_ID
     )
@@ -91,7 +91,7 @@ async def test_submit_ongoing_transfer_with_term(db_conn, test_server):
     await config.upsert(db_conn)
 
     # Execute
-    resources = {'ore': 10, 'lumber': 5, 'coal': 0, 'rations': 0, 'cloth': 0}
+    resources = {'ore': 10, 'lumber': 5, 'coal': 0, 'rations': 0, 'cloth': 0, 'platinum': 0}
     success, message = await submit_resource_transfer_order(
         db_conn, sender, "recipient-submit2", resources, True, 5, TEST_GUILD_ID
     )
@@ -143,7 +143,7 @@ async def test_submit_ongoing_transfer_indefinite(db_conn, test_server):
     await config.upsert(db_conn)
 
     # Execute
-    resources = {'ore': 10, 'lumber': 5, 'coal': 0, 'rations': 0, 'cloth': 0}
+    resources = {'ore': 10, 'lumber': 5, 'coal': 0, 'rations': 0, 'cloth': 0, 'platinum': 0}
     success, message = await submit_resource_transfer_order(
         db_conn, sender, "recipient-submit3", resources, True, None, TEST_GUILD_ID
     )
@@ -194,7 +194,7 @@ async def test_submit_transfer_invalid_term(db_conn, test_server):
     await config.upsert(db_conn)
 
     # Execute with invalid term
-    resources = {'ore': 10, 'lumber': 0, 'coal': 0, 'rations': 0, 'cloth': 0}
+    resources = {'ore': 10, 'lumber': 0, 'coal': 0, 'rations': 0, 'cloth': 0, 'platinum': 0}
     success, message = await submit_resource_transfer_order(
         db_conn, sender, "recipient-submit4", resources, True, 1, TEST_GUILD_ID
     )
@@ -238,7 +238,7 @@ async def test_submit_transfer_no_resources(db_conn, test_server):
     await config.upsert(db_conn)
 
     # Execute with all zero resources
-    resources = {'ore': 0, 'lumber': 0, 'coal': 0, 'rations': 0, 'cloth': 0}
+    resources = {'ore': 0, 'lumber': 0, 'coal': 0, 'rations': 0, 'cloth': 0, 'platinum': 0}
     success, message = await submit_resource_transfer_order(
         db_conn, sender, "recipient-submit5", resources, False, None, TEST_GUILD_ID
     )
@@ -275,7 +275,7 @@ async def test_submit_transfer_negative_resources(db_conn, test_server):
     await config.upsert(db_conn)
 
     # Execute with negative resources
-    resources = {'ore': 100, 'lumber': -10, 'coal': 0, 'rations': 0, 'cloth': 0}
+    resources = {'ore': 100, 'lumber': -10, 'coal': 0, 'rations': 0, 'cloth': 0, 'platinum': 0}
     success, message = await submit_resource_transfer_order(
         db_conn, sender, "recipient-submit6", resources, False, None, TEST_GUILD_ID
     )
@@ -305,7 +305,7 @@ async def test_submit_transfer_recipient_not_found(db_conn, test_server):
     await config.upsert(db_conn)
 
     # Execute with non-existent recipient
-    resources = {'ore': 100, 'lumber': 0, 'coal': 0, 'rations': 0, 'cloth': 0}
+    resources = {'ore': 100, 'lumber': 0, 'coal': 0, 'rations': 0, 'cloth': 0, 'platinum': 0}
     success, message = await submit_resource_transfer_order(
         db_conn, sender, "non-existent", resources, False, None, TEST_GUILD_ID
     )
@@ -335,7 +335,7 @@ async def test_submit_transfer_to_self(db_conn, test_server):
     await config.upsert(db_conn)
 
     # Execute transfer to self
-    resources = {'ore': 100, 'lumber': 0, 'coal': 0, 'rations': 0, 'cloth': 0}
+    resources = {'ore': 100, 'lumber': 0, 'coal': 0, 'rations': 0, 'cloth': 0, 'platinum': 0}
     success, message = await submit_resource_transfer_order(
         db_conn, sender, "sender-submit8", resources, False, None, TEST_GUILD_ID
     )

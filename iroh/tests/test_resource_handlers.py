@@ -34,6 +34,7 @@ async def test_modify_resources_existing(db_conn, test_server):
         coal=200,
         rations=150,
         cloth=75,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)
@@ -75,6 +76,7 @@ async def test_modify_resources_create_if_missing(db_conn, test_server):
     assert data['resources'].coal == 0
     assert data['resources'].rations == 0
     assert data['resources'].cloth == 0
+    assert data['resources'].platinum == 0
 
     # Verify in database
     char = await Character.fetch_by_identifier(db_conn, "no-resource-char", TEST_GUILD_ID)
@@ -127,6 +129,7 @@ async def test_resources_guild_isolation(db_conn, test_server_multi_guild):
         coal=25,
         rations=200,
         cloth=75,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources_a.upsert(db_conn)
@@ -139,6 +142,7 @@ async def test_resources_guild_isolation(db_conn, test_server_multi_guild):
         coal=50,
         rations=300,
         cloth=150,
+        platinum=0,
         guild_id=TEST_GUILD_ID_2
     )
     await resources_b.upsert(db_conn)

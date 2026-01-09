@@ -61,6 +61,8 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
         production_lines.append(f"🍖 Rations: {territory.rations_production}")
     if territory.cloth_production > 0:
         production_lines.append(f"🧵 Cloth: {territory.cloth_production}")
+    if territory.platinum_production > 0:
+        production_lines.append(f"🪙 Platinum: {territory.platinum_production}")
 
     if production_lines:
         embed.add_field(
@@ -228,6 +230,8 @@ def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: O
             upkeep_lines.append(f"🍖 {unit.upkeep_rations}")
         if unit.upkeep_cloth > 0:
             upkeep_lines.append(f"🧵 {unit.upkeep_cloth}")
+        if unit.upkeep_platinum > 0:
+            upkeep_lines.append(f"🪙 {unit.upkeep_platinum}")
 
         if upkeep_lines:
             embed.add_field(
@@ -313,6 +317,8 @@ def create_unit_type_embed(unit_type: UnitType) -> discord.Embed:
         cost_lines.append(f"🍖 {unit_type.cost_rations}")
     if unit_type.cost_cloth > 0:
         cost_lines.append(f"🧵 {unit_type.cost_cloth}")
+    if unit_type.cost_platinum > 0:
+        cost_lines.append(f"🪙 {unit_type.cost_platinum}")
 
     if cost_lines:
         embed.add_field(
@@ -339,6 +345,8 @@ def create_unit_type_embed(unit_type: UnitType) -> discord.Embed:
         upkeep_lines.append(f"🍖 {unit_type.upkeep_rations}")
     if unit_type.upkeep_cloth > 0:
         upkeep_lines.append(f"🧵 {unit_type.upkeep_cloth}")
+    if unit_type.upkeep_platinum > 0:
+        upkeep_lines.append(f"🪙 {unit_type.upkeep_platinum}")
 
     if upkeep_lines:
         embed.add_field(
@@ -378,7 +386,8 @@ def create_resources_embed(character: Character, resources: PlayerResources) -> 
         f"🪵 **Lumber:** {resources.lumber}",
         f"⚫ **Coal:** {resources.coal}",
         f"🍖 **Rations:** {resources.rations}",
-        f"🧵 **Cloth:** {resources.cloth}"
+        f"🧵 **Cloth:** {resources.cloth}",
+        f"🪙 **Platinum:** {resources.platinum}"
     ]
 
     embed.add_field(
@@ -388,7 +397,7 @@ def create_resources_embed(character: Character, resources: PlayerResources) -> 
     )
 
     # Total
-    total = resources.ore + resources.lumber + resources.coal + resources.rations + resources.cloth
+    total = resources.ore + resources.lumber + resources.coal + resources.rations + resources.cloth + resources.platinum
     embed.add_field(
         name="Total Resources",
         value=str(total),

@@ -244,6 +244,7 @@ async def test_handle_resource_transfer_pending_full_transfer(db_conn, test_serv
         coal=25,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await sender_resources.upsert(db_conn)
@@ -256,6 +257,7 @@ async def test_handle_resource_transfer_pending_full_transfer(db_conn, test_serv
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await recipient_resources.upsert(db_conn)
@@ -337,6 +339,7 @@ async def test_handle_resource_transfer_pending_partial_transfer(db_conn, test_s
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await sender_resources.upsert(db_conn)
@@ -348,6 +351,7 @@ async def test_handle_resource_transfer_pending_partial_transfer(db_conn, test_s
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await recipient_resources.upsert(db_conn)
@@ -425,6 +429,7 @@ async def test_handle_resource_transfer_pending_no_resources(db_conn, test_serve
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await sender_resources.upsert(db_conn)
@@ -500,6 +505,7 @@ async def test_handle_resource_transfer_ongoing_full_transfer(db_conn, test_serv
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await sender_resources.upsert(db_conn)
@@ -511,6 +517,7 @@ async def test_handle_resource_transfer_ongoing_full_transfer(db_conn, test_serv
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await recipient_resources.upsert(db_conn)
@@ -591,6 +598,7 @@ async def test_handle_resource_transfer_ongoing_partial_transfer(db_conn, test_s
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await sender_resources.upsert(db_conn)
@@ -602,6 +610,7 @@ async def test_handle_resource_transfer_ongoing_partial_transfer(db_conn, test_s
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await recipient_resources.upsert(db_conn)
@@ -682,6 +691,7 @@ async def test_handle_resource_transfer_ongoing_term_expiration(db_conn, test_se
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await sender_resources.upsert(db_conn)
@@ -693,6 +703,7 @@ async def test_handle_resource_transfer_ongoing_term_expiration(db_conn, test_se
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await recipient_resources.upsert(db_conn)
@@ -770,6 +781,7 @@ async def test_handle_resource_transfer_ongoing_multi_turn(db_conn, test_server)
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await sender_resources.upsert(db_conn)
@@ -781,6 +793,7 @@ async def test_handle_resource_transfer_ongoing_multi_turn(db_conn, test_server)
         coal=0,
         rations=0,
         cloth=0,
+        platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await recipient_resources.upsert(db_conn)

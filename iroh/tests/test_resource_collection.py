@@ -49,6 +49,7 @@ async def test_resource_collection_basic(db_conn, test_server):
     assert event.event_data['resources']['coal'] == 3
     assert event.event_data['resources']['rations'] == 15
     assert event.event_data['resources']['cloth'] == 7
+    assert event.event_data['resources']['platinum'] == 0
 
     # Verify PlayerResources created and updated
     player_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
@@ -58,6 +59,7 @@ async def test_resource_collection_basic(db_conn, test_server):
     assert player_resources.coal == 3
     assert player_resources.rations == 15
     assert player_resources.cloth == 7
+    assert player_resources.platinum == 0
 
     # Cleanup
     await db_conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -120,6 +122,7 @@ async def test_resource_collection_multiple_territories(db_conn, test_server):
     assert event.event_data['resources']['coal'] == 13  # 2+8+3
     assert event.event_data['resources']['rations'] == 24  # 8+4+12
     assert event.event_data['resources']['cloth'] == 10  # 3+1+6
+    assert event.event_data['resources']['platinum'] == 0
 
     # Verify PlayerResources has aggregated totals
     player_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
@@ -128,6 +131,7 @@ async def test_resource_collection_multiple_territories(db_conn, test_server):
     assert player_resources.coal == 13
     assert player_resources.rations == 24
     assert player_resources.cloth == 10
+    assert player_resources.platinum == 0
 
     # Cleanup
     await db_conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -263,7 +267,7 @@ async def test_resource_collection_accumulation(db_conn, test_server):
     # Create initial PlayerResources
     initial_resources = PlayerResources(
         character_id=character.id,
-        ore=100, lumber=50, coal=75, rations=200, cloth=60,
+        ore=100, lumber=50, coal=75, rations=200, cloth=60, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await initial_resources.upsert(db_conn)
@@ -294,6 +298,7 @@ async def test_resource_collection_accumulation(db_conn, test_server):
     assert player_resources.coal == 83  # 75 + 8
     assert player_resources.rations == 220  # 200 + 20
     assert player_resources.cloth == 72  # 60 + 12
+    assert player_resources.platinum == 0  # 0 + 0
 
     # Cleanup
     await db_conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", TEST_GUILD_ID)

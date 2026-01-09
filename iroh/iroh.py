@@ -1315,7 +1315,8 @@ async def order_assign_commander_cmd(interaction: discord.Interaction, unit_id: 
     lumber="Amount of lumber to transfer (default: 0)",
     coal="Amount of coal to transfer (default: 0)",
     rations="Amount of rations to transfer (default: 0)",
-    cloth="Amount of cloth to transfer (default: 0)"
+    cloth="Amount of cloth to transfer (default: 0)",
+    platinum="Amount of platinum to transfer (default: 0)"
 )
 async def order_resource_transfer_cmd(
     interaction: discord.Interaction,
@@ -1324,12 +1325,13 @@ async def order_resource_transfer_cmd(
     lumber: int = 0,
     coal: int = 0,
     rations: int = 0,
-    cloth: int = 0
+    cloth: int = 0,
+    platinum: int = 0
 ):
     await interaction.response.defer()
 
     # Validate at least one resource
-    if ore + lumber + coal + rations + cloth == 0:
+    if ore + lumber + coal + rations + cloth + platinum == 0:
         await interaction.followup.send(
             emotive_message("Must transfer at least one resource."),
             ephemeral=True
@@ -1348,7 +1350,7 @@ async def order_resource_transfer_cmd(
 
         resources = {
             'ore': ore, 'lumber': lumber, 'coal': coal,
-            'rations': rations, 'cloth': cloth
+            'rations': rations, 'cloth': cloth, 'platinum': platinum
         }
 
         success, message = await handlers.submit_resource_transfer_order(
@@ -1378,6 +1380,7 @@ async def order_resource_transfer_cmd(
     coal="Amount of coal per turn (default: 0)",
     rations="Amount of rations per turn (default: 0)",
     cloth="Amount of cloth per turn (default: 0)",
+    platinum="Amount of platinum per turn (default: 0)",
     term="Number of turns (leave empty for indefinite)"
 )
 async def order_ongoing_transfer_cmd(
@@ -1388,12 +1391,13 @@ async def order_ongoing_transfer_cmd(
     coal: int = 0,
     rations: int = 0,
     cloth: int = 0,
+    platinum: int = 0,
     term: int = None
 ):
     await interaction.response.defer()
 
     # Validate at least one resource
-    if ore + lumber + coal + rations + cloth == 0:
+    if ore + lumber + coal + rations + cloth + platinum == 0:
         await interaction.followup.send(
             emotive_message("Must transfer at least one resource."),
             ephemeral=True
@@ -1420,7 +1424,7 @@ async def order_ongoing_transfer_cmd(
 
         resources = {
             'ore': ore, 'lumber': lumber, 'coal': coal,
-            'rations': rations, 'cloth': cloth
+            'rations': rations, 'cloth': cloth, 'platinum': platinum
         }
 
         success, message = await handlers.submit_resource_transfer_order(

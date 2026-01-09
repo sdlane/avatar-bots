@@ -43,7 +43,7 @@ async def test_upkeep_fully_paid_single_unit(db_conn, test_server):
     # Create player resources (more than enough)
     resources = PlayerResources(
         character_id=character.id,
-        ore=100, lumber=50, coal=30, rations=200, cloth=20,
+        ore=100, lumber=50, coal=30, rations=200, cloth=20, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)
@@ -115,7 +115,7 @@ async def test_upkeep_fully_paid_multiple_units(db_conn, test_server):
     # Create player resources (enough for both units)
     resources = PlayerResources(
         character_id=character.id,
-        ore=50, lumber=50, coal=50, rations=100, cloth=50,
+        ore=50, lumber=50, coal=50, rations=100, cloth=50, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)
@@ -177,7 +177,7 @@ async def test_upkeep_partial_payment_single_resource_short(db_conn, test_server
     # Create player resources (short on ore by 3)
     resources = PlayerResources(
         character_id=character.id,
-        ore=7, lumber=10, coal=0, rations=0, cloth=0,
+        ore=7, lumber=10, coal=0, rations=0, cloth=0, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)
@@ -237,7 +237,7 @@ async def test_upkeep_partial_payment_multiple_resources_short(db_conn, test_ser
     # Create player resources (short on ore by 2, lumber by 1)
     resources = PlayerResources(
         character_id=character.id,
-        ore=3, lumber=4, coal=10, rations=0, cloth=0,
+        ore=3, lumber=4, coal=10, rations=0, cloth=0, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)
@@ -393,14 +393,14 @@ async def test_upkeep_multiple_owners(db_conn, test_server):
     # Owner 1 has enough, Owner 2 is short
     res1 = PlayerResources(
         character_id=char1.id,
-        ore=20, lumber=0, coal=0, rations=0, cloth=0,
+        ore=20, lumber=0, coal=0, rations=0, cloth=0, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await res1.upsert(db_conn)
 
     res2 = PlayerResources(
         character_id=char2.id,
-        ore=0, lumber=5, coal=0, rations=0, cloth=0,  # Short 5 lumber
+        ore=0, lumber=5, coal=0, rations=0, cloth=0, platinum=0,  # Short 5 lumber
         guild_id=TEST_GUILD_ID
     )
     await res2.upsert(db_conn)
@@ -519,7 +519,7 @@ async def test_upkeep_multiple_units_same_owner_resource_sharing(db_conn, test_s
     # Only 7 ore available (first unit gets 5, second gets 2)
     resources = PlayerResources(
         character_id=character.id,
-        ore=7, lumber=0, coal=0, rations=0, cloth=0,
+        ore=7, lumber=0, coal=0, rations=0, cloth=0, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)
@@ -712,7 +712,7 @@ async def test_upkeep_total_deficit_event_generated(db_conn, test_server):
     # Need: 10 rations, 4 cloth. Have: 3 rations, 1 cloth
     resources = PlayerResources(
         character_id=character.id,
-        ore=0, lumber=0, coal=0, rations=3, cloth=1,
+        ore=0, lumber=0, coal=0, rations=3, cloth=1, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)
@@ -925,7 +925,7 @@ async def test_upkeep_skips_disbanded_units(db_conn, test_server):
     # Create resources (enough for active unit only)
     resources = PlayerResources(
         character_id=character.id,
-        ore=5, lumber=0, coal=0, rations=0, cloth=0,
+        ore=5, lumber=0, coal=0, rations=0, cloth=0, platinum=0,
         guild_id=TEST_GUILD_ID
     )
     await resources.upsert(db_conn)

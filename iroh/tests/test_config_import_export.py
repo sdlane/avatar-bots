@@ -154,6 +154,7 @@ territories:
       coal: 2
       rations: 8
       cloth: 4
+      platinum: 0
     adjacent_to: [2]
 
   - territory_id: 2
@@ -165,6 +166,7 @@ territories:
       coal: 5
       rations: 2
       cloth: 0
+      platinum: 0
     adjacent_to: [1]
 
 unit_types:
@@ -183,9 +185,11 @@ unit_types:
       lumber: 2
       rations: 10
       cloth: 5
+      platinum: 0
     upkeep:
       rations: 2
       cloth: 1
+      platinum: 0
 
 player_resources:
   - character: "test-char-1"
@@ -195,6 +199,7 @@ player_resources:
       coal: 200
       rations: 150
       cloth: 75
+      platinum: 0
 """
 
     success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, basic_config)
@@ -250,6 +255,7 @@ territories:
       coal: 0
       rations: 0
       cloth: 0
+      platinum: 0
 
   - territory_id: 2
     terrain_type: "plains"
@@ -260,6 +266,7 @@ territories:
       coal: 0
       rations: 0
       cloth: 0
+      platinum: 0
 
 unit_types:
   - type_id: "test-infantry"
@@ -277,9 +284,11 @@ unit_types:
       lumber: 2
       rations: 10
       cloth: 5
+      platinum: 0
     upkeep:
       rations: 2
       cloth: 1
+      platinum: 0
 """
     success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, base_config)
     assert success, f"Base config import failed: {message}"
@@ -345,6 +354,7 @@ territories:
       coal: 2
       rations: 8
       cloth: 4
+      platinum: 0
     adjacent_to: [102]
 
   - territory_id: 102
@@ -355,6 +365,7 @@ territories:
       coal: 5
       rations: 2
       cloth: 0
+      platinum: 0
     adjacent_to: [101]
 
 unit_types:
@@ -373,9 +384,11 @@ unit_types:
       lumber: 2
       rations: 10
       cloth: 5
+      platinum: 0
     upkeep:
       rations: 2
       cloth: 1
+      platinum: 0
 
 units:
   - unit_id: "EXPORT-001"
@@ -452,6 +465,7 @@ territories:
       coal: 3
       rations: 4
       cloth: 5
+      platinum: 0
 """
     success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, basic_config)
     assert success
@@ -539,6 +553,7 @@ territories:
       coal: 0
       rations: 0
       cloth: 0
+      platinum: 0
 
 units:
   - unit_id: "BAD-UNIT"
@@ -586,6 +601,7 @@ territories:
       coal: 1
       rations: 1
       cloth: 1
+      platinum: 0
 """
 
     success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, territories_only)
