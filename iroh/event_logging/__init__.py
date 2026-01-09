@@ -136,6 +136,14 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
         get_character_line=resource_collection_character_line,
         get_gm_line=resource_collection_gm_line
     ),
+    'TERRITORY_PRODUCTION': EventHandler(
+        get_character_line=resource_collection_character_line,
+        get_gm_line=resource_collection_gm_line
+    ),
+    'CHARACTER_PRODUCTION': EventHandler(
+        get_character_line=resource_collection_character_line,
+        get_gm_line=resource_collection_gm_line
+    ),
     'RESOURCE_TRANSFER_SUCCESS': EventHandler(
         get_character_line=resource_transfer_success_character_line,
         get_gm_line=resource_transfer_success_gm_line
