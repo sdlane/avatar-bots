@@ -31,6 +31,7 @@ async def modify_resources(conn: asyncpg.Connection, character_identifier: str, 
             coal=0,
             rations=0,
             cloth=0,
+            platinum=0,
             guild_id=guild_id
         )
         await resources.upsert(conn)

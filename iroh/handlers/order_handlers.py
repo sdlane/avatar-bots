@@ -573,7 +573,7 @@ async def submit_resource_transfer_order(
         return False, "Cannot transfer resources to yourself."
 
     # Validate resources dict
-    resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth']
+    resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum']
     for resource_type in resource_types:
         if resource_type not in resources:
             resources[resource_type] = 0
@@ -608,7 +608,8 @@ async def submit_resource_transfer_order(
         'lumber': resources['lumber'],
         'coal': resources['coal'],
         'rations': resources['rations'],
-        'cloth': resources['cloth']
+        'cloth': resources['cloth'],
+        'platinum': resources['platinum']
     }
 
     # Add ongoing-specific fields

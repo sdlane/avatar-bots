@@ -15,6 +15,7 @@ class PlayerResources:
     coal: int = 0
     rations: int = 0
     cloth: int = 0
+    platinum: int = 0
     guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
@@ -24,15 +25,16 @@ class PlayerResources:
         """
         query = """
         INSERT INTO PlayerResources (
-            character_id, ore, lumber, coal, rations, cloth, guild_id
+            character_id, ore, lumber, coal, rations, cloth, platinum, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (character_id, guild_id) DO UPDATE
         SET ore = EXCLUDED.ore,
             lumber = EXCLUDED.lumber,
             coal = EXCLUDED.coal,
             rations = EXCLUDED.rations,
-            cloth = EXCLUDED.cloth;
+            cloth = EXCLUDED.cloth,
+            platinum = EXCLUDED.platinum;
         """
         await conn.execute(
             query,
@@ -42,6 +44,7 @@ class PlayerResources:
             self.coal,
             self.rations,
             self.cloth,
+            self.platinum,
             self.guild_id
         )
 
@@ -51,7 +54,7 @@ class PlayerResources:
         Fetch PlayerResources by character_id and guild_id.
         """
         row = await conn.fetchrow("""
-            SELECT id, character_id, ore, lumber, coal, rations, cloth, guild_id
+            SELECT id, character_id, ore, lumber, coal, rations, cloth, platinum, guild_id
             FROM PlayerResources
             WHERE character_id = $1 AND guild_id = $2;
         """, character_id, guild_id)
@@ -90,7 +93,8 @@ class PlayerResources:
             ("lumber", self.lumber),
             ("coal", self.coal),
             ("rations", self.rations),
-            ("cloth", self.cloth)
+            ("cloth", self.cloth),
+            ("platinum", self.platinum)
         ]
 
         for field_name, value in resource_fields:

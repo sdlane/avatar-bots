@@ -168,6 +168,7 @@ async def ensure_tables():
         coal_production INTEGER DEFAULT 0,
         rations_production INTEGER DEFAULT 0,
         cloth_production INTEGER DEFAULT 0,
+        platinum_production INTEGER DEFAULT 0,
         controller_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
         original_nation VARCHAR(50),
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
@@ -183,6 +184,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS coal_production INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS rations_production INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS cloth_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS platinum_production INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS controller_character_id INTEGER;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS original_nation VARCHAR(50);")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
@@ -259,6 +261,7 @@ async def ensure_tables():
         upkeep_coal INTEGER DEFAULT 0,
         upkeep_rations INTEGER DEFAULT 0,
         upkeep_cloth INTEGER DEFAULT 0,
+        upkeep_platinum INTEGER DEFAULT 0,
         keywords TEXT[],
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(unit_id, guild_id)
@@ -288,6 +291,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_coal INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_rations INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_platinum INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS keywords TEXT[];")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ACTIVE';")
@@ -314,11 +318,13 @@ async def ensure_tables():
         cost_coal INTEGER DEFAULT 0,
         cost_rations INTEGER DEFAULT 0,
         cost_cloth INTEGER DEFAULT 0,
+        cost_platinum INTEGER DEFAULT 0,
         upkeep_ore INTEGER DEFAULT 0,
         upkeep_lumber INTEGER DEFAULT 0,
         upkeep_coal INTEGER DEFAULT 0,
         upkeep_rations INTEGER DEFAULT 0,
         upkeep_cloth INTEGER DEFAULT 0,
+        upkeep_platinum INTEGER DEFAULT 0,
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(type_id, guild_id)
     );
@@ -342,11 +348,13 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_coal INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_rations INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS cost_platinum INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_ore INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_lumber INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_coal INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_rations INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS upkeep_platinum INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE UnitType ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
     # Migrate unique constraint from (type_id, nation, guild_id) to (type_id, guild_id)
@@ -381,6 +389,7 @@ async def ensure_tables():
         coal INTEGER DEFAULT 0,
         rations INTEGER DEFAULT 0,
         cloth INTEGER DEFAULT 0,
+        platinum INTEGER DEFAULT 0,
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(character_id, guild_id)
     );
@@ -392,6 +401,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS coal INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS rations INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS platinum INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE PlayerResources ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
     # Drop old ResourceTransfer table if it exists

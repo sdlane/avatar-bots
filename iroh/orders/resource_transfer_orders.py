@@ -210,7 +210,8 @@ async def handle_resource_transfer_order(
             'lumber': order.order_data.get('lumber', 0),
             'coal': order.order_data.get('coal', 0),
             'rations': order.order_data.get('rations', 0),
-            'cloth': order.order_data.get('cloth', 0)
+            'cloth': order.order_data.get('cloth', 0),
+            'platinum': order.order_data.get('platinum', 0)
         }
         term = order.order_data.get('term')
         turns_executed = order.order_data.get('turns_executed', 0)
@@ -278,7 +279,7 @@ async def handle_resource_transfer_order(
 
         # Calculate what can be transferred (min of requested and available)
         transferred_resources = {}
-        for resource_type in ['ore', 'lumber', 'coal', 'rations', 'cloth']:
+        for resource_type in ['ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum']:
             requested = requested_resources.get(resource_type, 0)
             available = getattr(sender_resources, resource_type)
             transferred = min(requested, available)

@@ -164,6 +164,7 @@ async def view_resources(conn: asyncpg.Connection, user_id: int, guild_id: int) 
             coal=0,
             rations=0,
             cloth=0,
+            platinum=0,
             guild_id=guild_id
         )
 

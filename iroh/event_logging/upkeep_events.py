@@ -17,6 +17,8 @@ def _format_resources(resources: Dict[str, int]) -> str:
         resource_strs.append(f"rations:{resources['rations']}")
     if resources.get('cloth', 0) > 0:
         resource_strs.append(f"cloth:{resources['cloth']}")
+    if resources.get('platinum', 0) > 0:
+        resource_strs.append(f"platinum:{resources['platinum']}")
     return ', '.join(resource_strs) if resource_strs else 'none'
 
 
@@ -51,6 +53,8 @@ def _format_deficit(deficit: Dict[str, int]) -> str:
         deficit_strs.append(f"{deficit['rations']} rations")
     if deficit.get('cloth', 0) > 0:
         deficit_strs.append(f"{deficit['cloth']} cloth")
+    if deficit.get('platinum', 0) > 0:
+        deficit_strs.append(f"{deficit['platinum']} platinum")
     return ', '.join(deficit_strs) if deficit_strs else 'none'
 
 

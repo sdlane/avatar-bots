@@ -255,7 +255,8 @@ async def execute_resource_collection_phase(
                 'lumber': 0,
                 'coal': 0,
                 'rations': 0,
-                'cloth': 0
+                'cloth': 0,
+                'platinum': 0
             }
 
         # Aggregate resources
@@ -264,6 +265,7 @@ async def execute_resource_collection_phase(
         character_resources[char_id]['coal'] += territory.coal_production
         character_resources[char_id]['rations'] += territory.rations_production
         character_resources[char_id]['cloth'] += territory.cloth_production
+        character_resources[char_id]['platinum'] += territory.platinum_production
 
     # Process each character's aggregated resources
     for char_id, resources in character_resources.items():
@@ -291,6 +293,7 @@ async def execute_resource_collection_phase(
                 coal=resources['coal'],
                 rations=resources['rations'],
                 cloth=resources['cloth'],
+                platinum=resources['platinum'],
                 guild_id=guild_id
             )
         else:
@@ -300,6 +303,7 @@ async def execute_resource_collection_phase(
             player_resources.coal += resources['coal']
             player_resources.rations += resources['rations']
             player_resources.cloth += resources['cloth']
+            player_resources.platinum += resources['platinum']
 
         # Update database
         await player_resources.upsert(conn)
@@ -321,7 +325,8 @@ async def execute_resource_collection_phase(
                     'lumber': resources['lumber'],
                     'coal': resources['coal'],
                     'rations': resources['rations'],
-                    'cloth': resources['cloth']
+                    'cloth': resources['cloth'],
+                    'platinum': resources['platinum']
                 }
             },
             guild_id=guild_id
@@ -456,7 +461,7 @@ async def execute_upkeep_phase(
         units_by_owner[owner_id].append(unit)
 
     # Process upkeep for each owner
-    resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth']
+    resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum']
 
     for owner_id, units in units_by_owner.items():
         # Fetch owner character for name
@@ -470,7 +475,7 @@ async def execute_upkeep_phase(
         if not resources:
             resources = PlayerResources(
                 character_id=owner_id,
-                ore=0, lumber=0, coal=0, rations=0, cloth=0,
+                ore=0, lumber=0, coal=0, rations=0, cloth=0, platinum=0,
                 guild_id=guild_id
             )
 

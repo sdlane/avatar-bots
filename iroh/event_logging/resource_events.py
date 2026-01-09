@@ -19,6 +19,8 @@ def resource_collection_character_line(event_data: Dict[str, Any], character_id:
         resource_strs.append(f"🍖{resources['rations']}")
     if resources.get('cloth', 0) > 0:
         resource_strs.append(f"🧵{resources['cloth']}")
+    if resources.get('platinum', 0) > 0:
+        resource_strs.append(f"🪙{resources['platinum']}")
 
     if resource_strs:
         return f"💰 Collected resources: {' '.join(resource_strs)}"
@@ -41,6 +43,8 @@ def resource_collection_gm_line(event_data: Dict[str, Any]) -> str:
         resource_strs.append(f"🍖{resources['rations']}")
     if resources.get('cloth', 0) > 0:
         resource_strs.append(f"🧵{resources['cloth']}")
+    if resources.get('platinum', 0) > 0:
+        resource_strs.append(f"🪙{resources['platinum']}")
 
     if resource_strs:
         return f"💰 {character_name}: {' '.join(resource_strs)}"
@@ -60,6 +64,8 @@ def _format_resources(resources: Dict[str, int]) -> str:
         resource_strs.append(f"🍖{resources['rations']}")
     if resources.get('cloth', 0) > 0:
         resource_strs.append(f"🧵{resources['cloth']}")
+    if resources.get('platinum', 0) > 0:
+        resource_strs.append(f"🪙{resources['platinum']}")
     return ' '.join(resource_strs) if resource_strs else "nothing"
 
 

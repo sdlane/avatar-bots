@@ -76,7 +76,7 @@ class ConfigManager:
         for character in characters:
             resources = await PlayerResources.fetch_by_character(conn, character.id, guild_id)
             if resources and (resources.ore or resources.lumber or resources.coal or
-                            resources.rations or resources.cloth):
+                            resources.rations or resources.cloth or resources.platinum):
                 config_dict['player_resources'].append({
                     'character': character.identifier,
                     'resources': {
@@ -84,7 +84,8 @@ class ConfigManager:
                         'lumber': resources.lumber,
                         'coal': resources.coal,
                         'rations': resources.rations,
-                        'cloth': resources.cloth
+                        'cloth': resources.cloth,
+                        'platinum': resources.platinum
                     }
                 })
 
@@ -115,7 +116,8 @@ class ConfigManager:
                 'lumber': territory.lumber_production,
                 'coal': territory.coal_production,
                 'rations': territory.rations_production,
-                'cloth': territory.cloth_production
+                'cloth': territory.cloth_production,
+                'platinum': territory.platinum_production
             }
 
             # Victory points
@@ -164,7 +166,8 @@ class ConfigManager:
                 'lumber': unit_type.cost_lumber,
                 'coal': unit_type.cost_coal,
                 'rations': unit_type.cost_rations,
-                'cloth': unit_type.cost_cloth
+                'cloth': unit_type.cost_cloth,
+                'platinum': unit_type.cost_platinum
             }
 
             unit_type_dict['upkeep'] = {
@@ -172,7 +175,8 @@ class ConfigManager:
                 'lumber': unit_type.upkeep_lumber,
                 'coal': unit_type.upkeep_coal,
                 'rations': unit_type.upkeep_rations,
-                'cloth': unit_type.upkeep_cloth
+                'cloth': unit_type.upkeep_cloth,
+                'platinum': unit_type.upkeep_platinum
             }
 
             config_dict['unit_types'].append(unit_type_dict)
@@ -344,6 +348,7 @@ class ConfigManager:
                         coal=resources.get('coal', 0),
                         rations=resources.get('rations', 0),
                         cloth=resources.get('cloth', 0),
+                        platinum=resources.get('platinum', 0),
                         guild_id=guild_id
                     )
                     await player_res.upsert(conn)
@@ -367,6 +372,7 @@ class ConfigManager:
                     coal_production=production.get('coal', 0),
                     rations_production=production.get('rations', 0),
                     cloth_production=production.get('cloth', 0),
+                    platinum_production=production.get('platinum', 0),
                     victory_points=territory_data.get('victory_points', 0),
                     controller_character_id=controller_character_id,
                     original_nation=territory_data.get('original_nation'),
@@ -410,11 +416,13 @@ class ConfigManager:
                     cost_coal=cost.get('coal', 0),
                     cost_rations=cost.get('rations', 0),
                     cost_cloth=cost.get('cloth', 0),
+                    cost_platinum=cost.get('platinum', 0),
                     upkeep_ore=upkeep.get('ore', 0),
                     upkeep_lumber=upkeep.get('lumber', 0),
                     upkeep_coal=upkeep.get('coal', 0),
                     upkeep_rations=upkeep.get('rations', 0),
                     upkeep_cloth=upkeep.get('cloth', 0),
+                    upkeep_platinum=upkeep.get('platinum', 0),
                     guild_id=guild_id
                 )
                 await unit_type.upsert(conn)
@@ -476,6 +484,7 @@ class ConfigManager:
                     upkeep_coal=unit_type.upkeep_coal,
                     upkeep_rations=unit_type.upkeep_rations,
                     upkeep_cloth=unit_type.upkeep_cloth,
+                    upkeep_platinum=unit_type.upkeep_platinum,
                     keywords=unit_type.keywords,
                     guild_id=guild_id
                 )

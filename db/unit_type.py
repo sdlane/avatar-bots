@@ -27,11 +27,13 @@ class UnitType:
     cost_coal: int = 0
     cost_rations: int = 0
     cost_cloth: int = 0
+    cost_platinum: int = 0
     upkeep_ore: int = 0
     upkeep_lumber: int = 0
     upkeep_coal: int = 0
     upkeep_rations: int = 0
     upkeep_cloth: int = 0
+    upkeep_platinum: int = 0
     guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
@@ -43,11 +45,11 @@ class UnitType:
         INSERT INTO UnitType (
             type_id, name, nation, movement, organization, attack, defense,
             siege_attack, siege_defense, size, capacity, is_naval, keywords,
-            cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth,
-            upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth,
+            cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
+            upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
             guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26)
         ON CONFLICT (type_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             nation = EXCLUDED.nation,
@@ -66,20 +68,22 @@ class UnitType:
             cost_coal = EXCLUDED.cost_coal,
             cost_rations = EXCLUDED.cost_rations,
             cost_cloth = EXCLUDED.cost_cloth,
+            cost_platinum = EXCLUDED.cost_platinum,
             upkeep_ore = EXCLUDED.upkeep_ore,
             upkeep_lumber = EXCLUDED.upkeep_lumber,
             upkeep_coal = EXCLUDED.upkeep_coal,
             upkeep_rations = EXCLUDED.upkeep_rations,
-            upkeep_cloth = EXCLUDED.upkeep_cloth;
+            upkeep_cloth = EXCLUDED.upkeep_cloth,
+            upkeep_platinum = EXCLUDED.upkeep_platinum;
         """
         await conn.execute(
             query,
             self.type_id, self.name, self.nation, self.movement, self.organization,
             self.attack, self.defense, self.siege_attack, self.siege_defense,
             self.size, self.capacity, self.is_naval, self.keywords if self.keywords else [],
-            self.cost_ore, self.cost_lumber, self.cost_coal, self.cost_rations, self.cost_cloth,
+            self.cost_ore, self.cost_lumber, self.cost_coal, self.cost_rations, self.cost_cloth, self.cost_platinum,
             self.upkeep_ore, self.upkeep_lumber, self.upkeep_coal, self.upkeep_rations,
-            self.upkeep_cloth, self.guild_id
+            self.upkeep_cloth, self.upkeep_platinum, self.guild_id
         )
 
     @classmethod
@@ -90,8 +94,8 @@ class UnitType:
         row = await conn.fetchrow("""
             SELECT id, type_id, name, nation, movement, organization, attack, defense,
                    siege_attack, siege_defense, size, capacity, is_naval, keywords,
-                   cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth,
-                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth,
+                   cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
+                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
                    guild_id
             FROM UnitType
             WHERE id = $1;
@@ -110,8 +114,8 @@ class UnitType:
         row = await conn.fetchrow("""
             SELECT id, type_id, name, nation, movement, organization, attack, defense,
                    siege_attack, siege_defense, size, capacity, is_naval, keywords,
-                   cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth,
-                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth,
+                   cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
+                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
                    guild_id
             FROM UnitType
             WHERE type_id = $1 AND guild_id = $2;
@@ -130,8 +134,8 @@ class UnitType:
         rows = await conn.fetch("""
             SELECT id, type_id, name, nation, movement, organization, attack, defense,
                    siege_attack, siege_defense, size, capacity, is_naval, keywords,
-                   cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth,
-                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth,
+                   cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
+                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
                    guild_id
             FROM UnitType
             WHERE guild_id = $1
@@ -152,8 +156,8 @@ class UnitType:
         rows = await conn.fetch("""
             SELECT id, type_id, name, nation, movement, organization, attack, defense,
                    siege_attack, siege_defense, size, capacity, is_naval, keywords,
-                   cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth,
-                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth,
+                   cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
+                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
                    guild_id
             FROM UnitType
             WHERE (nation = $1 OR nation IS NULL) AND guild_id = $2
@@ -211,11 +215,13 @@ class UnitType:
             ("cost_coal", self.cost_coal),
             ("cost_rations", self.cost_rations),
             ("cost_cloth", self.cost_cloth),
+            ("cost_platinum", self.cost_platinum),
             ("upkeep_ore", self.upkeep_ore),
             ("upkeep_lumber", self.upkeep_lumber),
             ("upkeep_coal", self.upkeep_coal),
             ("upkeep_rations", self.upkeep_rations),
-            ("upkeep_cloth", self.upkeep_cloth)
+            ("upkeep_cloth", self.upkeep_cloth),
+            ("upkeep_platinum", self.upkeep_platinum)
         ]
 
         for field_name, value in stat_fields:
