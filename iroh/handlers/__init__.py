@@ -47,6 +47,8 @@ from .unit_handlers import (
 
 from .resource_handlers import (
     modify_resources,
+    modify_character_production,
+    modify_character_vp,
 )
 
 from .list_handlers import (
@@ -116,6 +118,8 @@ __all__ = [
     'set_unit_commander',
     # Resource handlers
     'modify_resources',
+    'modify_character_production',
+    'modify_character_vp',
     # List handlers
     'list_factions',
     'list_territories',
