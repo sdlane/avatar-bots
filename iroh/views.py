@@ -337,101 +337,6 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             )
 
 
-class ModifyResourcesModal(discord.ui.Modal, title="Modify Player Resources"):
-    """Modal for modifying player resources."""
-
-    def __init__(self, character: Character, resources: PlayerResources, db_pool):
-        super().__init__()
-        self.character = character
-        self.resources = resources
-        self.db_pool = db_pool
-
-        # Resource fields
-        self.ore_input = discord.ui.TextInput(
-            label="Ore",
-            default=str(resources.ore),
-            required=True,
-            max_length=10
-        )
-        self.add_item(self.ore_input)
-
-        self.lumber_input = discord.ui.TextInput(
-            label="Lumber",
-            default=str(resources.lumber),
-            required=True,
-            max_length=10
-        )
-        self.add_item(self.lumber_input)
-
-        self.coal_input = discord.ui.TextInput(
-            label="Coal",
-            default=str(resources.coal),
-            required=True,
-            max_length=10
-        )
-        self.add_item(self.coal_input)
-
-        self.rations_input = discord.ui.TextInput(
-            label="Rations",
-            default=str(resources.rations),
-            required=True,
-            max_length=10
-        )
-        self.add_item(self.rations_input)
-
-        self.cloth_input = discord.ui.TextInput(
-            label="Cloth",
-            default=str(resources.cloth),
-            required=True,
-            max_length=10
-        )
-        self.add_item(self.cloth_input)
-
-    async def on_submit(self, interaction: discord.Interaction):
-        """Handle form submission."""
-        from helpers import emotive_message
-
-        # Parse values
-        try:
-            ore = int(self.ore_input.value.strip())
-            lumber = int(self.lumber_input.value.strip())
-            coal = int(self.coal_input.value.strip())
-            rations = int(self.rations_input.value.strip())
-            cloth = int(self.cloth_input.value.strip())
-
-            if any(x < 0 for x in [ore, lumber, coal, rations, cloth]):
-                await interaction.response.send_message(
-                    emotive_message("Resource values cannot be negative."),
-                    ephemeral=True
-                )
-                return
-
-        except ValueError:
-            await interaction.response.send_message(
-                emotive_message("Invalid resource values. Use integers only."),
-                ephemeral=True
-            )
-            return
-
-        # Update resources
-        self.resources.ore = ore
-        self.resources.lumber = lumber
-        self.resources.coal = coal
-        self.resources.rations = rations
-        self.resources.cloth = cloth
-
-        # Save to database
-        async with self.db_pool.acquire() as conn:
-            await self.resources.upsert(conn)
-
-        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) modified resources for character '{self.character.name}' via modal in guild {interaction.guild_id} (ore: {ore}, lumber: {lumber}, coal: {coal}, rations: {rations}, cloth: {cloth})")
-
-        await interaction.response.send_message(
-            emotive_message(f"Resources for {self.character.name} updated successfully."),
-            ephemeral=False
-        )
-
-
 class EditWargameConfigModal(discord.ui.Modal, title="Edit Wargame Config"):
     """Modal for editing wargame configuration."""
 
@@ -578,6 +483,101 @@ class EditWargameConfigModal(discord.ui.Modal, title="Edit Wargame Config"):
             emotive_message("Wargame configuration updated successfully."),
             ephemeral=False
         )
+
+
+class SingleResourceModal(discord.ui.Modal):
+    """Modal for editing a single resource value."""
+
+    def __init__(self, resource_name: str, resource_emoji: str, current_value: int,
+                 character: Character, resources: PlayerResources, db_pool, parent_view):
+        super().__init__(title=f"Modify {resource_name}")
+        self.resource_name = resource_name.lower()
+        self.resource_emoji = resource_emoji
+        self.character = character
+        self.resources = resources
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.value_input = discord.ui.TextInput(
+            label=f"{resource_emoji} {resource_name}",
+            default=str(current_value),
+            required=True,
+            max_length=10
+        )
+        self.add_item(self.value_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle form submission."""
+        from helpers import emotive_message
+        from embeds import create_modify_resources_embed
+
+        try:
+            new_value = int(self.value_input.value.strip())
+            if new_value < 0:
+                await interaction.response.send_message(
+                    emotive_message("Resource values cannot be negative."),
+                    ephemeral=True
+                )
+                return
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid value. Use integers only."),
+                ephemeral=True
+            )
+            return
+
+        # Update the resource
+        setattr(self.resources, self.resource_name, new_value)
+
+        # Save to database
+        async with self.db_pool.acquire() as conn:
+            await self.resources.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) modified {self.resource_name} to {new_value} for character '{self.character.name}' in guild {interaction.guild_id}")
+
+        # Update the embed
+        new_embed = create_modify_resources_embed(self.character, self.resources)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class ModifyResourcesView(discord.ui.View):
+    """View with buttons to modify individual resources."""
+
+    RESOURCES = [
+        ('ore', 'Ore', '⛏️'),
+        ('lumber', 'Lumber', '🪵'),
+        ('coal', 'Coal', '⚫'),
+        ('rations', 'Rations', '🍖'),
+        ('cloth', 'Cloth', '🧵'),
+        ('platinum', 'Platinum', '🪙'),
+    ]
+
+    def __init__(self, character: Character, resources: PlayerResources, db_pool):
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.character = character
+        self.resources = resources
+        self.db_pool = db_pool
+
+        # Add resource buttons
+        for attr, name, emoji in self.RESOURCES:
+            button = discord.ui.Button(
+                label=name,
+                emoji=emoji,
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"resource_{attr}"
+            )
+            button.callback = self._make_callback(attr, name, emoji)
+            self.add_item(button)
+
+    def _make_callback(self, attr: str, name: str, emoji: str):
+        async def callback(interaction: discord.Interaction):
+            current_value = getattr(self.resources, attr)
+            modal = SingleResourceModal(
+                name, emoji, current_value,
+                self.character, self.resources, self.db_pool, self
+            )
+            await interaction.response.send_modal(modal)
+        return callback
 
 
 class AssignCommanderConfirmView(discord.ui.View):

@@ -407,6 +407,35 @@ def create_resources_embed(character: Character, resources: PlayerResources) -> 
     return embed
 
 
+def create_modify_resources_embed(character: Character, resources: PlayerResources) -> discord.Embed:
+    """Create embed for modifying character resources via button interface."""
+    embed = discord.Embed(
+        title=f"Modify Resources: {character.name}",
+        description=f"Character: `{character.identifier}`",
+        color=discord.Color.blue()
+    )
+
+    # Resource values
+    resource_lines = [
+        f"⛏️ **Ore:** {resources.ore}",
+        f"🪵 **Lumber:** {resources.lumber}",
+        f"⚫ **Coal:** {resources.coal}",
+        f"🍖 **Rations:** {resources.rations}",
+        f"🧵 **Cloth:** {resources.cloth}",
+        f"🪙 **Platinum:** {resources.platinum}"
+    ]
+
+    embed.add_field(
+        name="Current Values",
+        value="\n".join(resource_lines),
+        inline=False
+    )
+
+    embed.set_footer(text="Click a resource button to modify its value")
+
+    return embed
+
+
 def create_victory_points_embed(data: dict) -> discord.Embed:
     """Create embed for victory points view."""
     character = data['character']

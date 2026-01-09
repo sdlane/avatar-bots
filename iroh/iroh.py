@@ -1096,9 +1096,10 @@ async def modify_resources_cmd(interaction: discord.Interaction, character: str)
             )
             return
 
-        # Show modal
-        modal = ModifyResourcesModal(data['character'], data['resources'], db_pool)
-        await interaction.response.send_modal(modal)
+        # Show embed with resource buttons
+        embed = create_modify_resources_embed(data['character'], data['resources'])
+        view = ModifyResourcesView(data['character'], data['resources'], db_pool)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
 # Order Management Commands (Player)
