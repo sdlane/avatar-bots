@@ -1102,6 +1102,51 @@ async def modify_resources_cmd(interaction: discord.Interaction, character: str)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
+@tree.command(
+    name="modify-character-production",
+    description="[Admin] Modify a character's resource production values"
+)
+@app_commands.describe(character="Character identifier")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def modify_character_production_cmd(interaction: discord.Interaction, character: str):
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.modify_character_production(conn, character, interaction.guild_id)
+
+        if not success:
+            await interaction.response.send_message(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Show embed with production buttons
+        embed = create_modify_character_production_embed(data['character'])
+        view = ModifyCharacterProductionView(data['character'], db_pool)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
+@tree.command(
+    name="modify-character-vp",
+    description="[Admin] Modify a character's victory points"
+)
+@app_commands.describe(character="Character identifier")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def modify_character_vp_cmd(interaction: discord.Interaction, character: str):
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.modify_character_vp(conn, character, interaction.guild_id)
+
+        if not success:
+            await interaction.response.send_message(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Show VP modification modal
+        modal = ModifyCharacterVPModal(data['character'], db_pool)
+        await interaction.response.send_modal(modal)
+
+
 # Order Management Commands (Player)
 @tree.command(
     name="order-join-faction",

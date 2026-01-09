@@ -314,10 +314,12 @@ async def view_victory_points(
     Returns:
         (success, message, data) where data contains:
         - character: Character object
-        - personal_vps: Total VPs from territories character controls
+        - character_vps: VPs from character's victory_points field
+        - territory_vps: Total VPs from territories character controls
+        - personal_vps: Total VPs (character_vps + territory_vps)
         - territories: List of (Territory, vp_count) tuples
         - faction: Faction object (if in a faction)
-        - faction_total_vps: Total VPs from all faction members' territories
+        - faction_total_vps: Total VPs from all faction members
         - faction_members_vps: List of (Character, vp_count) for faction members
         - assigned_to_faction: List of (Character, vp_count) assignments to faction
     """
@@ -327,8 +329,14 @@ async def view_victory_points(
 
     # Get territories controlled by this character
     territories = await Territory.fetch_by_controller(conn, character.id, guild_id)
-    personal_vps = sum(t.victory_points for t in territories)
+    territory_vps = sum(t.victory_points for t in territories)
     territory_data = [(t, t.victory_points) for t in territories if t.victory_points > 0]
+
+    # Character's direct VPs
+    character_vps = character.victory_points
+
+    # Total personal VPs = character VPs + territory VPs
+    personal_vps = character_vps + territory_vps
 
     # Check faction membership
     faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
@@ -339,13 +347,14 @@ async def view_victory_points(
     if faction_member:
         faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
 
-        # Get all faction members and their VPs
+        # Get all faction members and their VPs (including character VPs)
         members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
         for member in members:
             member_char = await Character.fetch_by_id(conn, member.character_id)
             if member_char:
                 member_territories = await Territory.fetch_by_controller(conn, member.character_id, guild_id)
-                member_vps = sum(t.victory_points for t in member_territories)
+                member_territory_vps = sum(t.victory_points for t in member_territories)
+                member_vps = member_territory_vps + member_char.victory_points
                 faction_total_vps += member_vps
                 if member_vps > 0:
                     faction_members_vps.append((member_char, member_vps))
@@ -369,7 +378,8 @@ async def view_victory_points(
             assigning_char = await Character.fetch_by_id(conn, row['character_id'])
             if assigning_char:
                 assigning_territories = await Territory.fetch_by_controller(conn, assigning_char.id, guild_id)
-                assigning_vps = sum(t.victory_points for t in assigning_territories)
+                assigning_territory_vps = sum(t.victory_points for t in assigning_territories)
+                assigning_vps = assigning_territory_vps + assigning_char.victory_points
                 if assigning_vps > 0:
                     assigned_to_faction.append((assigning_char, assigning_vps))
                     assigned_vps_total += assigning_vps
@@ -379,6 +389,8 @@ async def view_victory_points(
 
     return True, "", {
         'character': character,
+        'character_vps': character_vps,
+        'territory_vps': territory_vps,
         'personal_vps': personal_vps,
         'territories': territory_data,
         'faction': faction,
@@ -399,7 +411,7 @@ async def view_faction_victory_points(
     Returns:
         (success, message, data) where data contains:
         - faction: Faction object
-        - faction_total_vps: Total VPs from all faction members' territories + assigned VPs
+        - faction_total_vps: Total VPs from all faction members (territories + character VPs) + assigned VPs
         - faction_members_vps: List of (Character, vp_count) for faction members
         - assigned_to_faction: List of (Character, vp_count) assignments to faction
     """
@@ -410,13 +422,14 @@ async def view_faction_victory_points(
     faction_total_vps = 0
     faction_members_vps = []
 
-    # Get all faction members and their VPs
+    # Get all faction members and their VPs (including character VPs)
     members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
     for member in members:
         member_char = await Character.fetch_by_id(conn, member.character_id)
         if member_char:
             member_territories = await Territory.fetch_by_controller(conn, member.character_id, guild_id)
-            member_vps = sum(t.victory_points for t in member_territories)
+            member_territory_vps = sum(t.victory_points for t in member_territories)
+            member_vps = member_territory_vps + member_char.victory_points
             faction_total_vps += member_vps
             if member_vps > 0:
                 faction_members_vps.append((member_char, member_vps))
@@ -440,7 +453,8 @@ async def view_faction_victory_points(
         assigning_char = await Character.fetch_by_id(conn, row['character_id'])
         if assigning_char:
             assigning_territories = await Territory.fetch_by_controller(conn, assigning_char.id, guild_id)
-            assigning_vps = sum(t.victory_points for t in assigning_territories)
+            assigning_territory_vps = sum(t.victory_points for t in assigning_territories)
+            assigning_vps = assigning_territory_vps + assigning_char.victory_points
             if assigning_vps > 0:
                 assigned_to_faction.append((assigning_char, assigning_vps))
                 assigned_vps_total += assigning_vps

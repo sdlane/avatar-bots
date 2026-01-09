@@ -38,7 +38,7 @@ async def test_resource_collection_basic(db_conn, test_server):
     assert len(events) == 1
     event = events[0]
     assert event.phase == 'RESOURCE_COLLECTION'
-    assert event.event_type == 'RESOURCE_COLLECTION'
+    assert event.event_type == 'TERRITORY_PRODUCTION'
     assert event.entity_type == 'character'
     assert event.entity_id == character.id
     assert 'affected_character_ids' in event.event_data

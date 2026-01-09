@@ -58,6 +58,15 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS letter_limit SMALLINT;")
     await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS letter_count SMALLINT DEFAULT 0;")
     await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+    # Resource production per turn
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS ore_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS lumber_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS coal_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS rations_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS cloth_production INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS platinum_production INTEGER DEFAULT 0;")
+    # Victory points
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS victory_points INTEGER DEFAULT 0;")
 
     # --- Constraint Synchronization ---
     # Unique constraint on (identifier, guild_id)

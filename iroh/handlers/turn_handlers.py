@@ -211,13 +211,106 @@ async def execute_combat_phase(
     logger.info(f"Combat phase: finished combat phase for guild {guild_id}, turn {turn_number}")
     return events
 
-async def execute_resource_collection_phase(
+async def _collect_character_production(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
 ) -> List[TurnLog]:
     """
-    Execute the Resource Collection phase.
+    Collect resources from character production values.
+
+    For each character with non-zero production, add resources to their inventory.
+    Generates ONE event per character with non-zero production.
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog objects
+    """
+    events = []
+    logger.info(f"Character production: starting for guild {guild_id}, turn {turn_number}")
+
+    # Fetch all characters in the guild
+    characters = await Character.fetch_all(conn, guild_id)
+
+    for character in characters:
+        # Check if character has any production
+        total_production = (
+            character.ore_production + character.lumber_production +
+            character.coal_production + character.rations_production +
+            character.cloth_production + character.platinum_production
+        )
+
+        if total_production == 0:
+            continue
+
+        # Fetch or create PlayerResources
+        player_resources = await PlayerResources.fetch_by_character(conn, character.id, guild_id)
+
+        if not player_resources:
+            # Create new PlayerResources entry
+            player_resources = PlayerResources(
+                character_id=character.id,
+                ore=character.ore_production,
+                lumber=character.lumber_production,
+                coal=character.coal_production,
+                rations=character.rations_production,
+                cloth=character.cloth_production,
+                platinum=character.platinum_production,
+                guild_id=guild_id
+            )
+        else:
+            # Add to existing resources
+            player_resources.ore += character.ore_production
+            player_resources.lumber += character.lumber_production
+            player_resources.coal += character.coal_production
+            player_resources.rations += character.rations_production
+            player_resources.cloth += character.cloth_production
+            player_resources.platinum += character.platinum_production
+
+        # Update database
+        await player_resources.upsert(conn)
+
+        resources = {
+            'ore': character.ore_production,
+            'lumber': character.lumber_production,
+            'coal': character.coal_production,
+            'rations': character.rations_production,
+            'cloth': character.cloth_production,
+            'platinum': character.platinum_production
+        }
+
+        logger.info(f"Character production: Awarded {resources} to character {character.name} (ID: {character.id})")
+
+        # Create event for this character
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase='RESOURCE_COLLECTION',
+            event_type='CHARACTER_PRODUCTION',
+            entity_type='character',
+            entity_id=character.id,
+            event_data={
+                'affected_character_ids': [character.id],
+                'character_name': character.name,
+                'resources': resources
+            },
+            guild_id=guild_id
+        ))
+
+    logger.info(f"Character production: finished for guild {guild_id}, turn {turn_number}. Processed {len(events)} characters.")
+    return events
+
+
+async def _collect_territory_production(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Collect resources from territory production.
 
     For each territory, give production to the character controlling the territory.
     Aggregates resources per character and generates ONE event per character.
@@ -231,7 +324,7 @@ async def execute_resource_collection_phase(
         List of TurnLog objects
     """
     events = []
-    logger.info(f"Resource collection phase: starting for guild {guild_id}, turn {turn_number}")
+    logger.info(f"Territory production: starting for guild {guild_id}, turn {turn_number}")
 
     # Fetch all territories in the guild
     territories = await Territory.fetch_all(conn, guild_id)
@@ -243,7 +336,7 @@ async def execute_resource_collection_phase(
     for territory in territories:
         # Skip territories with no controller
         if territory.controller_character_id is None:
-            logger.debug(f"Resource collection: Territory {territory.territory_id} has no controller, skipping")
+            logger.debug(f"Territory production: Territory {territory.territory_id} has no controller, skipping")
             continue
 
         char_id = territory.controller_character_id
@@ -272,13 +365,13 @@ async def execute_resource_collection_phase(
         # Fetch character
         character = await Character.fetch_by_id(conn, char_id)
         if not character:
-            logger.warning(f"Resource collection: Character {char_id} not found, skipping resource allocation")
+            logger.warning(f"Territory production: Character {char_id} not found, skipping resource allocation")
             continue
 
         # Check if character has any resources to collect
         total_resources = sum(resources.values())
         if total_resources == 0:
-            logger.debug(f"Resource collection: Character {char_id} has no resources to collect")
+            logger.debug(f"Territory production: Character {char_id} has no resources to collect")
             continue
 
         # Fetch or create PlayerResources
@@ -308,13 +401,13 @@ async def execute_resource_collection_phase(
         # Update database
         await player_resources.upsert(conn)
 
-        logger.info(f"Resource collection: Awarded {resources} to character {character.name} (ID: {char_id})")
+        logger.info(f"Territory production: Awarded {resources} to character {character.name} (ID: {char_id})")
 
         # Create single event for this character with aggregated resources
         events.append(TurnLog(
             turn_number=turn_number,
             phase='RESOURCE_COLLECTION',
-            event_type='RESOURCE_COLLECTION',
+            event_type='TERRITORY_PRODUCTION',
             entity_type='character',
             entity_id=char_id,
             event_data={
@@ -332,7 +425,41 @@ async def execute_resource_collection_phase(
             guild_id=guild_id
         ))
 
-    logger.info(f"Resource collection phase: finished for guild {guild_id}, turn {turn_number}. Processed {len(character_resources)} characters.")
+    logger.info(f"Territory production: finished for guild {guild_id}, turn {turn_number}. Processed {len(character_resources)} characters.")
+    return events
+
+
+async def execute_resource_collection_phase(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Execute the Resource Collection phase.
+
+    1. Character production: Add resources based on character production values
+    2. Territory production: Add resources based on controlled territories
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog objects
+    """
+    events = []
+    logger.info(f"Resource collection phase: starting for guild {guild_id}, turn {turn_number}")
+
+    # Character production first
+    char_events = await _collect_character_production(conn, guild_id, turn_number)
+    events.extend(char_events)
+
+    # Territory production second
+    territory_events = await _collect_territory_production(conn, guild_id, turn_number)
+    events.extend(territory_events)
+
+    logger.info(f"Resource collection phase: finished for guild {guild_id}, turn {turn_number}")
     return events
 
 

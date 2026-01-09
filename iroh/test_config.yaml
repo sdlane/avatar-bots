@@ -18,6 +18,30 @@ factions:
     leader: "karliq"
     members: ["karliq", "nai"]
 
+# Character production and victory points
+characters:
+  - character: "taiso"
+    production:
+      ore: 0
+      lumber: 0
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 2
+
+  - character: "zuko"
+    victory_points: 5
+
+  - character: "toph"
+    production:
+      ore: 3
+      lumber: 0
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 0
+    victory_points: 2
+
 territories:
   - territory_id: 1
     name: "Fire Nation Capital"

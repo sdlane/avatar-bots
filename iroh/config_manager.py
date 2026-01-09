@@ -89,6 +89,27 @@ class ConfigManager:
                     }
                 })
 
+        # Export Character production and VP
+        config_dict['characters'] = []
+        for character in characters:
+            has_production = (character.ore_production or character.lumber_production or
+                            character.coal_production or character.rations_production or
+                            character.cloth_production or character.platinum_production)
+            if has_production or character.victory_points:
+                char_dict = {'character': character.identifier}
+                if has_production:
+                    char_dict['production'] = {
+                        'ore': character.ore_production,
+                        'lumber': character.lumber_production,
+                        'coal': character.coal_production,
+                        'rations': character.rations_production,
+                        'cloth': character.cloth_production,
+                        'platinum': character.platinum_production
+                    }
+                if character.victory_points:
+                    char_dict['victory_points'] = character.victory_points
+                config_dict['characters'].append(char_dict)
+
         # Export Territories
         territories = await Territory.fetch_all(conn, guild_id)
         config_dict['territories'] = []
@@ -265,6 +286,10 @@ class ConfigManager:
                 if 'controller_character_identifier' in territory:
                     character_identifiers_needed.add(territory['controller_character_identifier'])
 
+        if 'characters' in config_dict:
+            for char_data in config_dict['characters']:
+                character_identifiers_needed.add(char_data['character'])
+
         # Validate characters exist
         missing_characters = []
         character_map = {}  # identifier -> Character object
@@ -352,6 +377,21 @@ class ConfigManager:
                         guild_id=guild_id
                     )
                     await player_res.upsert(conn)
+
+        # Import Character production and VP
+        if 'characters' in config_dict:
+            for char_data in config_dict['characters']:
+                char = character_map.get(char_data['character'])
+                if char:
+                    production = char_data.get('production', {})
+                    char.ore_production = production.get('ore', 0)
+                    char.lumber_production = production.get('lumber', 0)
+                    char.coal_production = production.get('coal', 0)
+                    char.rations_production = production.get('rations', 0)
+                    char.cloth_production = production.get('cloth', 0)
+                    char.platinum_production = production.get('platinum', 0)
+                    char.victory_points = char_data.get('victory_points', 0)
+                    await char.upsert(conn)
 
         # Import Territories
         if 'territories' in config_dict:

@@ -40,3 +40,41 @@ async def modify_resources(conn: asyncpg.Connection, character_identifier: str, 
         'character': char,
         'resources': resources
     }
+
+
+async def modify_character_production(
+    conn: asyncpg.Connection,
+    character_identifier: str,
+    guild_id: int
+) -> Tuple[bool, str, Optional[dict]]:
+    """
+    Fetch character for production modification.
+
+    Returns:
+        (success, message, data) where data contains:
+        - character: Character object
+    """
+    char = await Character.fetch_by_identifier(conn, character_identifier, guild_id)
+    if not char:
+        return False, f"Character '{character_identifier}' not found.", None
+
+    return True, "", {'character': char}
+
+
+async def modify_character_vp(
+    conn: asyncpg.Connection,
+    character_identifier: str,
+    guild_id: int
+) -> Tuple[bool, str, Optional[dict]]:
+    """
+    Fetch character for victory points modification.
+
+    Returns:
+        (success, message, data) where data contains:
+        - character: Character object
+    """
+    char = await Character.fetch_by_identifier(conn, character_identifier, guild_id)
+    if not char:
+        return False, f"Character '{character_identifier}' not found.", None
+
+    return True, "", {'character': char}

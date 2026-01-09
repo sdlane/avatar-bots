@@ -90,6 +90,7 @@ async def cleanup_vp_test_data(db_conn):
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Character WHERE guild_id = $1;", TEST_GUILD_ID)
 
 
 # ============ Territory VP Tests ============
@@ -533,5 +534,55 @@ async def test_view_victory_points_no_character(db_conn, test_server):
     assert success is False
     assert "don't have a character" in message.lower()
     assert data is None
+
+    await cleanup_vp_test_data(db_conn)
+
+
+# ============ Character VP Tests ============
+
+@pytest.mark.asyncio
+async def test_character_vp_included_in_personal_total(db_conn, test_server):
+    """Test that character.victory_points is included in personal VP total."""
+    char1, char2, faction = await setup_vp_test_data(db_conn)
+
+    # Set character VPs directly on char1
+    await db_conn.execute(
+        "UPDATE Character SET victory_points = 7 WHERE id = $1;",
+        char1.id
+    )
+
+    success, message, data = await view_victory_points(
+        db_conn, char1.user_id, TEST_GUILD_ID
+    )
+
+    assert success is True
+    # char1 controls territories with 5+3=8 VPs, plus 7 character VPs = 15 total
+    assert data['character_vps'] == 7
+    assert data['territory_vps'] == 8
+    assert data['personal_vps'] == 15
+
+    await cleanup_vp_test_data(db_conn)
+
+
+@pytest.mark.asyncio
+async def test_character_vp_in_faction_total(db_conn, test_server):
+    """Test that character.victory_points is included in faction VP total."""
+    char1, char2, faction = await setup_vp_test_data(db_conn)
+
+    # Set character VPs on char2 (who is in faction)
+    await db_conn.execute(
+        "UPDATE Character SET victory_points = 5 WHERE id = $1;",
+        char2.id
+    )
+
+    success, message, data = await view_victory_points(
+        db_conn, char2.user_id, TEST_GUILD_ID
+    )
+
+    assert success is True
+    # char2 controls territory3 with 2 VPs, plus 5 character VPs = 7 total
+    assert data['personal_vps'] == 7
+    # Faction total should include char2's 7 VPs (territory + character)
+    assert data['faction_total_vps'] == 7
 
     await cleanup_vp_test_data(db_conn)

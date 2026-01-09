@@ -580,6 +580,147 @@ class ModifyResourcesView(discord.ui.View):
         return callback
 
 
+class SingleProductionModal(discord.ui.Modal):
+    """Modal for editing a single production value."""
+
+    def __init__(self, resource_name: str, resource_emoji: str, current_value: int,
+                 character: Character, db_pool, parent_view):
+        super().__init__(title=f"Modify {resource_name} Production")
+        self.resource_name = resource_name.lower()
+        self.resource_emoji = resource_emoji
+        self.character = character
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.value_input = discord.ui.TextInput(
+            label=f"{resource_emoji} {resource_name} Production",
+            default=str(current_value),
+            required=True,
+            max_length=10
+        )
+        self.add_item(self.value_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle form submission."""
+        from helpers import emotive_message
+        from embeds import create_modify_character_production_embed
+
+        try:
+            new_value = int(self.value_input.value.strip())
+            if new_value < 0:
+                await interaction.response.send_message(
+                    emotive_message("Production values cannot be negative."),
+                    ephemeral=True
+                )
+                return
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid value. Use integers only."),
+                ephemeral=True
+            )
+            return
+
+        # Update the character's production field
+        setattr(self.character, f"{self.resource_name}_production", new_value)
+
+        # Save to database
+        async with self.db_pool.acquire() as conn:
+            await self.character.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) modified {self.resource_name}_production to {new_value} for character '{self.character.name}' in guild {interaction.guild_id}")
+
+        # Update the embed
+        new_embed = create_modify_character_production_embed(self.character)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class ModifyCharacterProductionView(discord.ui.View):
+    """View with buttons to modify individual character production values."""
+
+    RESOURCES = [
+        ('ore', 'Ore', '⛏️'),
+        ('lumber', 'Lumber', '🪵'),
+        ('coal', 'Coal', '⚫'),
+        ('rations', 'Rations', '🍖'),
+        ('cloth', 'Cloth', '🧵'),
+        ('platinum', 'Platinum', '🪙'),
+    ]
+
+    def __init__(self, character: Character, db_pool):
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.character = character
+        self.db_pool = db_pool
+
+        # Add resource buttons
+        for attr, name, emoji in self.RESOURCES:
+            button = discord.ui.Button(
+                label=name,
+                emoji=emoji,
+                style=discord.ButtonStyle.secondary,
+                custom_id=f"production_{attr}"
+            )
+            button.callback = self._make_callback(attr, name, emoji)
+            self.add_item(button)
+
+    def _make_callback(self, attr: str, name: str, emoji: str):
+        async def callback(interaction: discord.Interaction):
+            current_value = getattr(self.character, f"{attr}_production")
+            modal = SingleProductionModal(
+                name, emoji, current_value,
+                self.character, self.db_pool, self
+            )
+            await interaction.response.send_modal(modal)
+        return callback
+
+
+class ModifyCharacterVPModal(discord.ui.Modal, title="Modify Victory Points"):
+    """Modal for editing character victory points."""
+
+    def __init__(self, character: Character, db_pool):
+        super().__init__()
+        self.character = character
+        self.db_pool = db_pool
+
+        self.vp_input = discord.ui.TextInput(
+            label="Victory Points",
+            default=str(character.victory_points),
+            required=True,
+            max_length=10
+        )
+        self.add_item(self.vp_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle form submission."""
+        from helpers import emotive_message
+
+        try:
+            new_value = int(self.vp_input.value.strip())
+            if new_value < 0:
+                await interaction.response.send_message(
+                    emotive_message("Victory points cannot be negative."),
+                    ephemeral=True
+                )
+                return
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid value. Use integers only."),
+                ephemeral=True
+            )
+            return
+
+        self.character.victory_points = new_value
+
+        async with self.db_pool.acquire() as conn:
+            await self.character.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) modified victory_points to {new_value} for character '{self.character.name}' in guild {interaction.guild_id}")
+
+        await interaction.response.send_message(
+            emotive_message(f"Victory points for {self.character.name} set to {new_value}."),
+            ephemeral=False
+        )
+
+
 class AssignCommanderConfirmView(discord.ui.View):
     """Confirmation view for assigning a commander from a different faction."""
 

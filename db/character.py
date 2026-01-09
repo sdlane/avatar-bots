@@ -16,6 +16,15 @@ class Character:
     letter_limit: Optional[int] = None
     letter_count: int = 0
     guild_id: Optional[int] = None
+    # Resource production per turn
+    ore_production: int = 0
+    lumber_production: int = 0
+    coal_production: int = 0
+    rations_production: int = 0
+    cloth_production: int = 0
+    platinum_production: int = 0
+    # Victory points
+    victory_points: int = 0
 
     async def upsert(self, conn: asyncpg.Connection):
         """
@@ -25,15 +34,25 @@ class Character:
         query = """
         INSERT INTO Character (
             identifier, name, user_id, channel_id,
-            letter_limit, letter_count, guild_id
+            letter_limit, letter_count, guild_id,
+            ore_production, lumber_production, coal_production,
+            rations_production, cloth_production, platinum_production,
+            victory_points
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (identifier, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             user_id = EXCLUDED.user_id,
             channel_id = EXCLUDED.channel_id,
             letter_limit = EXCLUDED.letter_limit,
-            letter_count = EXCLUDED.letter_count;
+            letter_count = EXCLUDED.letter_count,
+            ore_production = EXCLUDED.ore_production,
+            lumber_production = EXCLUDED.lumber_production,
+            coal_production = EXCLUDED.coal_production,
+            rations_production = EXCLUDED.rations_production,
+            cloth_production = EXCLUDED.cloth_production,
+            platinum_production = EXCLUDED.platinum_production,
+            victory_points = EXCLUDED.victory_points;
         """
         await conn.execute(
             query,
@@ -43,7 +62,14 @@ class Character:
             self.channel_id,
             self.letter_limit,
             self.letter_count,
-            self.guild_id
+            self.guild_id,
+            self.ore_production,
+            self.lumber_production,
+            self.coal_production,
+            self.rations_production,
+            self.cloth_production,
+            self.platinum_production,
+            self.victory_points
         )
 
     @classmethod
@@ -52,7 +78,9 @@ class Character:
         Fetch a Character by its internal sequential ID.
         """
         row = await conn.fetchrow("""
-            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
+                   ore_production, lumber_production, coal_production,
+                   rations_production, cloth_production, platinum_production, victory_points
             FROM Character
             WHERE id = $1;
         """, char_id)
@@ -64,7 +92,9 @@ class Character:
         Fetch a Character by its (identifier, guild_id) pair.
         """
         row = await conn.fetchrow("""
-            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
+                   ore_production, lumber_production, coal_production,
+                   rations_production, cloth_production, platinum_production, victory_points
             FROM Character
             WHERE identifier = $1 AND guild_id = $2;
         """, identifier, guild_id)
@@ -73,10 +103,12 @@ class Character:
     @classmethod
     async def fetch_by_user(cls, conn: asyncpg.Connection, user_id: int, guild_id: int) -> Optional["Character"]:
         """
-        Fetch a Character by its (identifier, guild_id) pair.
+        Fetch a Character by its (user_id, guild_id) pair.
         """
         row = await conn.fetchrow("""
-            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
+                   ore_production, lumber_production, coal_production,
+                   rations_production, cloth_production, platinum_production, victory_points
             FROM Character
             WHERE user_id = $1 AND guild_id = $2;
         """, user_id, guild_id)
@@ -89,7 +121,9 @@ class Character:
         Fetch all Characters in a guild that have no associated user (user_id IS NULL).
         """
         rows = await conn.fetch("""
-            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
+                   ore_production, lumber_production, coal_production,
+                   rations_production, cloth_production, platinum_production, victory_points
             FROM Character
             WHERE guild_id = $1 AND user_id IS NULL
             ORDER BY identifier;
@@ -102,7 +136,9 @@ class Character:
         Fetch all Characters in a guild
         """
         rows = await conn.fetch("""
-            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
+                   ore_production, lumber_production, coal_production,
+                   rations_production, cloth_production, platinum_production, victory_points
             FROM Character
             WHERE guild_id = $1
             ORDER BY identifier;
@@ -133,7 +169,9 @@ class Character:
         Fetch and print all Character entries.
         """
         rows = await conn.fetch("""
-            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id
+            SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
+                   ore_production, lumber_production, coal_production,
+                   rations_production, cloth_production, platinum_production, victory_points
             FROM Character
             ORDER BY id;
         """)
@@ -153,6 +191,10 @@ class Character:
                 f"   • Letter Limit: {row['letter_limit']}\n"
                 f"   • Letter Count: {row['letter_count']}\n"
                 f"   • Guild ID:     {row['guild_id']}\n"
+                f"   • Production:   ore={row['ore_production']}, lumber={row['lumber_production']}, "
+                f"coal={row['coal_production']}, rations={row['rations_production']}, "
+                f"cloth={row['cloth_production']}, platinum={row['platinum_production']}\n"
+                f"   • Victory Pts:  {row['victory_points']}\n"
             )
 
     @classmethod
@@ -202,7 +244,23 @@ class Character:
         for field_name in numeric_fields:
             value = getattr(self, field_name)
             if value is not None and value < 0:
-                return False, f"Invalid input, {field} must be >= 0"
+                return False, f"Invalid input, {field_name} must be >= 0"
+
+        # Production and VP fields must be non-negative
+        production_fields = [
+            "ore_production",
+            "lumber_production",
+            "coal_production",
+            "rations_production",
+            "cloth_production",
+            "platinum_production",
+            "victory_points"
+        ]
+
+        for field_name in production_fields:
+            value = getattr(self, field_name)
+            if value < 0:
+                return False, f"Invalid input, {field_name} must be >= 0"
 
         if len(self.name) == 0:
             return False, f"Invalid input, name must not be empty"

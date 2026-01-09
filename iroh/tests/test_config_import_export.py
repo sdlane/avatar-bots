@@ -613,3 +613,195 @@ territories:
     # Verify factions still exist
     factions = await Faction.fetch_all(db_conn, TEST_GUILD_ID)
     assert len(factions) == 2
+
+
+# ============================================================================
+# CHARACTER PRODUCTION AND VP TESTS
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_import_character_production(db_conn, clean_wargame_data):
+    """Test importing character production values."""
+    config_with_production = """
+wargame:
+  turn: 0
+
+characters:
+  - character: "test-char-1"
+    production:
+      ore: 5
+      lumber: 3
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 2
+"""
+
+    success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, config_with_production)
+    assert success, f"Import failed: {message}"
+
+    # Verify production values were set
+    char = await Character.fetch_by_identifier(db_conn, "test-char-1", TEST_GUILD_ID)
+    assert char is not None
+    assert char.ore_production == 5
+    assert char.lumber_production == 3
+    assert char.platinum_production == 2
+    assert char.coal_production == 0
+
+
+@pytest.mark.asyncio
+async def test_import_character_victory_points(db_conn, clean_wargame_data):
+    """Test importing character victory points."""
+    config_with_vp = """
+wargame:
+  turn: 0
+
+characters:
+  - character: "test-char-1"
+    victory_points: 7
+
+  - character: "test-char-2"
+    victory_points: 3
+"""
+
+    success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, config_with_vp)
+    assert success, f"Import failed: {message}"
+
+    # Verify VP values were set
+    char1 = await Character.fetch_by_identifier(db_conn, "test-char-1", TEST_GUILD_ID)
+    assert char1.victory_points == 7
+
+    char2 = await Character.fetch_by_identifier(db_conn, "test-char-2", TEST_GUILD_ID)
+    assert char2.victory_points == 3
+
+
+@pytest.mark.asyncio
+async def test_import_character_production_and_vp(db_conn, clean_wargame_data):
+    """Test importing both production and VP for a character."""
+    config_with_both = """
+wargame:
+  turn: 0
+
+characters:
+  - character: "test-char-1"
+    production:
+      ore: 10
+      lumber: 5
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 0
+    victory_points: 4
+"""
+
+    success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, config_with_both)
+    assert success, f"Import failed: {message}"
+
+    char = await Character.fetch_by_identifier(db_conn, "test-char-1", TEST_GUILD_ID)
+    assert char.ore_production == 10
+    assert char.lumber_production == 5
+    assert char.victory_points == 4
+
+
+@pytest.mark.asyncio
+async def test_export_includes_character_production_and_vp(db_conn, clean_wargame_data):
+    """Test that export includes character production and VP values."""
+    # Set up character with production and VP
+    char = await Character.fetch_by_identifier(db_conn, "test-char-1", TEST_GUILD_ID)
+    await db_conn.execute("""
+        UPDATE Character
+        SET ore_production = 8, lumber_production = 4, platinum_production = 1, victory_points = 5
+        WHERE id = $1
+    """, char.id)
+
+    # Export
+    yaml_output = await ConfigManager.export_config(db_conn, TEST_GUILD_ID)
+    config_dict = yaml.safe_load(yaml_output)
+
+    # Verify characters section present
+    assert 'characters' in config_dict
+    assert len(config_dict['characters']) >= 1
+
+    # Find test-char-1 in exported config
+    char_data = None
+    for c in config_dict['characters']:
+        if c['character'] == 'test-char-1':
+            char_data = c
+            break
+
+    assert char_data is not None
+    assert char_data['production']['ore'] == 8
+    assert char_data['production']['lumber'] == 4
+    assert char_data['production']['platinum'] == 1
+    assert char_data['victory_points'] == 5
+
+
+@pytest.mark.asyncio
+async def test_character_config_roundtrip(db_conn, clean_wargame_data):
+    """Test export -> import -> export preserves character production and VP."""
+    # Set up character with production and VP
+    char = await Character.fetch_by_identifier(db_conn, "test-char-1", TEST_GUILD_ID)
+    await db_conn.execute("""
+        UPDATE Character
+        SET ore_production = 12, lumber_production = 6, rations_production = 20,
+            platinum_production = 3, victory_points = 10
+        WHERE id = $1
+    """, char.id)
+
+    # First export
+    yaml_output_1 = await ConfigManager.export_config(db_conn, TEST_GUILD_ID)
+    config_dict_1 = yaml.safe_load(yaml_output_1)
+
+    # Reset character values
+    await db_conn.execute("""
+        UPDATE Character
+        SET ore_production = 0, lumber_production = 0, rations_production = 0,
+            platinum_production = 0, victory_points = 0
+        WHERE id = $1
+    """, char.id)
+
+    # Reimport
+    success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, yaml_output_1)
+    assert success, f"Reimport failed: {message}"
+
+    # Second export
+    yaml_output_2 = await ConfigManager.export_config(db_conn, TEST_GUILD_ID)
+    config_dict_2 = yaml.safe_load(yaml_output_2)
+
+    # Find test-char-1 in both exports
+    char_data_1 = next((c for c in config_dict_1['characters'] if c['character'] == 'test-char-1'), None)
+    char_data_2 = next((c for c in config_dict_2['characters'] if c['character'] == 'test-char-1'), None)
+
+    assert char_data_1 is not None
+    assert char_data_2 is not None
+
+    # Compare production values
+    assert char_data_1['production']['ore'] == char_data_2['production']['ore']
+    assert char_data_1['production']['lumber'] == char_data_2['production']['lumber']
+    assert char_data_1['production']['rations'] == char_data_2['production']['rations']
+    assert char_data_1['production']['platinum'] == char_data_2['production']['platinum']
+    assert char_data_1['victory_points'] == char_data_2['victory_points']
+
+
+@pytest.mark.asyncio
+async def test_import_character_validates_character_exists(db_conn, clean_wargame_data):
+    """Test that import fails when characters section references nonexistent character."""
+    config_with_bad_char = """
+wargame:
+  turn: 0
+
+characters:
+  - character: "nonexistent-character"
+    production:
+      ore: 5
+      lumber: 0
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 0
+"""
+
+    success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, config_with_bad_char)
+    assert not success
+    assert "Missing characters" in message
+    assert "nonexistent-character" in message

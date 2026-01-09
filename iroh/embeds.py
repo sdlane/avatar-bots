@@ -436,6 +436,35 @@ def create_modify_resources_embed(character: Character, resources: PlayerResourc
     return embed
 
 
+def create_modify_character_production_embed(character: Character) -> discord.Embed:
+    """Create embed for modifying character production via button interface."""
+    embed = discord.Embed(
+        title=f"Modify Production: {character.name}",
+        description=f"Character: `{character.identifier}`\nPer-turn production values",
+        color=discord.Color.green()
+    )
+
+    # Production values
+    production_lines = [
+        f"⛏️ **Ore:** {character.ore_production}",
+        f"🪵 **Lumber:** {character.lumber_production}",
+        f"⚫ **Coal:** {character.coal_production}",
+        f"🍖 **Rations:** {character.rations_production}",
+        f"🧵 **Cloth:** {character.cloth_production}",
+        f"🪙 **Platinum:** {character.platinum_production}"
+    ]
+
+    embed.add_field(
+        name="Current Production",
+        value="\n".join(production_lines),
+        inline=False
+    )
+
+    embed.set_footer(text="Click a resource button to modify its production value")
+
+    return embed
+
+
 def create_victory_points_embed(data: dict) -> discord.Embed:
     """Create embed for victory points view."""
     character = data['character']
@@ -445,24 +474,41 @@ def create_victory_points_embed(data: dict) -> discord.Embed:
         color=discord.Color.gold()
     )
 
-    # Personal VPs
+    # Character's direct VPs (if any)
+    character_vps = data.get('character_vps', 0)
+    if character_vps > 0:
+        embed.add_field(
+            name=f"Personal VP Award",
+            value=f"{character_vps} VP",
+            inline=False
+        )
+
+    # Territory VPs
     personal_vps = data['personal_vps']
+    territory_vps = data.get('territory_vps', personal_vps - character_vps)
     if data['territories']:
         territory_list = "\n".join([
             f"  {t.name or f'Territory {t.territory_id}'}: {vp} VP"
             for t, vp in data['territories']
         ])
         embed.add_field(
-            name=f"Your Territories ({personal_vps} VP)",
+            name=f"Your Territories ({territory_vps} VP)",
             value=territory_list,
             inline=False
         )
-    else:
+    elif territory_vps > 0:
         embed.add_field(
             name="Your Territories",
-            value=f"No territories with victory points ({personal_vps} VP total)",
+            value=f"{territory_vps} VP from territories",
             inline=False
         )
+
+    # Total personal VPs
+    embed.add_field(
+        name="Total Personal VPs",
+        value=f"{personal_vps} VP",
+        inline=False
+    )
 
     # Faction info
     if data['faction']:
@@ -523,7 +569,7 @@ def create_faction_victory_points_embed(data: dict) -> discord.Embed:
         inline=False
     )
 
-    # Member breakdown
+    # Member breakdown (includes both territory VPs and character VPs)
     if data['faction_members_vps']:
         member_list = "\n".join([
             f"  {char.name}: {vp} VP"
@@ -531,14 +577,14 @@ def create_faction_victory_points_embed(data: dict) -> discord.Embed:
         ])
         member_total = sum(vp for _, vp in data['faction_members_vps'])
         embed.add_field(
-            name=f"Member Territories ({member_total} VP)",
+            name=f"Member VPs ({member_total} VP)",
             value=member_list,
             inline=False
         )
     else:
         embed.add_field(
-            name="Member Territories",
-            value="No members with victory point territories",
+            name="Member VPs",
+            value="No members with victory points",
             inline=False
         )
 
