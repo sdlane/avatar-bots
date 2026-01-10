@@ -405,6 +405,8 @@ async def clear_wargame_config(interaction: discord.Interaction):
         await conn.execute("DELETE FROM Territory WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", interaction.guild_id)
+        await conn.execute("DELETE FROM WarParticipant WHERE guild_id = $1;", interaction.guild_id)
+        await conn.execute("DELETE FROM War WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM FactionJoinRequest WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Faction WHERE guild_id = $1;", interaction.guild_id)
@@ -2078,6 +2080,207 @@ async def delete_alliance_cmd(interaction: discord.Interaction, faction_a_id: st
             logger.info(f"Admin {interaction.user.name} deleted alliance between '{faction_a_id}' and '{faction_b_id}'")
         else:
             logger.warning(f"Admin {interaction.user.name} failed to delete alliance: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+# ============================================================================
+# WAR COMMANDS
+# ============================================================================
+
+@tree.command(
+    name="order-declare-war",
+    description="[Faction Leader] Declare war on one or more factions"
+)
+@app_commands.describe(
+    target_faction_ids="Comma-separated faction IDs to declare war on",
+    objective="The objective/reason for the war"
+)
+async def order_declare_war_cmd(interaction: discord.Interaction, target_faction_ids: str, objective: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        # Parse target faction IDs
+        target_ids = [tid.strip() for tid in target_faction_ids.split(',') if tid.strip()]
+
+        if not target_ids:
+            await interaction.followup.send(
+                emotive_message("You must specify at least one target faction."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_declare_war_order(
+            conn, character, target_ids, objective, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} submitted declare war order targeting '{target_faction_ids}' with objective '{objective}'")
+        else:
+            logger.warning(f"User {interaction.user.name} failed to submit declare war order: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="view-wars",
+    description="View all ongoing wars"
+)
+async def view_wars_cmd(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message, wars = await handlers.view_wars(conn, interaction.guild_id)
+
+        if not success or not wars:
+            await interaction.followup.send(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Build embed
+        embed = discord.Embed(
+            title="Ongoing Wars",
+            color=discord.Color.dark_red()
+        )
+
+        for war in wars:
+            side_a_names = [f['name'] for f in war['side_a']]
+            side_b_names = [f['name'] for f in war['side_b']]
+
+            field_name = f"War: {war['war_id']}"
+            field_value = f"**Objective:** {war['objective']}\n"
+            field_value += f"**Side A:** {', '.join(side_a_names) if side_a_names else 'None'}\n"
+            field_value += f"**Side B:** {', '.join(side_b_names) if side_b_names else 'None'}\n"
+            field_value += f"**Declared Turn:** {war['declared_turn']}"
+
+            embed.add_field(name=field_name, value=field_value, inline=False)
+
+        embed.set_footer(text=f"Total: {len(wars)} war(s)")
+        await interaction.followup.send(embed=embed)
+
+
+@tree.command(
+    name="edit-war",
+    description="[Admin] Edit a war's objective"
+)
+@app_commands.describe(
+    war_id="War ID to edit",
+    objective="New objective text"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_war_cmd(interaction: discord.Interaction, war_id: str, objective: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.edit_war(conn, war_id, objective, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} edited war '{war_id}' objective to '{objective}'")
+        else:
+            logger.warning(f"Admin {interaction.user.name} failed to edit war: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="add-war-participant",
+    description="[Admin] Add a faction to a war"
+)
+@app_commands.describe(
+    war_id="War ID",
+    faction_id="Faction ID to add",
+    side="SIDE_A or SIDE_B"
+)
+@app_commands.choices(side=[
+    app_commands.Choice(name="Side A", value="SIDE_A"),
+    app_commands.Choice(name="Side B", value="SIDE_B"),
+])
+@app_commands.checks.has_permissions(manage_guild=True)
+async def add_war_participant_cmd(interaction: discord.Interaction, war_id: str, faction_id: str, side: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.add_war_participant(
+            conn, war_id, faction_id, side, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} added faction '{faction_id}' to war '{war_id}' on {side}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} failed to add war participant: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="remove-war-participant",
+    description="[Admin] Remove a faction from a war"
+)
+@app_commands.describe(
+    war_id="War ID",
+    faction_id="Faction ID to remove"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def remove_war_participant_cmd(interaction: discord.Interaction, war_id: str, faction_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.remove_war_participant(
+            conn, war_id, faction_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} removed faction '{faction_id}' from war '{war_id}'")
+        else:
+            logger.warning(f"Admin {interaction.user.name} failed to remove war participant: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="delete-war",
+    description="[Admin] Delete a war entirely"
+)
+@app_commands.describe(
+    war_id="War ID to delete"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def delete_war_cmd(interaction: discord.Interaction, war_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.delete_war(conn, war_id, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} deleted war '{war_id}'")
+        else:
+            logger.warning(f"Admin {interaction.user.name} failed to delete war: {message}")
 
         await interaction.followup.send(
             emotive_message(message),

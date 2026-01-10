@@ -1018,6 +1018,96 @@ async def submit_make_alliance_order(
     return True, f"Alliance order submitted: {submitting_faction.name} proposes alliance with {target_faction.name} (Order #{order_id}). The alliance will be activated when {target_faction.name}'s leader also submits an alliance order."
 
 
+async def submit_declare_war_order(
+    conn: asyncpg.Connection,
+    submitting_character: Character,
+    target_faction_ids: List[str],
+    objective: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Submit an order for a faction leader to declare war on one or more factions.
+
+    Args:
+        conn: Database connection
+        submitting_character: Character submitting the order (must be faction leader)
+        target_faction_ids: List of faction IDs to declare war on
+        objective: The objective/reason for the war
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate objective is not empty
+    if not objective or not objective.strip():
+        return False, "Objective cannot be empty."
+
+    # Validate at least one target
+    if not target_faction_ids:
+        return False, "Must specify at least one target faction."
+
+    # Check submitter is in a faction
+    faction_member = await FactionMember.fetch_by_character(conn, submitting_character.id, guild_id)
+    if not faction_member:
+        return False, "You are not a member of any faction."
+
+    # Get submitter's faction
+    submitting_faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+    if not submitting_faction:
+        return False, "Your faction could not be found."
+
+    # Check submitter is faction leader
+    if submitting_faction.leader_character_id != submitting_character.id:
+        return False, f"Only the leader of {submitting_faction.name} can declare war."
+
+    # Validate all target factions exist and are not self
+    target_faction_internal_ids = []
+    target_faction_names = []
+    for target_id in target_faction_ids:
+        target_faction = await Faction.fetch_by_faction_id(conn, target_id, guild_id)
+        if not target_faction:
+            return False, f"Faction '{target_id}' not found."
+        if target_faction.id == submitting_faction.id:
+            return False, "Cannot declare war on your own faction."
+        target_faction_internal_ids.append(target_faction.id)
+        target_faction_names.append(target_faction.name)
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.DECLARE_WAR.value,
+        unit_ids=[],
+        character_id=submitting_character.id,
+        turn_number=current_turn + 1,  # Execute next turn
+        phase=ORDER_PHASE_MAP[OrderType.DECLARE_WAR].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.DECLARE_WAR],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_faction_ids': target_faction_internal_ids,
+            'submitting_faction_id': submitting_faction.id,
+            'objective': objective.strip()
+        },
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    targets_str = ', '.join(target_faction_names)
+    return True, f"War declaration order submitted: {submitting_faction.name} declares war on {targets_str} (Objective: \"{objective}\") (Order #{order_id}). This will be processed next turn."
+
+
 async def validate_path(
     conn: asyncpg.Connection,
     path: List[int],

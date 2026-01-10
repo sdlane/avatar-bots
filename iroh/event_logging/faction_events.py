@@ -179,3 +179,68 @@ def alliance_formed_gm_line(event_data: Dict[str, Any]) -> str:
     faction_a = event_data.get('faction_a_name', 'Unknown')
     faction_b = event_data.get('faction_b_name', 'Unknown')
     return f"🤝 Alliance: {faction_a} ↔ {faction_b} (active)"
+
+
+# War events
+
+def war_declared_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for WAR_DECLARED event."""
+    declaring_faction = event_data.get('declaring_faction_name', 'Unknown')
+    target_factions = event_data.get('target_faction_names', [])
+    objective = event_data.get('objective', 'Unknown')
+    targets_str = ', '.join(target_factions) if target_factions else 'Unknown'
+    return f"⚔️ **{declaring_faction}** declared war on **{targets_str}** - Objective: {objective}"
+
+
+def war_declared_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for WAR_DECLARED event."""
+    declaring_faction = event_data.get('declaring_faction_name', 'Unknown')
+    target_factions = event_data.get('target_faction_names', [])
+    objective = event_data.get('objective', 'Unknown')
+    targets_str = ', '.join(target_factions) if target_factions else 'Unknown'
+    return f"⚔️ {declaring_faction} → {targets_str} (war: {objective})"
+
+
+def war_joined_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for WAR_JOINED event."""
+    joining_faction = event_data.get('joining_faction_name', 'Unknown')
+    side = event_data.get('side', 'Unknown')
+    objective = event_data.get('objective', 'Unknown')
+    return f"⚔️ **{joining_faction}** joined the war on **{side}** - Objective: {objective}"
+
+
+def war_joined_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for WAR_JOINED event."""
+    joining_faction = event_data.get('joining_faction_name', 'Unknown')
+    side = event_data.get('side', 'Unknown')
+    objective = event_data.get('objective', 'Unknown')
+    return f"⚔️ {joining_faction} → {side} (joined war: {objective})"
+
+
+def war_ally_dragged_in_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for WAR_ALLY_DRAGGED_IN event."""
+    dragged_faction = event_data.get('dragged_faction_name', 'Unknown')
+    side = event_data.get('side', 'Unknown')
+    objective = event_data.get('objective', 'Unknown')
+    allied_with_str = event_data.get('allied_with_declarer_name', 'the declaring faction')
+    return f"⚔️ **{dragged_faction}** was pulled into war on **{side}** due to alliance with {allied_with_str} - Objective: {objective}"
+
+
+def war_ally_dragged_in_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for WAR_ALLY_DRAGGED_IN event."""
+    dragged_faction = event_data.get('dragged_faction_name', 'Unknown')
+    side = event_data.get('side', 'Unknown')
+    objective = event_data.get('objective', 'Unknown')
+    return f"⚔️ {dragged_faction} → {side} (dragged in: {objective})"
+
+
+def war_production_bonus_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for WAR_PRODUCTION_BONUS event."""
+    faction_name = event_data.get('faction_name', 'Unknown')
+    return f"💰 **{faction_name}** receives first-war production bonus! Production doubled this turn."
+
+
+def war_production_bonus_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for WAR_PRODUCTION_BONUS event."""
+    faction_name = event_data.get('faction_name', 'Unknown')
+    return f"💰 {faction_name} (first-war production bonus)"

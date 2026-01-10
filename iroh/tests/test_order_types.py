@@ -83,6 +83,23 @@ def test_assign_commander_priority():
     assert ORDER_PRIORITY_MAP[OrderType.ASSIGN_COMMANDER] > ORDER_PRIORITY_MAP[OrderType.JOIN_FACTION]
 
 
+def test_declare_war_order_type_exists():
+    """Test that DECLARE_WAR order type exists."""
+    assert OrderType.DECLARE_WAR.value == "DECLARE_WAR"
+
+
+def test_declare_war_phase_mapping():
+    """Test that DECLARE_WAR maps to BEGINNING phase."""
+    assert ORDER_PHASE_MAP[OrderType.DECLARE_WAR] == TurnPhase.BEGINNING
+
+
+def test_declare_war_priority():
+    """Test that DECLARE_WAR has priority 5 (after alliances at priority 4)."""
+    assert ORDER_PRIORITY_MAP[OrderType.DECLARE_WAR] == 5
+    # Executes after alliances (priority 4)
+    assert ORDER_PRIORITY_MAP[OrderType.DECLARE_WAR] > ORDER_PRIORITY_MAP[OrderType.MAKE_ALLIANCE]
+
+
 # Test completeness
 def test_all_order_types_have_phase_mapping():
     """Test that all order types have a phase mapping."""
@@ -99,8 +116,8 @@ def test_all_order_types_have_priority():
 def test_total_order_type_count():
     """Test that we have the expected number of order types."""
     # JOIN_FACTION, LEAVE_FACTION, KICK_FROM_FACTION, ASSIGN_COMMANDER, ASSIGN_VICTORY_POINTS,
-    # MAKE_ALLIANCE, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER
-    assert len(OrderType) == 9
+    # MAKE_ALLIANCE, DECLARE_WAR, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER
+    assert len(OrderType) == 10
 
 
 # Test order status values

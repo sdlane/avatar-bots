@@ -1,8 +1,9 @@
 from order_types import *
 from datetime import datetime
-from db import Character, Faction, FactionMember, FactionJoinRequest, Unit, TurnLog
+from db import Character, Faction, FactionMember, FactionJoinRequest, Unit, TurnLog, War, WarParticipant, Alliance
 import asyncpg
 from typing import Optional, Dict, List, Union
+import uuid
 
 async def handle_leave_faction_order(
     conn: asyncpg.Connection,
@@ -527,3 +528,437 @@ async def handle_kick_from_faction_order(
             },
             guild_id=guild_id
         )]
+
+
+async def handle_declare_war_order(
+    conn: asyncpg.Connection,
+    order,  # Order type from db
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Handle a DECLARE_WAR order.
+
+    This function:
+    1. Validates the submitter is still a faction leader
+    2. Checks for existing war with same objective (case-insensitive)
+    3. If found: Joins existing war on opposite side from targets
+    4. If not found: Creates new war with declaring faction on SIDE_A, targets on SIDE_B
+    5. Handles allied faction drag-in (allies of both sides join targets' side)
+    6. Checks for first-war production bonus eligibility
+
+    Args:
+        conn: Database connection
+        order: The DECLARE_WAR order to process
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog objects
+    """
+    events = []
+
+    try:
+        # Extract order data
+        target_faction_ids = order.order_data.get('target_faction_ids', [])
+        submitting_faction_id = order.order_data.get('submitting_faction_id')
+        objective = order.order_data.get('objective', '')
+
+        # Validate submitting character still exists
+        character = await Character.fetch_by_id(conn, order.character_id)
+        if not character:
+            return await _fail_declare_war_order(conn, order, guild_id, turn_number, 'Character not found')
+
+        # Validate submitting faction still exists
+        submitting_faction = await Faction.fetch_by_id(conn, submitting_faction_id)
+        if not submitting_faction:
+            return await _fail_declare_war_order(conn, order, guild_id, turn_number, 'Submitting faction not found')
+
+        # Validate character is still faction leader
+        if submitting_faction.leader_character_id != character.id:
+            return await _fail_declare_war_order(conn, order, guild_id, turn_number, 'Character is no longer faction leader')
+
+        # Validate all target factions still exist
+        target_factions = []
+        for target_id in target_faction_ids:
+            target_faction = await Faction.fetch_by_id(conn, target_id)
+            if not target_faction:
+                return await _fail_declare_war_order(conn, order, guild_id, turn_number, f'Target faction {target_id} not found')
+            if target_faction.id == submitting_faction.id:
+                return await _fail_declare_war_order(conn, order, guild_id, turn_number, 'Cannot declare war on your own faction')
+            target_factions.append(target_faction)
+
+        if not target_factions:
+            return await _fail_declare_war_order(conn, order, guild_id, turn_number, 'No valid target factions specified')
+
+        # Check for existing war with same objective
+        existing_war = await War.fetch_by_objective(conn, objective, guild_id)
+
+        if existing_war:
+            # Join existing war
+            events.extend(await _join_existing_war(
+                conn, order, existing_war, submitting_faction, target_factions,
+                guild_id, turn_number
+            ))
+        else:
+            # Create new war
+            events.extend(await _create_new_war(
+                conn, order, submitting_faction, target_factions, objective,
+                guild_id, turn_number
+            ))
+
+        # Check for first-war bonus eligibility
+        first_war_bonus = False
+        if not submitting_faction.has_declared_war:
+            submitting_faction.has_declared_war = True
+            await submitting_faction.upsert(conn)
+            first_war_bonus = True
+
+            # Get all faction members for bonus notification
+            faction_members = await FactionMember.fetch_by_faction(conn, submitting_faction.id, guild_id)
+            affected_ids = [submitting_faction.leader_character_id] if submitting_faction.leader_character_id else []
+            for member in faction_members:
+                if member.character_id not in affected_ids:
+                    affected_ids.append(member.character_id)
+
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='WAR_PRODUCTION_BONUS',
+                entity_type='faction',
+                entity_id=submitting_faction.id,
+                event_data={
+                    'faction_name': submitting_faction.name,
+                    'faction_id': submitting_faction.faction_id,
+                    'affected_character_ids': affected_ids
+                },
+                guild_id=guild_id
+            ))
+
+        # Mark order as success
+        order.status = OrderStatus.SUCCESS.value
+        order.result_data = {
+            'objective': objective,
+            'target_factions': [f.name for f in target_factions],
+            'first_war_bonus': first_war_bonus
+        }
+        order.updated_at = datetime.now()
+        order.updated_turn = turn_number
+        await order.upsert(conn)
+
+        return events
+
+    except Exception as e:
+        return await _fail_declare_war_order(conn, order, guild_id, turn_number, str(e))
+
+
+async def _fail_declare_war_order(
+    conn: asyncpg.Connection,
+    order,
+    guild_id: int,
+    turn_number: int,
+    error: str
+) -> List[TurnLog]:
+    """Mark a DECLARE_WAR order as failed and return failure event."""
+    order.status = OrderStatus.FAILED.value
+    order.result_data = {'error': error}
+    order.updated_at = datetime.now()
+    order.updated_turn = turn_number
+    await order.upsert(conn)
+    return [TurnLog(
+        turn_number=turn_number,
+        phase=TurnPhase.BEGINNING.value,
+        event_type='ORDER_FAILED',
+        entity_type='character',
+        entity_id=order.character_id,
+        event_data={
+            'order_type': 'DECLARE_WAR',
+            'order_id': order.order_id,
+            'error': error,
+            'affected_character_ids': [order.character_id]
+        },
+        guild_id=guild_id
+    )]
+
+
+async def _join_existing_war(
+    conn: asyncpg.Connection,
+    order,
+    war: War,
+    submitting_faction: Faction,
+    target_factions: List[Faction],
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """Handle joining an existing war based on targets."""
+    events = []
+
+    # Check if submitting faction is already in this war
+    existing_participant = await WarParticipant.fetch_by_war_and_faction(
+        conn, war.id, submitting_faction.id, guild_id
+    )
+    if existing_participant:
+        # Already in war - this is still valid, they're confirming their participation
+        # But we won't add them again
+        pass
+    else:
+        # Determine which side to join based on targets
+        # If any target is on SIDE_A, we join SIDE_B. If any target is on SIDE_B, we join SIDE_A.
+        target_side = None
+        for target in target_factions:
+            target_participant = await WarParticipant.fetch_by_war_and_faction(
+                conn, war.id, target.id, guild_id
+            )
+            if target_participant:
+                target_side = target_participant.side
+                break
+
+        if target_side is None:
+            # None of our targets are in the war - add targets to SIDE_B, us to SIDE_A
+            our_side = "SIDE_A"
+            their_side = "SIDE_B"
+        else:
+            # Join opposite side from targets
+            our_side = "SIDE_B" if target_side == "SIDE_A" else "SIDE_A"
+            their_side = target_side
+
+        # Add submitting faction to war
+        participant = WarParticipant(
+            war_id=war.id,
+            faction_id=submitting_faction.id,
+            side=our_side,
+            joined_turn=turn_number,
+            is_original_declarer=True,
+            guild_id=guild_id
+        )
+        await participant.insert(conn)
+
+        # Add any targets not already in the war
+        for target in target_factions:
+            target_participant = await WarParticipant.fetch_by_war_and_faction(
+                conn, war.id, target.id, guild_id
+            )
+            if not target_participant:
+                new_participant = WarParticipant(
+                    war_id=war.id,
+                    faction_id=target.id,
+                    side=their_side,
+                    joined_turn=turn_number,
+                    is_original_declarer=False,
+                    guild_id=guild_id
+                )
+                await new_participant.insert(conn)
+
+    # Get all affected character IDs
+    affected_ids = await _get_war_affected_character_ids(conn, war.id, guild_id)
+
+    events.append(TurnLog(
+        turn_number=turn_number,
+        phase=TurnPhase.BEGINNING.value,
+        event_type='WAR_JOINED',
+        entity_type='faction',
+        entity_id=submitting_faction.id,
+        event_data={
+            'war_id': war.war_id,
+            'objective': war.objective,
+            'faction_name': submitting_faction.name,
+            'faction_id': submitting_faction.faction_id,
+            'target_factions': [f.name for f in target_factions],
+            'order_id': order.order_id,
+            'affected_character_ids': affected_ids
+        },
+        guild_id=guild_id
+    ))
+
+    # Handle allied faction drag-in
+    drag_in_events = await _handle_allied_drag_in(
+        conn, war, submitting_faction, target_factions, guild_id, turn_number
+    )
+    events.extend(drag_in_events)
+
+    return events
+
+
+async def _create_new_war(
+    conn: asyncpg.Connection,
+    order,
+    submitting_faction: Faction,
+    target_factions: List[Faction],
+    objective: str,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """Create a new war with the submitting faction on SIDE_A and targets on SIDE_B."""
+    events = []
+
+    # Generate war_id
+    war_id = f"war-{uuid.uuid4().hex[:8]}"
+
+    # Create war
+    war = War(
+        war_id=war_id,
+        objective=objective,
+        declared_turn=turn_number,
+        created_at=datetime.now(),
+        guild_id=guild_id
+    )
+    await war.insert(conn)
+
+    # Add submitting faction to SIDE_A
+    submitting_participant = WarParticipant(
+        war_id=war.id,
+        faction_id=submitting_faction.id,
+        side="SIDE_A",
+        joined_turn=turn_number,
+        is_original_declarer=True,
+        guild_id=guild_id
+    )
+    await submitting_participant.insert(conn)
+
+    # Add target factions to SIDE_B
+    for target in target_factions:
+        target_participant = WarParticipant(
+            war_id=war.id,
+            faction_id=target.id,
+            side="SIDE_B",
+            joined_turn=turn_number,
+            is_original_declarer=False,
+            guild_id=guild_id
+        )
+        await target_participant.insert(conn)
+
+    # Get all affected character IDs
+    affected_ids = await _get_war_affected_character_ids(conn, war.id, guild_id)
+
+    events.append(TurnLog(
+        turn_number=turn_number,
+        phase=TurnPhase.BEGINNING.value,
+        event_type='WAR_DECLARED',
+        entity_type='faction',
+        entity_id=submitting_faction.id,
+        event_data={
+            'war_id': war.war_id,
+            'objective': objective,
+            'declaring_faction_name': submitting_faction.name,
+            'declaring_faction_id': submitting_faction.faction_id,
+            'target_factions': [f.name for f in target_factions],
+            'target_faction_ids': [f.faction_id for f in target_factions],
+            'order_id': order.order_id,
+            'affected_character_ids': affected_ids
+        },
+        guild_id=guild_id
+    ))
+
+    # Handle allied faction drag-in
+    drag_in_events = await _handle_allied_drag_in(
+        conn, war, submitting_faction, target_factions, guild_id, turn_number
+    )
+    events.extend(drag_in_events)
+
+    return events
+
+
+async def _handle_allied_drag_in(
+    conn: asyncpg.Connection,
+    war: War,
+    submitting_faction: Faction,
+    target_factions: List[Faction],
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Handle dragging in allied factions that are allied with both sides.
+    Such factions join on the targets' side (SIDE_B).
+    """
+    events = []
+
+    # Get all active alliances involving the submitting faction
+    submitting_alliances = await Alliance.fetch_by_faction(conn, submitting_faction.id, guild_id)
+    submitting_ally_ids = set()
+    for alliance in submitting_alliances:
+        if alliance.status == "ACTIVE":
+            other_id = alliance.faction_b_id if alliance.faction_a_id == submitting_faction.id else alliance.faction_a_id
+            submitting_ally_ids.add(other_id)
+
+    # Get all active alliances involving target factions
+    target_ally_ids = set()
+    for target in target_factions:
+        target_alliances = await Alliance.fetch_by_faction(conn, target.id, guild_id)
+        for alliance in target_alliances:
+            if alliance.status == "ACTIVE":
+                other_id = alliance.faction_b_id if alliance.faction_a_id == target.id else alliance.faction_a_id
+                target_ally_ids.add(other_id)
+
+    # Find factions allied with both sides (excluding submitting and target factions)
+    all_faction_ids = {submitting_faction.id} | {t.id for t in target_factions}
+    caught_in_middle = submitting_ally_ids & target_ally_ids - all_faction_ids
+
+    for faction_id in caught_in_middle:
+        # Check if already in war
+        existing = await WarParticipant.fetch_by_war_and_faction(conn, war.id, faction_id, guild_id)
+        if existing:
+            continue
+
+        # Add to SIDE_B (targets' side)
+        participant = WarParticipant(
+            war_id=war.id,
+            faction_id=faction_id,
+            side="SIDE_B",
+            joined_turn=turn_number,
+            is_original_declarer=False,
+            guild_id=guild_id
+        )
+        await participant.insert(conn)
+
+        # Get faction info for event
+        dragged_faction = await Faction.fetch_by_id(conn, faction_id)
+        if dragged_faction:
+            # Get affected character IDs for this faction
+            faction_members = await FactionMember.fetch_by_faction(conn, faction_id, guild_id)
+            affected_ids = [dragged_faction.leader_character_id] if dragged_faction.leader_character_id else []
+            for member in faction_members:
+                if member.character_id not in affected_ids:
+                    affected_ids.append(member.character_id)
+
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.BEGINNING.value,
+                event_type='WAR_ALLY_DRAGGED_IN',
+                entity_type='faction',
+                entity_id=faction_id,
+                event_data={
+                    'war_id': war.war_id,
+                    'objective': war.objective,
+                    'faction_name': dragged_faction.name,
+                    'faction_id': dragged_faction.faction_id,
+                    'side': 'SIDE_B',
+                    'reason': 'Allied with both declaring and target factions',
+                    'affected_character_ids': affected_ids
+                },
+                guild_id=guild_id
+            ))
+
+    return events
+
+
+async def _get_war_affected_character_ids(
+    conn: asyncpg.Connection,
+    war_id: int,
+    guild_id: int
+) -> List[int]:
+    """Get all character IDs affected by a war event (all faction members on all sides)."""
+    affected_ids = []
+
+    participants = await WarParticipant.fetch_by_war(conn, war_id, guild_id)
+    for participant in participants:
+        faction = await Faction.fetch_by_id(conn, participant.faction_id)
+        if faction:
+            if faction.leader_character_id and faction.leader_character_id not in affected_ids:
+                affected_ids.append(faction.leader_character_id)
+
+            faction_members = await FactionMember.fetch_by_faction(conn, participant.faction_id, guild_id)
+            for member in faction_members:
+                if member.character_id not in affected_ids:
+                    affected_ids.append(member.character_id)
+
+    return affected_ids

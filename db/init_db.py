@@ -224,6 +224,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS name VARCHAR(255);")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS leader_character_id INTEGER;")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS created_turn INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS has_declared_war BOOLEAN DEFAULT FALSE;")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
     # --- FactionMember table ---
@@ -595,6 +596,62 @@ async def ensure_tables():
     await conn.execute("""
     CREATE INDEX IF NOT EXISTS idx_alliance_faction_b
         ON Alliance(faction_b_id, guild_id);
+    """)
+
+    # --- War table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS War (
+        id SERIAL PRIMARY KEY,
+        war_id VARCHAR(255) NOT NULL,
+        objective TEXT NOT NULL,
+        declared_turn INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(war_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE War ADD COLUMN IF NOT EXISTS war_id VARCHAR(255);")
+    await conn.execute("ALTER TABLE War ADD COLUMN IF NOT EXISTS objective TEXT;")
+    await conn.execute("ALTER TABLE War ADD COLUMN IF NOT EXISTS declared_turn INTEGER;")
+    await conn.execute("ALTER TABLE War ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+    await conn.execute("ALTER TABLE War ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create index for War table
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_war_objective
+        ON War(LOWER(objective), guild_id);
+    """)
+
+    # --- WarParticipant table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS WarParticipant (
+        id SERIAL PRIMARY KEY,
+        war_id INTEGER NOT NULL REFERENCES War(id) ON DELETE CASCADE,
+        faction_id INTEGER NOT NULL REFERENCES Faction(id) ON DELETE CASCADE,
+        side VARCHAR(10) NOT NULL CHECK (side IN ('SIDE_A', 'SIDE_B')),
+        joined_turn INTEGER NOT NULL,
+        is_original_declarer BOOLEAN NOT NULL DEFAULT FALSE,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(war_id, faction_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE WarParticipant ADD COLUMN IF NOT EXISTS war_id INTEGER;")
+    await conn.execute("ALTER TABLE WarParticipant ADD COLUMN IF NOT EXISTS faction_id INTEGER;")
+    await conn.execute("ALTER TABLE WarParticipant ADD COLUMN IF NOT EXISTS side VARCHAR(10);")
+    await conn.execute("ALTER TABLE WarParticipant ADD COLUMN IF NOT EXISTS joined_turn INTEGER;")
+    await conn.execute("ALTER TABLE WarParticipant ADD COLUMN IF NOT EXISTS is_original_declarer BOOLEAN DEFAULT FALSE;")
+    await conn.execute("ALTER TABLE WarParticipant ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create indexes for WarParticipant table
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_war_participant_war
+        ON WarParticipant(war_id, guild_id);
+    """)
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_war_participant_faction
+        ON WarParticipant(faction_id, guild_id);
     """)
 
     # --- ScheduledTurn table (for future auto-scheduling) ---

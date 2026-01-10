@@ -13,6 +13,7 @@ class Faction:
     name: str = ""
     leader_character_id: Optional[int] = None
     created_turn: int = 0
+    has_declared_war: bool = False  # True after first-ever war declaration
     guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
@@ -22,13 +23,14 @@ class Faction:
         """
         query = """
         INSERT INTO Faction (
-            faction_id, name, leader_character_id, created_turn, guild_id
+            faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5)
+        VALUES ($1, $2, $3, $4, $5, $6)
         ON CONFLICT (faction_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             leader_character_id = EXCLUDED.leader_character_id,
-            created_turn = EXCLUDED.created_turn;
+            created_turn = EXCLUDED.created_turn,
+            has_declared_war = EXCLUDED.has_declared_war;
         """
         await conn.execute(
             query,
@@ -36,6 +38,7 @@ class Faction:
             self.name,
             self.leader_character_id,
             self.created_turn,
+            self.has_declared_war,
             self.guild_id
         )
 
@@ -45,7 +48,7 @@ class Faction:
         Fetch a Faction by its internal sequential ID.
         """
         row = await conn.fetchrow("""
-            SELECT id, faction_id, name, leader_character_id, created_turn, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id
             FROM Faction
             WHERE id = $1;
         """, faction_internal_id)
@@ -57,7 +60,7 @@ class Faction:
         Fetch a Faction by its (faction_id, guild_id) pair.
         """
         row = await conn.fetchrow("""
-            SELECT id, faction_id, name, leader_character_id, created_turn, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id
             FROM Faction
             WHERE faction_id = $1 AND guild_id = $2;
         """, faction_id, guild_id)
@@ -69,7 +72,7 @@ class Faction:
         Fetch all Factions in a guild.
         """
         rows = await conn.fetch("""
-            SELECT id, faction_id, name, leader_character_id, created_turn, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id
             FROM Faction
             WHERE guild_id = $1
             ORDER BY faction_id;

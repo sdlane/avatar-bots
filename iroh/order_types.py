@@ -12,6 +12,7 @@ class OrderType(Enum):
     ASSIGN_COMMANDER = "ASSIGN_COMMANDER"
     ASSIGN_VICTORY_POINTS = "ASSIGN_VICTORY_POINTS"
     MAKE_ALLIANCE = "MAKE_ALLIANCE"
+    DECLARE_WAR = "DECLARE_WAR"
     TRANSIT = "TRANSIT"
     RESOURCE_TRANSFER = "RESOURCE_TRANSFER"
     CANCEL_TRANSFER = "CANCEL_TRANSFER"
@@ -38,6 +39,7 @@ ORDER_PHASE_MAP: Dict[OrderType, TurnPhase] = {
     OrderType.ASSIGN_COMMANDER: TurnPhase.BEGINNING,
     OrderType.ASSIGN_VICTORY_POINTS: TurnPhase.BEGINNING,
     OrderType.MAKE_ALLIANCE: TurnPhase.BEGINNING,
+    OrderType.DECLARE_WAR: TurnPhase.BEGINNING,
     OrderType.TRANSIT: TurnPhase.MOVEMENT,
     OrderType.RESOURCE_TRANSFER: TurnPhase.RESOURCE_TRANSFER,
     OrderType.CANCEL_TRANSFER: TurnPhase.RESOURCE_TRANSFER,
@@ -52,6 +54,7 @@ ORDER_PRIORITY_MAP: Dict[OrderType, int] = {
     OrderType.ASSIGN_COMMANDER: 2,  # After faction orders
     OrderType.ASSIGN_VICTORY_POINTS: 3,  # After commander assignments
     OrderType.MAKE_ALLIANCE: 4,  # After VP assignments, so faction membership is settled
+    OrderType.DECLARE_WAR: 5,  # After alliances, so alliance status is settled
     OrderType.TRANSIT: 0,          # All transit orders at same priority (FIFO by submitted_at)
     OrderType.CANCEL_TRANSFER: 0,  # Process cancellations first
     OrderType.RESOURCE_TRANSFER: 1, # Then resource transfers

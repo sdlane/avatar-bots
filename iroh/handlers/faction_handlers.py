@@ -2,8 +2,8 @@
 Faction management command handlers.
 """
 import asyncpg
-from typing import Optional, Tuple
-from db import Faction, FactionMember, Character, Unit, WargameConfig
+from typing import Optional, Tuple, List, Dict, Any
+from db import Faction, FactionMember, Character, Unit, WargameConfig, War, WarParticipant
 
 
 async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, guild_id: int, leader_identifier: Optional[str] = None) -> Tuple[bool, str]:
@@ -217,3 +217,213 @@ async def remove_faction_member(conn: asyncpg.Connection, character_identifier: 
     await FactionMember.delete(conn, char.id, guild_id)
 
     return True, f"{char.name} has left {faction.name}."
+
+
+# ============== War Management Handlers ==============
+
+
+async def view_wars(
+    conn: asyncpg.Connection,
+    guild_id: int
+) -> Tuple[bool, str, List[Dict[str, Any]]]:
+    """
+    View all wars in the guild.
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+
+    Returns:
+        (success, message, list of war dicts)
+    """
+    wars = await War.fetch_all(conn, guild_id)
+
+    if not wars:
+        return True, "No active wars.", []
+
+    war_data = []
+    for war in wars:
+        participants = await WarParticipant.fetch_by_war(conn, war.id, guild_id)
+
+        side_a = []
+        side_b = []
+        for p in participants:
+            faction = await Faction.fetch_by_id(conn, p.faction_id)
+            if faction:
+                faction_info = {
+                    'faction_id': faction.faction_id,
+                    'name': faction.name,
+                    'is_original_declarer': p.is_original_declarer,
+                    'joined_turn': p.joined_turn
+                }
+                if p.side == "SIDE_A":
+                    side_a.append(faction_info)
+                else:
+                    side_b.append(faction_info)
+
+        war_data.append({
+            'war_id': war.war_id,
+            'objective': war.objective,
+            'declared_turn': war.declared_turn,
+            'side_a': side_a,
+            'side_b': side_b
+        })
+
+    return True, f"Found {len(wars)} war(s).", war_data
+
+
+async def edit_war(
+    conn: asyncpg.Connection,
+    war_id: str,
+    objective: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Edit a war's objective.
+
+    Args:
+        conn: Database connection
+        war_id: War ID to edit
+        objective: New objective text
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    war = await War.fetch_by_id(conn, war_id, guild_id)
+    if not war:
+        return False, f"War '{war_id}' not found."
+
+    old_objective = war.objective
+    war.objective = objective
+    await war.upsert(conn)
+
+    return True, f"War '{war_id}' objective updated from '{old_objective}' to '{objective}'."
+
+
+async def add_war_participant(
+    conn: asyncpg.Connection,
+    war_id: str,
+    faction_id: str,
+    side: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Add a faction to a war on a specified side.
+
+    Args:
+        conn: Database connection
+        war_id: War ID
+        faction_id: Faction ID to add
+        side: "SIDE_A" or "SIDE_B"
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate side
+    if side not in ("SIDE_A", "SIDE_B"):
+        return False, f"Invalid side '{side}'. Must be 'SIDE_A' or 'SIDE_B'."
+
+    # Validate war
+    war = await War.fetch_by_id(conn, war_id, guild_id)
+    if not war:
+        return False, f"War '{war_id}' not found."
+
+    # Validate faction
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found."
+
+    # Check if already in war
+    existing = await WarParticipant.fetch_by_war_and_faction(conn, war.id, faction.id, guild_id)
+    if existing:
+        return False, f"Faction '{faction.name}' is already in war '{war_id}' on {existing.side}."
+
+    # Get current turn
+    config = await WargameConfig.fetch(conn, guild_id)
+    current_turn = config.current_turn if config else 0
+
+    # Add participant
+    participant = WarParticipant(
+        war_id=war.id,
+        faction_id=faction.id,
+        side=side,
+        joined_turn=current_turn,
+        is_original_declarer=False,
+        guild_id=guild_id
+    )
+    await participant.insert(conn)
+
+    return True, f"Faction '{faction.name}' added to war '{war_id}' on {side}."
+
+
+async def remove_war_participant(
+    conn: asyncpg.Connection,
+    war_id: str,
+    faction_id: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Remove a faction from a war.
+
+    Args:
+        conn: Database connection
+        war_id: War ID
+        faction_id: Faction ID to remove
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate war
+    war = await War.fetch_by_id(conn, war_id, guild_id)
+    if not war:
+        return False, f"War '{war_id}' not found."
+
+    # Validate faction
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found."
+
+    # Check if in war
+    existing = await WarParticipant.fetch_by_war_and_faction(conn, war.id, faction.id, guild_id)
+    if not existing:
+        return False, f"Faction '{faction.name}' is not in war '{war_id}'."
+
+    # Remove participant
+    await WarParticipant.delete(conn, war.id, faction.id, guild_id)
+
+    return True, f"Faction '{faction.name}' removed from war '{war_id}'."
+
+
+async def delete_war(
+    conn: asyncpg.Connection,
+    war_id: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Delete a war and all its participants.
+
+    Args:
+        conn: Database connection
+        war_id: War ID to delete
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate war
+    war = await War.fetch_by_id(conn, war_id, guild_id)
+    if not war:
+        return False, f"War '{war_id}' not found."
+
+    objective = war.objective
+
+    # Delete war (CASCADE will delete WarParticipant entries)
+    deleted = await War.delete(conn, war_id, guild_id)
+
+    if deleted:
+        return True, f"War '{war_id}' (objective: '{objective}') has been deleted."
+    else:
+        return False, f"Failed to delete war '{war_id}'."

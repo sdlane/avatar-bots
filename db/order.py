@@ -283,6 +283,31 @@ class Order:
         return result
 
     @classmethod
+    async def fetch_by_type_and_turn(
+        cls, conn: asyncpg.Connection, guild_id: int, order_type: str, turn_number: int
+    ) -> List["Order"]:
+        """
+        Fetch all orders of a specific type for a specific turn.
+        """
+        rows = await conn.fetch("""
+            SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
+                   phase, priority, status, order_data, result_data,
+                   submitted_at, updated_at, updated_turn, guild_id
+            FROM WargameOrder
+            WHERE guild_id = $1
+            AND order_type = $2
+            AND turn_number = $3
+            ORDER BY submitted_at;
+        """, guild_id, order_type, turn_number)
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['order_data'] = json.loads(data['order_data']) if data['order_data'] else {}
+            data['result_data'] = json.loads(data['result_data']) if data['result_data'] else None
+            result.append(cls(**data))
+        return result
+
+    @classmethod
     async def delete(cls, conn: asyncpg.Connection, order_id: str, guild_id: int) -> bool:
         """
         Delete an Order by order_id and guild_id.

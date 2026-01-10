@@ -46,6 +46,8 @@ async def test_server(db_conn):
     yield
 
     # Cleanup in reverse dependency order
+    await db_conn.execute("DELETE FROM WarParticipant WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM War WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -66,6 +68,8 @@ async def test_server_multi_guild(db_conn):
     yield
 
     # Cleanup in reverse dependency order
+    await db_conn.execute("DELETE FROM WarParticipant WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
+    await db_conn.execute("DELETE FROM War WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM Alliance WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)

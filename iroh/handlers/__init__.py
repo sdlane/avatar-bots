@@ -22,6 +22,11 @@ from .faction_handlers import (
     set_faction_leader,
     add_faction_member,
     remove_faction_member,
+    view_wars,
+    edit_war,
+    add_war_participant,
+    remove_war_participant,
+    delete_war,
 )
 
 from .territory_handlers import (
@@ -68,6 +73,7 @@ from .order_handlers import (
     submit_assign_commander_order,
     submit_assign_victory_points_order,
     submit_make_alliance_order,
+    submit_declare_war_order,
     cancel_order,
     view_pending_orders,
     validate_path,
@@ -109,6 +115,12 @@ __all__ = [
     'set_faction_leader',
     'add_faction_member',
     'remove_faction_member',
+    # War handlers
+    'view_wars',
+    'edit_war',
+    'add_war_participant',
+    'remove_war_participant',
+    'delete_war',
     # Territory handlers
     'create_territory',
     'edit_territory',
@@ -143,6 +155,7 @@ __all__ = [
     'submit_assign_commander_order',
     'submit_assign_victory_points_order',
     'submit_make_alliance_order',
+    'submit_declare_war_order',
     'cancel_order',
     'view_pending_orders',
     'validate_path',

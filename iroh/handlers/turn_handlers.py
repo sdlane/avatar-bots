@@ -6,7 +6,7 @@ from typing import Tuple, List, Dict, Optional
 from datetime import datetime
 from db import (
     Order, Unit, Character, Faction, FactionMember, Territory,
-    PlayerResources, WargameConfig, TurnLog, FactionJoinRequest
+    PlayerResources, WargameConfig, TurnLog, FactionJoinRequest, War, WarParticipant
 )
 from order_types import *
 from orders import *
@@ -16,6 +16,7 @@ from orders.resource_transfer_orders import (
 )
 from orders.victory_point_orders import handle_assign_victory_points_order
 from orders.alliance_orders import handle_make_alliance_order
+from orders.faction_orders import handle_declare_war_order
 
 import logging
 
@@ -28,6 +29,7 @@ OrderHandlerMap: Dict[str, function] = {
     OrderType.ASSIGN_COMMANDER.value: handle_assign_commander_order,
     OrderType.ASSIGN_VICTORY_POINTS.value: handle_assign_victory_points_order,
     OrderType.MAKE_ALLIANCE.value: handle_make_alliance_order,
+    OrderType.DECLARE_WAR.value: handle_declare_war_order,
     OrderType.CANCEL_TRANSFER.value: handle_cancel_transfer_order,
     OrderType.RESOURCE_TRANSFER.value: handle_resource_transfer_order,
 }
@@ -431,6 +433,90 @@ async def _collect_territory_production(
     return events
 
 
+async def _apply_first_war_production_bonus(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Apply the first-war production bonus to factions that declared their first war this turn.
+
+    Doubles all production for all members of the faction.
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog events for bonuses applied
+    """
+    events = []
+    logger.info(f"First-war bonus: checking for bonuses for guild {guild_id}, turn {turn_number}")
+
+    # Find all DECLARE_WAR orders from this turn that have first_war_bonus=True
+    all_orders = await Order.fetch_by_type_and_turn(
+        conn, guild_id, OrderType.DECLARE_WAR.value, turn_number
+    )
+
+    bonus_faction_ids = set()
+    for order in all_orders:
+        if order.status == OrderStatus.SUCCESS.value and order.result_data:
+            if order.result_data.get('first_war_bonus'):
+                submitting_faction_id = order.order_data.get('submitting_faction_id')
+                if submitting_faction_id:
+                    bonus_faction_ids.add(submitting_faction_id)
+
+    if not bonus_faction_ids:
+        logger.info(f"First-war bonus: no bonuses to apply for guild {guild_id}, turn {turn_number}")
+        return events
+
+    # For each faction with bonus, double all faction members' production
+    for faction_id in bonus_faction_ids:
+        faction = await Faction.fetch_by_id(conn, faction_id)
+        if not faction:
+            continue
+
+        members = await FactionMember.fetch_by_faction(conn, faction_id, guild_id)
+
+        for member in members:
+            character = await Character.fetch_by_id(conn, member.character_id)
+            if not character:
+                continue
+
+            # Get current resources (after normal production was added)
+            player_resources = await PlayerResources.fetch_by_character(conn, member.character_id, guild_id)
+            if not player_resources:
+                continue
+
+            # Calculate bonus (equal to their production values - effectively doubling)
+            bonus = {
+                'ore': character.ore_production,
+                'lumber': character.lumber_production,
+                'coal': character.coal_production,
+                'rations': character.rations_production,
+                'cloth': character.cloth_production,
+                'platinum': character.platinum_production
+            }
+
+            # Add bonus resources
+            player_resources.ore += bonus['ore']
+            player_resources.lumber += bonus['lumber']
+            player_resources.coal += bonus['coal']
+            player_resources.rations += bonus['rations']
+            player_resources.cloth += bonus['cloth']
+            player_resources.platinum += bonus['platinum']
+            await player_resources.upsert(conn)
+
+            total_bonus = sum(bonus.values())
+            if total_bonus > 0:
+                logger.info(f"First-war bonus: Doubled production for {character.name}: {bonus}")
+
+        logger.info(f"First-war bonus: Applied double production to faction {faction.name}")
+
+    return events
+
+
 async def execute_resource_collection_phase(
     conn: asyncpg.Connection,
     guild_id: int,
@@ -441,6 +527,7 @@ async def execute_resource_collection_phase(
 
     1. Character production: Add resources based on character production values
     2. Territory production: Add resources based on controlled territories
+    3. First-war bonus: Double production for factions that declared their first war this turn
 
     Args:
         conn: Database connection
@@ -460,6 +547,10 @@ async def execute_resource_collection_phase(
     # Territory production second
     territory_events = await _collect_territory_production(conn, guild_id, turn_number)
     events.extend(territory_events)
+
+    # Apply first-war production bonus (doubles production for those who qualify)
+    bonus_events = await _apply_first_war_production_bonus(conn, guild_id, turn_number)
+    events.extend(bonus_events)
 
     logger.info(f"Resource collection phase: finished for guild {guild_id}, turn {turn_number}")
     return events

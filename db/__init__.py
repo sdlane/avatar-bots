@@ -11,6 +11,8 @@ from .faction import *
 from .faction_member import *
 from .faction_join_request import *
 from .alliance import *
+from .war import *
+from .war_participant import *
 from .unit import *
 from .unit_type import *
 from .player_resources import *

@@ -30,6 +30,14 @@ from .faction_events import (
     alliance_pending_gm_line,
     alliance_formed_character_line,
     alliance_formed_gm_line,
+    war_declared_character_line,
+    war_declared_gm_line,
+    war_joined_character_line,
+    war_joined_gm_line,
+    war_ally_dragged_in_character_line,
+    war_ally_dragged_in_gm_line,
+    war_production_bonus_character_line,
+    war_production_bonus_gm_line,
 )
 
 from .movement_events import (
@@ -133,6 +141,24 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'ALLIANCE_FORMED': EventHandler(
         get_character_line=alliance_formed_character_line,
         get_gm_line=alliance_formed_gm_line
+    ),
+
+    # War events
+    'WAR_DECLARED': EventHandler(
+        get_character_line=war_declared_character_line,
+        get_gm_line=war_declared_gm_line
+    ),
+    'WAR_JOINED': EventHandler(
+        get_character_line=war_joined_character_line,
+        get_gm_line=war_joined_gm_line
+    ),
+    'WAR_ALLY_DRAGGED_IN': EventHandler(
+        get_character_line=war_ally_dragged_in_character_line,
+        get_gm_line=war_ally_dragged_in_gm_line
+    ),
+    'WAR_PRODUCTION_BONUS': EventHandler(
+        get_character_line=war_production_bonus_character_line,
+        get_gm_line=war_production_bonus_gm_line
     ),
 
     # Movement events
