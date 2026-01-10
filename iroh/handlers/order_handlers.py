@@ -3,7 +3,7 @@ Order management command handlers.
 """
 import asyncpg
 from typing import Tuple, List, Optional
-from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog
+from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog, Alliance
 from order_types import OrderType, ORDER_PHASE_MAP, ORDER_PRIORITY_MAP, OrderStatus, TurnPhase
 from datetime import datetime
 
@@ -912,6 +912,110 @@ async def submit_assign_victory_points_order(
 
     supercede_note = f" (superceded previous order {superceded_order_id})" if superceded_order_id else ""
     return True, f"VP assignment order submitted: Your victory points will be assigned to {target_faction.name} (Order #{order_id}){supercede_note}. This order will remain active until cancelled."
+
+
+async def submit_make_alliance_order(
+    conn: asyncpg.Connection,
+    submitting_character: Character,
+    target_faction_id: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Submit an order for a faction leader to propose an alliance with another faction.
+
+    Requires BOTH faction leaders to submit orders for the alliance to activate.
+
+    Args:
+        conn: Database connection
+        submitting_character: Character submitting the order (must be faction leader)
+        target_faction_id: Faction ID to ally with
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Check submitter is in a faction
+    faction_member = await FactionMember.fetch_by_character(conn, submitting_character.id, guild_id)
+    if not faction_member:
+        return False, "You are not a member of any faction."
+
+    # Get submitter's faction
+    submitting_faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+    if not submitting_faction:
+        return False, "Your faction could not be found."
+
+    # Check submitter is faction leader
+    if submitting_faction.leader_character_id != submitting_character.id:
+        return False, f"Only the leader of {submitting_faction.name} can propose alliances."
+
+    # Validate target faction exists
+    target_faction = await Faction.fetch_by_faction_id(conn, target_faction_id, guild_id)
+    if not target_faction:
+        return False, f"Faction '{target_faction_id}' not found."
+
+    # Can't ally with self
+    if submitting_faction.id == target_faction.id:
+        return False, "Cannot propose an alliance with your own faction."
+
+    # Check for existing active alliance
+    existing_alliance = await Alliance.fetch_by_factions(
+        conn, submitting_faction.id, target_faction.id, guild_id
+    )
+    if existing_alliance and existing_alliance.status == 'ACTIVE':
+        return False, f"An alliance already exists between {submitting_faction.name} and {target_faction.name}."
+
+    # Check for existing pending order from this faction
+    existing_orders = await Order.fetch_by_character_and_type(
+        conn, submitting_character.id, guild_id,
+        OrderType.MAKE_ALLIANCE.value, OrderStatus.PENDING.value
+    )
+    # Filter to orders targeting the same faction
+    for existing in existing_orders:
+        if existing.order_data.get('target_faction_id') == target_faction_id:
+            return False, f"You already have a pending alliance order for {target_faction.name}."
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.MAKE_ALLIANCE.value,
+        unit_ids=[],
+        character_id=submitting_character.id,
+        turn_number=current_turn + 1,  # Execute next turn
+        phase=ORDER_PHASE_MAP[OrderType.MAKE_ALLIANCE].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.MAKE_ALLIANCE],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_faction_id': target_faction_id,
+            'target_faction_name': target_faction.name,
+            'submitting_faction_id': submitting_faction.faction_id,
+            'submitting_faction_name': submitting_faction.name
+        },
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    # Check if there's already a pending alliance from the other faction
+    if existing_alliance:
+        # Determine who's waiting
+        if existing_alliance.initiated_by_faction_id == target_faction.id:
+            return True, f"Alliance order submitted (Order #{order_id}). {target_faction.name} has already proposed an alliance - it will be activated next turn!"
+        else:
+            return True, f"Alliance order submitted (Order #{order_id}). You have already proposed this alliance - waiting for {target_faction.name} to accept."
+
+    return True, f"Alliance order submitted: {submitting_faction.name} proposes alliance with {target_faction.name} (Order #{order_id}). The alliance will be activated when {target_faction.name}'s leader also submits an alliance order."
 
 
 async def validate_path(

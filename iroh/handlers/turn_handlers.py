@@ -15,6 +15,7 @@ from orders.resource_transfer_orders import (
     handle_resource_transfer_order
 )
 from orders.victory_point_orders import handle_assign_victory_points_order
+from orders.alliance_orders import handle_make_alliance_order
 
 import logging
 
@@ -26,6 +27,7 @@ OrderHandlerMap: Dict[str, function] = {
     OrderType.JOIN_FACTION.value: handle_join_faction_order,
     OrderType.ASSIGN_COMMANDER.value: handle_assign_commander_order,
     OrderType.ASSIGN_VICTORY_POINTS.value: handle_assign_victory_points_order,
+    OrderType.MAKE_ALLIANCE.value: handle_make_alliance_order,
     OrderType.CANCEL_TRANSFER.value: handle_cancel_transfer_order,
     OrderType.RESOURCE_TRANSFER.value: handle_resource_transfer_order,
 }

@@ -146,3 +146,36 @@ def vp_assignment_cancelled_gm_line(event_data: Dict[str, Any]) -> str:
     char_name = event_data.get('character_name', 'Unknown')
     faction_name = event_data.get('target_faction_name', 'Unknown')
     return f"🚫 {char_name} ✗ {faction_name} [cancelled]"
+
+
+# Alliance events
+
+def alliance_pending_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for ALLIANCE_PENDING event."""
+    faction_a = event_data.get('faction_a_name', 'Unknown')
+    faction_b = event_data.get('faction_b_name', 'Unknown')
+    waiting_for = event_data.get('waiting_for_faction_name', 'Unknown')
+    initiated_by = event_data.get('initiated_by_faction_name', 'Unknown')
+    return f"⏳ Alliance proposed between **{faction_a}** and **{faction_b}** (initiated by {initiated_by}, waiting for {waiting_for})"
+
+
+def alliance_pending_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for ALLIANCE_PENDING event."""
+    faction_a = event_data.get('faction_a_name', 'Unknown')
+    faction_b = event_data.get('faction_b_name', 'Unknown')
+    waiting_for = event_data.get('waiting_for_faction_name', 'Unknown')
+    return f"⏳ Alliance: {faction_a} ↔ {faction_b} (pending: {waiting_for})"
+
+
+def alliance_formed_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for ALLIANCE_FORMED event."""
+    faction_a = event_data.get('faction_a_name', 'Unknown')
+    faction_b = event_data.get('faction_b_name', 'Unknown')
+    return f"🤝 Alliance formed between **{faction_a}** and **{faction_b}**"
+
+
+def alliance_formed_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for ALLIANCE_FORMED event."""
+    faction_a = event_data.get('faction_a_name', 'Unknown')
+    faction_b = event_data.get('faction_b_name', 'Unknown')
+    return f"🤝 Alliance: {faction_a} ↔ {faction_b} (active)"

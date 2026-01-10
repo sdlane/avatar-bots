@@ -67,9 +67,17 @@ from .order_handlers import (
     submit_cancel_transfer_order,
     submit_assign_commander_order,
     submit_assign_victory_points_order,
+    submit_make_alliance_order,
     cancel_order,
     view_pending_orders,
     validate_path,
+)
+
+from .alliance_handlers import (
+    view_alliances,
+    add_alliance,
+    edit_alliance,
+    delete_alliance,
 )
 
 from .turn_handlers import *
@@ -134,9 +142,15 @@ __all__ = [
     'submit_cancel_transfer_order',
     'submit_assign_commander_order',
     'submit_assign_victory_points_order',
+    'submit_make_alliance_order',
     'cancel_order',
     'view_pending_orders',
     'validate_path',
+    # Alliance handlers
+    'view_alliances',
+    'add_alliance',
+    'edit_alliance',
+    'delete_alliance',
     # Turn handlers
     'resolve_turn',
     'execute_beginning_phase',

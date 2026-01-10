@@ -404,6 +404,7 @@ async def clear_wargame_config(interaction: discord.Interaction):
         await conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Territory WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", interaction.guild_id)
+        await conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM FactionJoinRequest WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Faction WHERE guild_id = $1;", interaction.guild_id)
@@ -1895,6 +1896,188 @@ async def order_assign_vp_cmd(interaction: discord.Interaction, faction_id: str)
             logger.info(f"User {interaction.user.name} submitted VP assignment to '{faction_id}'")
         else:
             logger.warning(f"User {interaction.user.name} failed VP assignment: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+# ============================================================================
+# ALLIANCE COMMANDS
+# ============================================================================
+
+@tree.command(
+    name="order-make-alliance",
+    description="[Faction Leader] Submit an order to form an alliance with another faction"
+)
+@app_commands.describe(
+    target_faction_id="The faction ID to form an alliance with"
+)
+async def order_make_alliance_cmd(interaction: discord.Interaction, target_faction_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_make_alliance_order(
+            conn, character, target_faction_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} submitted alliance order for '{target_faction_id}'")
+        else:
+            logger.warning(f"User {interaction.user.name} failed alliance order: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="view-alliances",
+    description="View alliances in this wargame"
+)
+async def view_alliances_cmd(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Determine viewer's permission level
+        is_admin_user = is_admin(interaction)
+
+        # Check if user is a faction leader
+        faction_leader_of_id = None
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if character:
+            faction_member = await FactionMember.fetch_by_character(conn, character.id, interaction.guild_id)
+            if faction_member:
+                faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+                if faction and faction.leader_character_id == character.id:
+                    faction_leader_of_id = faction.id
+
+        success, message, alliances = await handlers.view_alliances(
+            conn, interaction.guild_id, is_admin_user, faction_leader_of_id
+        )
+
+        if not success or not alliances:
+            await interaction.followup.send(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Build embed
+        embed = discord.Embed(
+            title="Alliances",
+            color=discord.Color.gold()
+        )
+
+        for alliance in alliances:
+            status_emoji = "🤝" if alliance['status'] == 'ACTIVE' else "⏳"
+            field_name = f"{status_emoji} {alliance['faction_a_name']} ↔ {alliance['faction_b_name']}"
+
+            if alliance['status'] == 'ACTIVE':
+                field_value = f"Status: Active"
+                if alliance.get('activated_at'):
+                    field_value += f"\nActivated: {alliance['activated_at'][:10]}"
+            else:
+                field_value = f"Status: Pending"
+                if alliance.get('waiting_for'):
+                    field_value += f"\nWaiting for: {alliance['waiting_for']}"
+                if alliance.get('initiated_by'):
+                    field_value += f"\nInitiated by: {alliance['initiated_by']}"
+
+            embed.add_field(name=field_name, value=field_value, inline=False)
+
+        await interaction.followup.send(embed=embed)
+
+
+@tree.command(
+    name="add-alliance",
+    description="[Admin] Create an active alliance between two factions"
+)
+@app_commands.describe(
+    faction_a_id="First faction ID",
+    faction_b_id="Second faction ID"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def add_alliance_cmd(interaction: discord.Interaction, faction_a_id: str, faction_b_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.add_alliance(
+            conn, faction_a_id, faction_b_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} created alliance between '{faction_a_id}' and '{faction_b_id}'")
+        else:
+            logger.warning(f"Admin {interaction.user.name} failed to create alliance: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="edit-alliance",
+    description="[Admin] Edit an alliance between two factions"
+)
+@app_commands.describe(
+    faction_a_id="First faction ID",
+    faction_b_id="Second faction ID",
+    status="New status: PENDING_FACTION_A, PENDING_FACTION_B, or ACTIVE"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_alliance_cmd(interaction: discord.Interaction, faction_a_id: str, faction_b_id: str, status: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.edit_alliance(
+            conn, faction_a_id, faction_b_id, status, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} edited alliance ({faction_a_id} ↔ {faction_b_id}) to status '{status}'")
+        else:
+            logger.warning(f"Admin {interaction.user.name} failed to edit alliance: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="delete-alliance",
+    description="[Admin] Delete an alliance between two factions"
+)
+@app_commands.describe(
+    faction_a_id="First faction ID",
+    faction_b_id="Second faction ID"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def delete_alliance_cmd(interaction: discord.Interaction, faction_a_id: str, faction_b_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.delete_alliance(
+            conn, faction_a_id, faction_b_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} deleted alliance between '{faction_a_id}' and '{faction_b_id}'")
+        else:
+            logger.warning(f"Admin {interaction.user.name} failed to delete alliance: {message}")
 
         await interaction.followup.send(
             emotive_message(message),

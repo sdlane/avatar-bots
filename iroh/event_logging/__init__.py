@@ -26,6 +26,10 @@ from .faction_events import (
     vp_assignment_active_gm_line,
     vp_assignment_cancelled_character_line,
     vp_assignment_cancelled_gm_line,
+    alliance_pending_character_line,
+    alliance_pending_gm_line,
+    alliance_formed_character_line,
+    alliance_formed_gm_line,
 )
 
 from .movement_events import (
@@ -119,6 +123,16 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'VP_ASSIGNMENT_CANCELLED': EventHandler(
         get_character_line=vp_assignment_cancelled_character_line,
         get_gm_line=vp_assignment_cancelled_gm_line
+    ),
+
+    # Alliance events
+    'ALLIANCE_PENDING': EventHandler(
+        get_character_line=alliance_pending_character_line,
+        get_gm_line=alliance_pending_gm_line
+    ),
+    'ALLIANCE_FORMED': EventHandler(
+        get_character_line=alliance_formed_character_line,
+        get_gm_line=alliance_formed_gm_line
     ),
 
     # Movement events

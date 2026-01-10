@@ -559,6 +559,44 @@ async def ensure_tables():
         ON TurnLog(entity_type, entity_id, guild_id);
     """)
 
+    # --- Alliance table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Alliance (
+        id SERIAL PRIMARY KEY,
+        faction_a_id INTEGER NOT NULL REFERENCES Faction(id) ON DELETE CASCADE,
+        faction_b_id INTEGER NOT NULL REFERENCES Faction(id) ON DELETE CASCADE,
+        status VARCHAR(20) NOT NULL DEFAULT 'PENDING_FACTION_A',
+        initiated_by_faction_id INTEGER NOT NULL,
+        created_at TIMESTAMP DEFAULT NOW(),
+        activated_at TIMESTAMP,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(faction_a_id, faction_b_id, guild_id),
+        CHECK (faction_a_id < faction_b_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS faction_a_id INTEGER;")
+    await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS faction_b_id INTEGER;")
+    await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'PENDING_FACTION_A';")
+    await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS initiated_by_faction_id INTEGER;")
+    await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+    await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS activated_at TIMESTAMP;")
+    await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create index for Alliance table
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_alliance_lookup
+        ON Alliance(faction_a_id, faction_b_id, guild_id);
+    """)
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_alliance_faction
+        ON Alliance(faction_a_id, guild_id);
+    """)
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_alliance_faction_b
+        ON Alliance(faction_b_id, guild_id);
+    """)
+
     # --- ScheduledTurn table (for future auto-scheduling) ---
     await conn.execute("""
     CREATE TABLE IF NOT EXISTS ScheduledTurn (

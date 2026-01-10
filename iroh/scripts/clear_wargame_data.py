@@ -10,6 +10,7 @@ This script removes all wargame data including:
 - Territories
 - Player resources
 - Orders
+- Alliances
 - Faction members
 - Faction join requests
 - Factions
@@ -76,6 +77,7 @@ async def clear_wargame_data(conn: asyncpg.Connection, guild_id: int) -> dict:
         "TerritoryAdjacency",
         "Territory",
         "PlayerResources",
+        "Alliance",
         "FactionMember",
         "FactionJoinRequest",
         "Faction",
@@ -132,6 +134,7 @@ async def main():
             "TerritoryAdjacency",
             "Territory",
             "PlayerResources",
+            "Alliance",
             "FactionMember",
             "FactionJoinRequest",
             "Faction",
