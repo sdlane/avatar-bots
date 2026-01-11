@@ -3,7 +3,7 @@ Territory management command handlers.
 """
 import asyncpg
 from typing import Optional, Tuple
-from db import Territory, Character, TerritoryAdjacency
+from db import Territory, Character, TerritoryAdjacency, Faction
 
 
 async def create_territory(conn: asyncpg.Connection, territory_id: int, terrain_type: str, guild_id: int, name: Optional[str] = None) -> Tuple[bool, str]:
@@ -89,28 +89,65 @@ async def delete_territory(conn: asyncpg.Connection, territory_id: int, guild_id
     return True, f"Territory {territory_id} has been deleted."
 
 
-async def set_territory_controller(conn: asyncpg.Connection, territory_id: int, character_identifier: str, guild_id: int) -> Tuple[bool, str]:
-    """Change the character controlling a territory."""
+async def set_territory_controller(
+    conn: asyncpg.Connection,
+    territory_id: int,
+    controller_identifier: str,
+    guild_id: int,
+    controller_type: str = 'character'
+) -> Tuple[bool, str]:
+    """
+    Change the controller of a territory.
+
+    Args:
+        conn: Database connection
+        territory_id: Territory ID
+        controller_identifier: Character identifier or faction_id
+        guild_id: Guild ID
+        controller_type: 'character' or 'faction'
+
+    Returns:
+        (success, message)
+    """
     territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
     if not territory:
         return False, f"Territory {territory_id} not found."
 
     # Handle removing controller
-    if character_identifier.lower() == 'none':
+    if controller_identifier.lower() == 'none':
         territory.controller_character_id = None
+        territory.controller_faction_id = None
         await territory.upsert(conn)
         return True, f"Territory {territory_id} is now uncontrolled."
 
-    # Validate character
-    character = await Character.fetch_by_identifier(conn, character_identifier, guild_id)
-    if not character:
-        return False, f"Character '{character_identifier}' not found."
+    if controller_type == 'character':
+        # Validate character
+        character = await Character.fetch_by_identifier(conn, controller_identifier, guild_id)
+        if not character:
+            return False, f"Character '{controller_identifier}' not found."
 
-    # Update controller
-    territory.controller_character_id = character.id
-    await territory.upsert(conn)
+        # Update controller (clear faction controller)
+        territory.controller_character_id = character.id
+        territory.controller_faction_id = None
+        await territory.upsert(conn)
 
-    return True, f"Territory {territory_id} is now controlled by {character.name}."
+        return True, f"Territory {territory_id} is now controlled by {character.name}."
+
+    elif controller_type == 'faction':
+        # Validate faction
+        faction = await Faction.fetch_by_faction_id(conn, controller_identifier, guild_id)
+        if not faction:
+            return False, f"Faction '{controller_identifier}' not found."
+
+        # Update controller (clear character controller)
+        territory.controller_character_id = None
+        territory.controller_faction_id = faction.id
+        await territory.upsert(conn)
+
+        return True, f"Territory {territory_id} is now controlled by faction {faction.name}."
+
+    else:
+        return False, f"Invalid controller_type '{controller_type}'. Must be 'character' or 'faction'."
 
 
 async def add_adjacency(conn: asyncpg.Connection, territory_id_1: int, territory_id_2: int, guild_id: int) -> Tuple[bool, str]:

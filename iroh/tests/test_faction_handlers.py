@@ -7,9 +7,10 @@ Run with: pytest tests/test_faction_handlers.py -v
 import pytest
 from handlers.faction_handlers import (
     create_faction, delete_faction, set_faction_leader,
-    add_faction_member, remove_faction_member
+    add_faction_member, remove_faction_member,
+    grant_faction_permission, revoke_faction_permission, get_faction_permissions
 )
-from db import Character, Faction, FactionMember, Unit, UnitType, Territory, WargameConfig
+from db import Character, Faction, FactionMember, Unit, UnitType, Territory, WargameConfig, FactionPermission, VALID_PERMISSION_TYPES
 from tests.conftest import TEST_GUILD_ID, TEST_GUILD_ID_2
 
 
@@ -582,3 +583,262 @@ async def test_create_faction_rollback_on_error(db_conn, test_server):
 
     # Verify no FactionMember records created
     # (This test verifies early validation prevents partial creation)
+
+
+# =========================
+# Permission Tests
+# =========================
+
+
+@pytest.mark.asyncio
+async def test_create_faction_grants_leader_all_permissions(db_conn, test_server):
+    """Creating faction grants leader all four permissions."""
+    # Create character
+    char = Character(
+        identifier="leader-char", name="Leader Character",
+        user_id=100000000000000099, channel_id=900000000000000099,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "leader-char", TEST_GUILD_ID)
+
+    # Create faction with leader
+    success, message = await create_faction(
+        db_conn, "test-faction", "Test Faction", TEST_GUILD_ID, leader_identifier="leader-char"
+    )
+    assert success is True
+
+    # Verify all four permissions are granted
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+
+    for perm_type in VALID_PERMISSION_TYPES:
+        has_perm = await FactionPermission.has_permission(
+            db_conn, faction.id, char.id, perm_type, TEST_GUILD_ID
+        )
+        assert has_perm is True, f"Leader should have {perm_type} permission"
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_grant_faction_permission_to_member(db_conn, test_server):
+    """Grant permission to faction member succeeds."""
+    # Create characters
+    leader = Character(
+        identifier="leader", name="Leader",
+        user_id=100000000000000101, channel_id=900000000000000101,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+
+    member = Character(
+        identifier="member", name="Member",
+        user_id=100000000000000102, channel_id=900000000000000102,
+        guild_id=TEST_GUILD_ID
+    )
+    await member.upsert(db_conn)
+
+    # Create faction and add member
+    await create_faction(db_conn, "test-faction", "Test Faction", TEST_GUILD_ID, leader_identifier="leader")
+    await add_faction_member(db_conn, "test-faction", "member", TEST_GUILD_ID)
+
+    # Grant permission to member
+    success, message = await grant_faction_permission(
+        db_conn, "test-faction", "member", "COMMAND", TEST_GUILD_ID
+    )
+
+    assert success is True
+    assert "granted" in message.lower()
+
+    # Verify permission exists
+    member_obj = await Character.fetch_by_identifier(db_conn, "member", TEST_GUILD_ID)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    has_perm = await FactionPermission.has_permission(
+        db_conn, faction.id, member_obj.id, "COMMAND", TEST_GUILD_ID
+    )
+    assert has_perm is True
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_grant_faction_permission_to_non_member_fails(db_conn, test_server):
+    """Grant permission to non-member fails."""
+    # Create characters
+    leader = Character(
+        identifier="leader", name="Leader",
+        user_id=100000000000000103, channel_id=900000000000000103,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+
+    non_member = Character(
+        identifier="non-member", name="Non Member",
+        user_id=100000000000000104, channel_id=900000000000000104,
+        guild_id=TEST_GUILD_ID
+    )
+    await non_member.upsert(db_conn)
+
+    # Create faction (non_member is NOT added)
+    await create_faction(db_conn, "test-faction", "Test Faction", TEST_GUILD_ID, leader_identifier="leader")
+
+    # Try to grant permission to non-member
+    success, message = await grant_faction_permission(
+        db_conn, "test-faction", "non-member", "COMMAND", TEST_GUILD_ID
+    )
+
+    assert success is False
+    assert "not a member" in message.lower()
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_revoke_faction_permission(db_conn, test_server):
+    """Revoke permission succeeds."""
+    # Create character and faction
+    leader = Character(
+        identifier="leader", name="Leader",
+        user_id=100000000000000105, channel_id=900000000000000105,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+
+    member = Character(
+        identifier="member", name="Member",
+        user_id=100000000000000106, channel_id=900000000000000106,
+        guild_id=TEST_GUILD_ID
+    )
+    await member.upsert(db_conn)
+
+    await create_faction(db_conn, "test-faction", "Test Faction", TEST_GUILD_ID, leader_identifier="leader")
+    await add_faction_member(db_conn, "test-faction", "member", TEST_GUILD_ID)
+
+    # Grant then revoke permission
+    await grant_faction_permission(db_conn, "test-faction", "member", "COMMAND", TEST_GUILD_ID)
+    success, message = await revoke_faction_permission(
+        db_conn, "test-faction", "member", "COMMAND", TEST_GUILD_ID
+    )
+
+    assert success is True
+    assert "revoked" in message.lower()
+
+    # Verify permission is gone
+    member_obj = await Character.fetch_by_identifier(db_conn, "member", TEST_GUILD_ID)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    has_perm = await FactionPermission.has_permission(
+        db_conn, faction.id, member_obj.id, "COMMAND", TEST_GUILD_ID
+    )
+    assert has_perm is False
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_change_leader_transfers_permissions(db_conn, test_server):
+    """Changing leader revokes old leader permissions, grants to new."""
+    # Create characters
+    old_leader = Character(
+        identifier="old-leader", name="Old Leader",
+        user_id=100000000000000107, channel_id=900000000000000107,
+        guild_id=TEST_GUILD_ID
+    )
+    await old_leader.upsert(db_conn)
+
+    new_leader = Character(
+        identifier="new-leader", name="New Leader",
+        user_id=100000000000000108, channel_id=900000000000000108,
+        guild_id=TEST_GUILD_ID
+    )
+    await new_leader.upsert(db_conn)
+
+    # Create faction with old leader
+    await create_faction(db_conn, "test-faction", "Test Faction", TEST_GUILD_ID, leader_identifier="old-leader")
+    await add_faction_member(db_conn, "test-faction", "new-leader", TEST_GUILD_ID)
+
+    # Change leader
+    success, message = await set_faction_leader(
+        db_conn, "test-faction", "new-leader", TEST_GUILD_ID
+    )
+    assert success is True
+
+    # Verify old leader lost all permissions
+    old_leader_obj = await Character.fetch_by_identifier(db_conn, "old-leader", TEST_GUILD_ID)
+    new_leader_obj = await Character.fetch_by_identifier(db_conn, "new-leader", TEST_GUILD_ID)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+
+    for perm_type in VALID_PERMISSION_TYPES:
+        old_has = await FactionPermission.has_permission(
+            db_conn, faction.id, old_leader_obj.id, perm_type, TEST_GUILD_ID
+        )
+        new_has = await FactionPermission.has_permission(
+            db_conn, faction.id, new_leader_obj.id, perm_type, TEST_GUILD_ID
+        )
+        assert old_has is False, f"Old leader should NOT have {perm_type}"
+        assert new_has is True, f"New leader should have {perm_type}"
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_remove_member_revokes_permissions(db_conn, test_server):
+    """Removing member revokes their faction permissions."""
+    # Create characters
+    leader = Character(
+        identifier="leader", name="Leader",
+        user_id=100000000000000109, channel_id=900000000000000109,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+
+    member = Character(
+        identifier="member", name="Member",
+        user_id=100000000000000110, channel_id=900000000000000110,
+        guild_id=TEST_GUILD_ID
+    )
+    await member.upsert(db_conn)
+
+    # Create faction and add member
+    await create_faction(db_conn, "test-faction", "Test Faction", TEST_GUILD_ID, leader_identifier="leader")
+    await add_faction_member(db_conn, "test-faction", "member", TEST_GUILD_ID)
+
+    # Grant permission to member
+    await grant_faction_permission(db_conn, "test-faction", "member", "COMMAND", TEST_GUILD_ID)
+
+    # Verify permission exists
+    member_obj = await Character.fetch_by_identifier(db_conn, "member", TEST_GUILD_ID)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    has_perm = await FactionPermission.has_permission(
+        db_conn, faction.id, member_obj.id, "COMMAND", TEST_GUILD_ID
+    )
+    assert has_perm is True
+
+    # Remove member from faction
+    success, message = await remove_faction_member(db_conn, "member", TEST_GUILD_ID)
+    assert success is True
+
+    # Verify permission is revoked
+    has_perm_after = await FactionPermission.has_permission(
+        db_conn, faction.id, member_obj.id, "COMMAND", TEST_GUILD_ID
+    )
+    assert has_perm_after is False
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)

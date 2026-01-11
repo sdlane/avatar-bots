@@ -741,6 +741,110 @@ async def remove_faction_member_cmd(interaction: discord.Interaction, character:
         )
 
 
+@tree.command(
+    name="grant-faction-permission",
+    description="[Admin] Grant a faction permission to a character"
+)
+@app_commands.describe(
+    faction_id="The faction ID",
+    character="Character identifier to grant permission to",
+    permission_type="Permission type (COMMAND, FINANCIAL, MEMBERSHIP, CONSTRUCTION)"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def grant_faction_permission_cmd(
+    interaction: discord.Interaction,
+    faction_id: str,
+    character: str,
+    permission_type: str
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.grant_faction_permission(
+            conn, faction_id, character, permission_type, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) granted {permission_type} permission to '{character}' for faction '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to grant permission in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="revoke-faction-permission",
+    description="[Admin] Revoke a faction permission from a character"
+)
+@app_commands.describe(
+    faction_id="The faction ID",
+    character="Character identifier to revoke permission from",
+    permission_type="Permission type (COMMAND, FINANCIAL, MEMBERSHIP, CONSTRUCTION)"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def revoke_faction_permission_cmd(
+    interaction: discord.Interaction,
+    faction_id: str,
+    character: str,
+    permission_type: str
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.revoke_faction_permission(
+            conn, faction_id, character, permission_type, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) revoked {permission_type} permission from '{character}' for faction '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to revoke permission in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="view-faction-permissions",
+    description="[Admin] View all permissions for a faction"
+)
+@app_commands.describe(faction_id="The faction ID")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def view_faction_permissions_cmd(interaction: discord.Interaction, faction_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.get_faction_permissions(
+            conn, faction_id, interaction.guild_id
+        )
+
+        if not success:
+            await interaction.followup.send(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        if not data:
+            await interaction.followup.send(
+                f"No permissions found for faction '{faction_id}'.",
+                ephemeral=True
+            )
+            return
+
+        # Build response showing permissions by character
+        response_lines = [f"**Faction Permissions: {faction_id}**\n"]
+        for perm in data:
+            response_lines.append(f"- {perm['character_name']}: {perm['permission_type']}")
+
+        await interaction.followup.send("\n".join(response_lines), ephemeral=True)
+
+
 # Territory Management Commands
 @tree.command(
     name="create-territory",
@@ -819,21 +923,52 @@ async def delete_territory_cmd(interaction: discord.Interaction, territory_id: i
 
 @tree.command(
     name="set-territory-controller",
-    description="[Admin] Change the faction controlling a territory"
+    description="[Admin] Change the controller of a territory (character or faction)"
 )
 @app_commands.describe(
     territory_id="The territory ID",
-    faction_id="Faction ID to control the territory (or 'none' for uncontrolled)"
+    character="Character identifier to control the territory (or 'none' for uncontrolled)",
+    faction="Faction ID to control the territory (mutually exclusive with character)"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def set_territory_controller_cmd(interaction: discord.Interaction, territory_id: int, faction_id: str):
+async def set_territory_controller_cmd(
+    interaction: discord.Interaction,
+    territory_id: int,
+    character: str = None,
+    faction: str = None
+):
     await interaction.response.defer()
 
+    # Validate mutually exclusive parameters
+    if character and faction:
+        await interaction.followup.send(
+            emotive_message("Cannot specify both character and faction. Choose one."),
+            ephemeral=True
+        )
+        return
+
+    if not character and not faction:
+        await interaction.followup.send(
+            emotive_message("Must specify either character or faction (use 'none' to remove controller)."),
+            ephemeral=True
+        )
+        return
+
+    # Determine controller type and identifier
+    if character:
+        controller_identifier = character
+        controller_type = 'character'
+    else:
+        controller_identifier = faction
+        controller_type = 'faction'
+
     async with db_pool.acquire() as conn:
-        success, message = await handlers.set_territory_controller(conn, territory_id, faction_id, interaction.guild_id)
+        success, message = await handlers.set_territory_controller(
+            conn, territory_id, controller_identifier, interaction.guild_id, controller_type
+        )
 
         if success:
-            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set territory {territory_id} controller to '{faction_id}' in guild {interaction.guild_id}")
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set territory {territory_id} controller to '{controller_identifier}' ({controller_type}) in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set territory {territory_id} controller in guild {interaction.guild_id}: {message}")
 
@@ -976,23 +1111,43 @@ async def delete_unit_type_cmd(interaction: discord.Interaction, type_id: str, n
 # Unit Management Commands
 @tree.command(
     name="create-unit",
-    description="[Admin] Create a new unit"
+    description="[Admin] Create a new unit (owned by character or faction)"
 )
 @app_commands.describe(
     unit_id="Unique identifier for the unit (e.g., 'FN-INF-001')",
     unit_type="Unit type ID (e.g., 'infantry')",
-    owner="Character identifier who will own the unit",
-    territory_id="Territory ID where the unit is located"
+    territory_id="Territory ID where the unit is located",
+    nation="Nation for the unit (e.g., 'fire_nation')",
+    owner="Character identifier who will own the unit (mutually exclusive with owner_faction)",
+    owner_faction="Faction ID that will own the unit (mutually exclusive with owner)"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def create_unit_cmd(interaction: discord.Interaction, unit_id: str, unit_type: str, owner: str, territory_id: int):
+async def create_unit_cmd(
+    interaction: discord.Interaction,
+    unit_id: str,
+    unit_type: str,
+    territory_id: int,
+    nation: str,
+    owner: str = None,
+    owner_faction: str = None
+):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
-        success, message = await handlers.create_unit(conn, unit_id, unit_type, owner, territory_id, interaction.guild_id)
+        success, message = await handlers.create_unit(
+            conn=conn,
+            unit_id=unit_id,
+            unit_type=unit_type,
+            territory_id=territory_id,
+            nation=nation,
+            guild_id=interaction.guild_id,
+            owner_character=owner,
+            owner_faction=owner_faction
+        )
 
+        owner_info = owner if owner else f"faction:{owner_faction}"
         if success:
-            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created unit '{unit_id}' (type: {unit_type}, owner: {owner}, territory: {territory_id}) in guild {interaction.guild_id}")
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created unit '{unit_id}' (type: {unit_type}, owner: {owner_info}, territory: {territory_id}) in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to create unit '{unit_id}' in guild {interaction.guild_id}: {message}")
 
@@ -1148,6 +1303,86 @@ async def modify_character_vp_cmd(interaction: discord.Interaction, character: s
         # Show VP modification modal
         modal = ModifyCharacterVPModal(data['character'], db_pool)
         await interaction.response.send_modal(modal)
+
+
+@tree.command(
+    name="view-faction-resources",
+    description="[Admin] View a faction's resource stockpile"
+)
+@app_commands.describe(faction_id="Faction ID to view resources for")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def view_faction_resources_cmd(interaction: discord.Interaction, faction_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.get_faction_resources(conn, faction_id, interaction.guild_id)
+
+        if not success:
+            await interaction.followup.send(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Build response message
+        response = f"**{data['faction_name']} Resources**\n"
+        response += f"Ore: {data['ore']}\n"
+        response += f"Lumber: {data['lumber']}\n"
+        response += f"Coal: {data['coal']}\n"
+        response += f"Rations: {data['rations']}\n"
+        response += f"Cloth: {data['cloth']}\n"
+        response += f"Platinum: {data['platinum']}"
+
+        await interaction.followup.send(response, ephemeral=True)
+
+
+@tree.command(
+    name="modify-faction-resources",
+    description="[Admin] Modify a faction's resource stockpile"
+)
+@app_commands.describe(
+    faction_id="Faction ID to modify",
+    ore="Change in ore (can be negative)",
+    lumber="Change in lumber (can be negative)",
+    coal="Change in coal (can be negative)",
+    rations="Change in rations (can be negative)",
+    cloth="Change in cloth (can be negative)",
+    platinum="Change in platinum (can be negative)"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def modify_faction_resources_cmd(
+    interaction: discord.Interaction,
+    faction_id: str,
+    ore: int = 0,
+    lumber: int = 0,
+    coal: int = 0,
+    rations: int = 0,
+    cloth: int = 0,
+    platinum: int = 0
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        changes = {
+            'ore': ore,
+            'lumber': lumber,
+            'coal': coal,
+            'rations': rations,
+            'cloth': cloth,
+            'platinum': platinum
+        }
+
+        success, message = await handlers.modify_faction_resources(conn, faction_id, interaction.guild_id, changes)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) modified resources for faction '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to modify faction resources for '{faction_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
 
 
 # Order Management Commands (Player)

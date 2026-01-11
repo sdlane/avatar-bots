@@ -4,7 +4,8 @@ import asyncpg
 import logging
 from db import (
     Territory, Faction, FactionMember, Unit, UnitType,
-    PlayerResources, TerritoryAdjacency, WargameConfig, Character
+    PlayerResources, TerritoryAdjacency, WargameConfig, Character,
+    FactionResources, FactionPermission, VALID_PERMISSION_TYPES
 )
 
 logger = logging.getLogger(__name__)
@@ -125,11 +126,15 @@ class ConfigManager:
             if territory.original_nation:
                 territory_dict['original_nation'] = territory.original_nation
 
-            # Get controller character identifier
+            # Get controller - character or faction
             if territory.controller_character_id:
                 controller = await Character.fetch_by_id(conn, territory.controller_character_id)
                 if controller:
                     territory_dict['controller_character_identifier'] = controller.identifier
+            elif territory.controller_faction_id:
+                faction = await Faction.fetch_by_id(conn, territory.controller_faction_id)
+                if faction:
+                    territory_dict['controller_faction_id'] = faction.faction_id
 
             # Production
             territory_dict['production'] = {
@@ -214,10 +219,15 @@ class ConfigManager:
             if unit.name:
                 unit_dict['name'] = unit.name
 
-            # Get owner and commander character identifiers
-            owner = await Character.fetch_by_id(conn, unit.owner_character_id)
-            if owner:
-                unit_dict['owner'] = owner.identifier
+            # Get owner - either character or faction
+            if unit.owner_character_id:
+                owner = await Character.fetch_by_id(conn, unit.owner_character_id)
+                if owner:
+                    unit_dict['owner'] = owner.identifier
+            elif unit.owner_faction_id:
+                owner_faction = await Faction.fetch_by_id(conn, unit.owner_faction_id)
+                if owner_faction:
+                    unit_dict['owner_faction'] = owner_faction.faction_id
 
             if unit.commander_character_id:
                 commander = await Character.fetch_by_id(conn, unit.commander_character_id)
@@ -238,6 +248,37 @@ class ConfigManager:
                 unit_dict['current_organization'] = unit.organization
 
             config_dict['units'].append(unit_dict)
+
+        # Export Faction Resources
+        config_dict['faction_resources'] = []
+        for faction in factions:
+            resources = await FactionResources.fetch_by_faction(conn, faction.id, guild_id)
+            if resources and (resources.ore or resources.lumber or resources.coal or
+                            resources.rations or resources.cloth or resources.platinum):
+                config_dict['faction_resources'].append({
+                    'faction_id': faction.faction_id,
+                    'resources': {
+                        'ore': resources.ore,
+                        'lumber': resources.lumber,
+                        'coal': resources.coal,
+                        'rations': resources.rations,
+                        'cloth': resources.cloth,
+                        'platinum': resources.platinum
+                    }
+                })
+
+        # Export Faction Permissions
+        config_dict['faction_permissions'] = []
+        for faction in factions:
+            permissions = await FactionPermission.fetch_by_faction(conn, faction.id, guild_id)
+            for perm in permissions:
+                char = await Character.fetch_by_id(conn, perm.character_id)
+                if char:
+                    config_dict['faction_permissions'].append({
+                        'faction_id': faction.faction_id,
+                        'character': char.identifier,
+                        'permission_type': perm.permission_type
+                    })
 
         return yaml.dump(config_dict, default_flow_style=False, sort_keys=False)
 
@@ -289,6 +330,10 @@ class ConfigManager:
         if 'characters' in config_dict:
             for char_data in config_dict['characters']:
                 character_identifiers_needed.add(char_data['character'])
+
+        if 'faction_permissions' in config_dict:
+            for perm in config_dict['faction_permissions']:
+                character_identifiers_needed.add(perm['character'])
 
         # Validate characters exist
         missing_characters = []
@@ -360,6 +405,42 @@ class ConfigManager:
                             )
                             await faction_member.insert(conn)
 
+        # Collect all referenced faction IDs and validate they exist
+        referenced_faction_ids = set()
+        if 'territories' in config_dict:
+            for territory in config_dict['territories']:
+                if 'controller_faction_id' in territory:
+                    referenced_faction_ids.add(territory['controller_faction_id'])
+
+        if 'units' in config_dict:
+            for unit in config_dict['units']:
+                if 'owner_faction' in unit:
+                    referenced_faction_ids.add(unit['owner_faction'])
+                if 'faction_id' in unit:
+                    referenced_faction_ids.add(unit['faction_id'])
+
+        if 'faction_resources' in config_dict:
+            for fr in config_dict['faction_resources']:
+                referenced_faction_ids.add(fr['faction_id'])
+
+        if 'faction_permissions' in config_dict:
+            for perm in config_dict['faction_permissions']:
+                referenced_faction_ids.add(perm['faction_id'])
+
+        # Validate all referenced faction IDs exist (either created in this import or pre-existing)
+        missing_factions = []
+        for faction_id in referenced_faction_ids:
+            if faction_id not in faction_map:
+                # Try to find in database
+                faction_obj = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+                if faction_obj:
+                    faction_map[faction_id] = faction_obj.id
+                else:
+                    missing_factions.append(faction_id)
+
+        if missing_factions:
+            return False, f"Missing factions: {', '.join(sorted(missing_factions))}"
+
         # Import Player Resources
         if 'player_resources' in config_dict:
             for player_res_data in config_dict['player_resources']:
@@ -377,6 +458,45 @@ class ConfigManager:
                         guild_id=guild_id
                     )
                     await player_res.upsert(conn)
+
+        # Import Faction Resources
+        if 'faction_resources' in config_dict:
+            for faction_res_data in config_dict['faction_resources']:
+                faction_internal_id = faction_map.get(faction_res_data['faction_id'])
+                if faction_internal_id:
+                    resources = faction_res_data.get('resources', {})
+                    faction_res = FactionResources(
+                        faction_id=faction_internal_id,
+                        ore=resources.get('ore', 0),
+                        lumber=resources.get('lumber', 0),
+                        coal=resources.get('coal', 0),
+                        rations=resources.get('rations', 0),
+                        cloth=resources.get('cloth', 0),
+                        platinum=resources.get('platinum', 0),
+                        guild_id=guild_id
+                    )
+                    await faction_res.upsert(conn)
+
+        # Import Faction Permissions
+        if 'faction_permissions' in config_dict:
+            for perm_data in config_dict['faction_permissions']:
+                faction_internal_id = faction_map.get(perm_data['faction_id'])
+                char = character_map.get(perm_data['character'])
+                permission_type = perm_data.get('permission_type', '')
+
+                if faction_internal_id and char and permission_type in VALID_PERMISSION_TYPES:
+                    # Validate character is a member of the faction
+                    member = await FactionMember.fetch_by_character(conn, char.id, guild_id)
+                    if member and member.faction_id == faction_internal_id:
+                        perm = FactionPermission(
+                            faction_id=faction_internal_id,
+                            character_id=char.id,
+                            permission_type=permission_type,
+                            guild_id=guild_id
+                        )
+                        await perm.upsert(conn)
+                    else:
+                        logger.warning(f"Skipping permission for {perm_data['character']} - not a member of faction {perm_data['faction_id']}")
 
         # Import Character production and VP
         if 'characters' in config_dict:
@@ -397,10 +517,14 @@ class ConfigManager:
         if 'territories' in config_dict:
             for territory_data in config_dict['territories']:
                 controller_character_id = None
+                controller_faction_id = None
+
                 if 'controller_character_identifier' in territory_data:
                     character = character_map.get(territory_data['controller_character_identifier'])
                     if character:
                         controller_character_id = character.id
+                elif 'controller_faction_id' in territory_data:
+                    controller_faction_id = faction_map.get(territory_data['controller_faction_id'])
 
                 production = territory_data.get('production', {})
                 territory = Territory(
@@ -415,6 +539,7 @@ class ConfigManager:
                     platinum_production=production.get('platinum', 0),
                     victory_points=territory_data.get('victory_points', 0),
                     controller_character_id=controller_character_id,
+                    controller_faction_id=controller_faction_id,
                     original_nation=territory_data.get('original_nation'),
                     guild_id=guild_id
                 )
@@ -470,9 +595,24 @@ class ConfigManager:
         # Import Units
         if 'units' in config_dict:
             for unit_data in config_dict['units']:
-                owner_char = character_map.get(unit_data.get('owner'))
-                if not owner_char:
-                    continue  # Skip units with invalid owners
+                # Determine owner - either character or faction
+                owner_character_id = None
+                owner_faction_id = None
+
+                if 'owner' in unit_data:
+                    owner_char = character_map.get(unit_data['owner'])
+                    if not owner_char:
+                        logger.warning(f"Owner character {unit_data['owner']} not found, skipping unit {unit_data['unit_id']}")
+                        continue
+                    owner_character_id = owner_char.id
+                elif 'owner_faction' in unit_data:
+                    owner_faction_id = faction_map.get(unit_data['owner_faction'])
+                    if not owner_faction_id:
+                        logger.warning(f"Owner faction {unit_data['owner_faction']} not found, skipping unit {unit_data['unit_id']}")
+                        continue
+                else:
+                    logger.warning(f"Unit {unit_data['unit_id']} has no owner or owner_faction, skipping")
+                    continue
 
                 commander_char_id = None
                 if 'commander' in unit_data:
@@ -481,7 +621,6 @@ class ConfigManager:
                         commander_char_id = commander_char.id
 
                 faction_internal_id = None
-                faction_nation = None
                 if 'faction_id' in unit_data:
                     # Try to get from faction_map first (if factions were imported in same run)
                     faction_internal_id = faction_map.get(unit_data['faction_id'])
@@ -491,6 +630,10 @@ class ConfigManager:
                         faction_obj = await Faction.fetch_by_faction_id(conn, unit_data['faction_id'], guild_id)
                         if faction_obj:
                             faction_internal_id = faction_obj.id
+
+                # For faction-owned units, the faction_id field should be the owning faction
+                if owner_faction_id and not faction_internal_id:
+                    faction_internal_id = owner_faction_id
 
                 # Get unit type to determine stats
                 unit_type = await UnitType.fetch_by_type_id(conn, unit_data['type'], guild_id)
@@ -505,7 +648,8 @@ class ConfigManager:
                     unit_id=unit_data['unit_id'],
                     name=unit_data.get('name'),
                     unit_type=unit_data['type'],
-                    owner_character_id=owner_char.id,
+                    owner_character_id=owner_character_id,
+                    owner_faction_id=owner_faction_id,
                     commander_character_id=commander_char_id,
                     faction_id=faction_internal_id,
                     movement=unit_type.movement,

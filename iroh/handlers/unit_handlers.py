@@ -2,11 +2,20 @@
 Unit management command handlers.
 """
 import asyncpg
-from typing import Tuple
+from typing import Optional, Tuple
 from db import Unit, UnitType, Character, FactionMember, Faction, Territory
 
 
-async def create_unit(conn: asyncpg.Connection, unit_id: str, unit_type: str, owner_identifier: str, territory_id: int, nation: str, guild_id: int) -> Tuple[bool, str]:
+async def create_unit(
+    conn: asyncpg.Connection,
+    unit_id: str,
+    unit_type: str,
+    territory_id: int,
+    nation: str,
+    guild_id: int,
+    owner_character: Optional[str] = None,
+    owner_faction: Optional[str] = None
+) -> Tuple[bool, str]:
     """
     Create a new unit.
 
@@ -14,27 +23,50 @@ async def create_unit(conn: asyncpg.Connection, unit_id: str, unit_type: str, ow
         conn: Database connection
         unit_id: Unique identifier for the unit
         unit_type: Type identifier for the unit type
-        owner_identifier: Character identifier for the owner
         territory_id: Territory where unit is created
         nation: Nation for the unit (required)
         guild_id: Guild ID
+        owner_character: Character identifier for the owner (mutually exclusive with owner_faction)
+        owner_faction: Faction ID for the owner (mutually exclusive with owner_character)
 
     Returns:
         (success, message) tuple
     """
+    # Validate exactly one owner type is specified
+    if owner_character and owner_faction:
+        return False, "Cannot specify both owner_character and owner_faction. A unit can only have one owner type."
+    if not owner_character and not owner_faction:
+        return False, "Must specify either owner_character or owner_faction."
+
     # Check if unit already exists
     existing = await Unit.fetch_by_unit_id(conn, unit_id, guild_id)
     if existing:
         return False, f"Unit '{unit_id}' already exists."
 
-    # Validate owner character
-    owner_char = await Character.fetch_by_identifier(conn, owner_identifier, guild_id)
-    if not owner_char:
-        return False, f"Character '{owner_identifier}' not found."
+    # Set up owner fields based on owner type
+    owner_character_id = None
+    owner_faction_id = None
+    faction_id = None  # The faction the unit belongs to (for commander validation)
 
-    # Get owner's faction
-    faction_member = await FactionMember.fetch_by_character(conn, owner_char.id, guild_id)
-    faction_id = faction_member.faction_id if faction_member else None
+    if owner_character:
+        # Validate owner character
+        owner_char = await Character.fetch_by_identifier(conn, owner_character, guild_id)
+        if not owner_char:
+            return False, f"Character '{owner_character}' not found."
+
+        owner_character_id = owner_char.id
+
+        # Get owner's faction for the faction_id field
+        faction_member = await FactionMember.fetch_by_character(conn, owner_char.id, guild_id)
+        faction_id = faction_member.faction_id if faction_member else None
+    else:
+        # Validate owner faction
+        faction = await Faction.fetch_by_faction_id(conn, owner_faction, guild_id)
+        if not faction:
+            return False, f"Faction '{owner_faction}' not found."
+
+        owner_faction_id = faction.id
+        faction_id = faction.id  # Faction-owned units belong to that faction
 
     # Fetch unit type - must match the specified nation
     unit_type_obj = await UnitType.fetch_by_type_id(conn, unit_type, guild_id)
@@ -56,7 +88,8 @@ async def create_unit(conn: asyncpg.Connection, unit_id: str, unit_type: str, ow
         unit_id=unit_id,
         name=None,
         unit_type=unit_type,
-        owner_character_id=owner_char.id,
+        owner_character_id=owner_character_id,
+        owner_faction_id=owner_faction_id,
         commander_character_id=None,
         commander_assigned_turn=None,
         faction_id=faction_id,
@@ -82,7 +115,10 @@ async def create_unit(conn: asyncpg.Connection, unit_id: str, unit_type: str, ow
 
     await unit.upsert(conn)
 
-    return True, f"Unit '{unit_id}' created successfully in territory {territory_id}."
+    if owner_character:
+        return True, f"Unit '{unit_id}' created successfully in territory {territory_id}."
+    else:
+        return True, f"Faction unit '{unit_id}' created successfully in territory {territory_id} (owned by faction '{owner_faction}')."
 
 
 async def delete_unit(conn: asyncpg.Connection, unit_id: str, guild_id: int) -> Tuple[bool, str]:

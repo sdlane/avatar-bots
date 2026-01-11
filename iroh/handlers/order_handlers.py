@@ -3,9 +3,60 @@ Order management command handlers.
 """
 import asyncpg
 from typing import Tuple, List, Optional
-from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog, Alliance
+from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog, Alliance, FactionPermission
 from order_types import OrderType, ORDER_PHASE_MAP, ORDER_PRIORITY_MAP, OrderStatus, TurnPhase
 from datetime import datetime
+
+
+async def check_unit_order_authorization(
+    conn: asyncpg.Connection,
+    unit: Unit,
+    character_id: int,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Check if a character can issue orders for a unit.
+
+    For character-owned units: must be owner or commander
+    For faction-owned units: must be commander OR have COMMAND permission
+
+    Args:
+        conn: Database connection
+        unit: The unit to check authorization for
+        character_id: Internal character ID
+        guild_id: Guild ID
+
+    Returns:
+        (authorized, error_message)
+        - If authorized, returns (True, "")
+        - If not authorized, returns (False, "error message")
+    """
+    # Check if unit is character-owned
+    if unit.owner_character_id is not None:
+        # Character-owned unit: must be owner or commander
+        if unit.owner_character_id == character_id:
+            return True, ""
+        if unit.commander_character_id == character_id:
+            return True, ""
+        return False, "You must be the owner or commander of this unit to issue orders."
+
+    # Faction-owned unit
+    if unit.owner_faction_id is not None:
+        # Commander is always authorized
+        if unit.commander_character_id == character_id:
+            return True, ""
+
+        # Check if character has COMMAND permission for this faction
+        has_permission = await FactionPermission.has_permission(
+            conn, unit.owner_faction_id, character_id, "COMMAND", guild_id
+        )
+        if has_permission:
+            return True, ""
+
+        return False, "You are not authorized to issue orders for this faction unit. Ask a GM for clarification."
+
+    # Should not reach here, but handle edge case
+    return False, "Unit has no valid owner."
 
 
 async def submit_join_faction_order(
@@ -46,12 +97,18 @@ async def submit_join_faction_order(
     if existing_membership and existing_membership.faction_id == faction.id:
         return False, f"{character.name} is already a member of {faction.name}."
 
-    # Validate submitter is either the character themselves or the faction leader
+    # Validate submitter is either:
+    # 1. The character themselves (requesting to join)
+    # 2. The faction leader
+    # 3. Someone with MEMBERSHIP permission for the faction
     is_character = submitting_character_id == character.id
     is_leader = submitting_character_id == faction.leader_character_id
+    has_membership_permission = await FactionPermission.has_permission(
+        conn, faction.id, submitting_character_id, "MEMBERSHIP", guild_id
+    )
 
-    if not is_character and not is_leader:
-        return False, f"You must be either the leader of the faction or the person being added to the faction in order to issue a join faction order."
+    if not is_character and not is_leader and not has_membership_permission:
+        return False, f"You must be either authorized to manage faction membership or the person being added to the faction in order to issue a join faction order."
 
     # Get current turn from WargameConfig
     wargame_config = await conn.fetchrow(
@@ -65,6 +122,7 @@ async def submit_join_faction_order(
     order_id = f"ORD-{order_count + 1:04d}"
 
     # Determine submitted_by role
+    # 'character' = the person joining, 'leader' = faction authorization (leader or MEMBERSHIP permission)
     submitted_by = 'character' if is_character else 'leader'
 
     # Create order
@@ -160,12 +218,14 @@ async def submit_leave_faction_order(
 
 async def submit_kick_from_faction_order(
     conn: asyncpg.Connection,
-    leader_character: Character,
+    submitting_character: Character,
     target_character_identifier: str,
     guild_id: int
 ) -> Tuple[bool, str]:
     """
-    Submit an order for a faction leader to kick a member from their faction.
+    Submit an order to kick a member from a faction.
+
+    Requires MEMBERSHIP permission or being the faction leader.
 
     Cannot be issued:
     - Within the first 3 turns of the game
@@ -175,7 +235,7 @@ async def submit_kick_from_faction_order(
 
     Args:
         conn: Database connection
-        leader_character: Character submitting the order (must be faction leader)
+        submitting_character: Character submitting the order
         target_character_identifier: Character identifier to kick
         guild_id: Guild ID
 
@@ -187,21 +247,29 @@ async def submit_kick_from_faction_order(
     if not target_character:
         return False, f"Character '{target_character_identifier}' not found."
 
-    # Check leader is in a faction
-    leader_membership = await FactionMember.fetch_by_character(conn, leader_character.id, guild_id)
-    if not leader_membership:
+    # Check submitter is in a faction
+    submitter_membership = await FactionMember.fetch_by_character(conn, submitting_character.id, guild_id)
+    if not submitter_membership:
         return False, "You are not a member of any faction."
 
     # Get faction
-    faction = await Faction.fetch_by_id(conn, leader_membership.faction_id)
+    faction = await Faction.fetch_by_id(conn, submitter_membership.faction_id)
 
-    # Check leader is the faction leader
-    if faction.leader_character_id != leader_character.id:
-        return False, f"You must be the leader of {faction.name} to kick members."
+    # Check submitter is faction leader OR has MEMBERSHIP permission
+    is_leader = faction.leader_character_id == submitting_character.id
+    has_membership_permission = await FactionPermission.has_permission(
+        conn, faction.id, submitting_character.id, "MEMBERSHIP", guild_id
+    )
+    if not is_leader and not has_membership_permission:
+        return False, f"You are not authorized to kick members from {faction.name}. Ask a GM for clarification."
 
-    # Check target is not the leader themselves
-    if target_character.id == leader_character.id:
+    # Check target is not the submitter themselves
+    if target_character.id == submitting_character.id:
         return False, "You cannot kick yourself from the faction."
+
+    # Check target is not the faction leader
+    if target_character.id == faction.leader_character_id:
+        return False, f"You cannot kick the leader of {faction.name}. Transfer leadership first."
 
     # Check target is in the same faction
     target_membership = await FactionMember.fetch_by_character(conn, target_character.id, guild_id)
@@ -312,11 +380,15 @@ async def submit_transit_order(
     if naval_units:
         return False, f"Naval units cannot use transit orders: {', '.join(naval_units)}"
 
-    # Validate all units are owned or commanded by the character
-    unauthorized_units = [u.unit_id for u in units
-                         if u.owner_character_id != character_id and u.commander_character_id != character_id]
+    # Validate authorization for all units
+    unauthorized_units = []
+    for unit in units:
+        authorized, _ = await check_unit_order_authorization(conn, unit, character_id, guild_id)
+        if not authorized:
+            unauthorized_units.append(unit.unit_id)
+
     if unauthorized_units:
-        return False, f"You don't own or command these units: {', '.join(unauthorized_units)}"
+        return False, f"You are not authorized to issue orders for these units: {', '.join(unauthorized_units)}. Ask a GM for clarification."
 
     # Validate all units in same starting territory
     starting_territories = set(u.current_territory_id for u in units)
@@ -731,14 +803,15 @@ async def submit_assign_commander_order(
     """
     Submit an order to assign a new commander to a unit.
 
-    Only the unit owner can submit this order.
+    For character-owned units: only the owner can assign a commander.
+    For faction-owned units: requires COMMAND permission.
 
     Args:
         conn: Database connection
         unit_id: The unit ID to reassign
         new_commander_identifier: Character identifier for new commander
         guild_id: Guild ID
-        submitting_character_id: ID of character submitting (must be owner)
+        submitting_character_id: ID of character submitting
         confirmed: If True, skip faction mismatch check (user already confirmed)
 
     Returns:
@@ -750,9 +823,21 @@ async def submit_assign_commander_order(
     if not unit:
         return False, f"Unit '{unit_id}' not found.", False
 
-    # Validate submitter is the owner
-    if unit.owner_character_id != submitting_character_id:
-        return False, "Only the unit owner can assign a commander.", False
+    # Validate authorization - for assign commander, we check ownership/permission
+    # (not commander status, since we're changing the commander)
+    if unit.owner_character_id is not None:
+        # Character-owned unit: must be owner
+        if unit.owner_character_id != submitting_character_id:
+            return False, "Only the unit owner can assign a commander.", False
+    elif unit.owner_faction_id is not None:
+        # Faction-owned unit: must have COMMAND permission
+        has_permission = await FactionPermission.has_permission(
+            conn, unit.owner_faction_id, submitting_character_id, "COMMAND", guild_id
+        )
+        if not has_permission:
+            return False, "You are not authorized to assign commanders for this faction unit. Ask a GM for clarification.", False
+    else:
+        return False, "Unit has no valid owner.", False
 
     # Fetch new commander
     new_commander = await Character.fetch_by_identifier(conn, new_commander_identifier, guild_id)
@@ -777,26 +862,42 @@ async def submit_assign_commander_order(
             turns_remaining = 2 - turns_since_assignment
             return False, f"Cannot change commander yet. {turns_remaining} more turn(s) required before reassignment.", False
 
-    # Check faction membership - owner and new commander must be in same faction
-    owner_membership = await FactionMember.fetch_by_character(conn, unit.owner_character_id, guild_id)
-    commander_membership = await FactionMember.fetch_by_character(conn, new_commander.id, guild_id)
+    # Check faction membership - warn if new commander is in a different faction
+    # For character-owned units: compare owner's faction with commander's faction
+    # For faction-owned units: compare owning faction with commander's faction
+    if unit.owner_character_id is not None:
+        owner_membership = await FactionMember.fetch_by_character(conn, unit.owner_character_id, guild_id)
+        owner_faction_id = owner_membership.faction_id if owner_membership else None
+    else:
+        # Faction-owned unit - the owning faction IS the relevant faction
+        owner_faction_id = unit.owner_faction_id
 
-    owner_faction_id = owner_membership.faction_id if owner_membership else None
+    commander_membership = await FactionMember.fetch_by_character(conn, new_commander.id, guild_id)
     commander_faction_id = commander_membership.faction_id if commander_membership else None
 
     if owner_faction_id != commander_faction_id and not confirmed:
         # Faction mismatch - need confirmation
-        owner = await Character.fetch_by_id(conn, unit.owner_character_id)
-        owner_name = owner.name if owner else "Unknown"
+        if unit.owner_character_id is not None:
+            owner = await Character.fetch_by_id(conn, unit.owner_character_id)
+            owner_name = owner.name if owner else "Unknown"
 
-        if owner_faction_id is None and commander_faction_id is None:
-            faction_msg = "Neither you nor the new commander are in a faction."
-        elif owner_faction_id is None:
-            faction_msg = f"You are not in a faction, but {new_commander.name} is."
-        elif commander_faction_id is None:
-            faction_msg = f"{new_commander.name} is not in a faction, but you are."
+            if owner_faction_id is None and commander_faction_id is None:
+                faction_msg = "Neither you nor the new commander are in a faction."
+            elif owner_faction_id is None:
+                faction_msg = f"You are not in a faction, but {new_commander.name} is."
+            elif commander_faction_id is None:
+                faction_msg = f"{new_commander.name} is not in a faction, but you are."
+            else:
+                faction_msg = f"You and {new_commander.name} are in different factions."
         else:
-            faction_msg = f"You and {new_commander.name} are in different factions."
+            # Faction-owned unit
+            owning_faction = await Faction.fetch_by_id(conn, unit.owner_faction_id)
+            faction_name = owning_faction.name if owning_faction else "the faction"
+
+            if commander_faction_id is None:
+                faction_msg = f"{new_commander.name} is not in any faction, but this unit belongs to {faction_name}."
+            else:
+                faction_msg = f"{new_commander.name} is not a member of {faction_name}."
 
         return False, f"Warning: {faction_msg} Once assigned, the commander cannot be changed for 2 turns. Do you want to proceed?", True
 

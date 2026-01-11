@@ -6,7 +6,8 @@ from typing import Tuple, List, Dict, Optional
 from datetime import datetime
 from db import (
     Order, Unit, Character, Faction, FactionMember, Territory,
-    PlayerResources, WargameConfig, TurnLog, FactionJoinRequest, War, WarParticipant
+    PlayerResources, WargameConfig, TurnLog, FactionJoinRequest, War, WarParticipant,
+    FactionResources, FactionPermission
 )
 from order_types import *
 from orders import *
@@ -316,8 +317,8 @@ async def _collect_territory_production(
     """
     Collect resources from territory production.
 
-    For each territory, give production to the character controlling the territory.
-    Aggregates resources per character and generates ONE event per character.
+    For each territory, give production to the character or faction controlling it.
+    Aggregates resources per owner and generates ONE event per owner.
 
     Args:
         conn: Database connection
@@ -337,32 +338,61 @@ async def _collect_territory_production(
     # Structure: {character_id: {ore: amount, lumber: amount, ...}}
     character_resources = {}
 
+    # Dictionary to aggregate resources per faction
+    # Structure: {faction_id: {ore: amount, lumber: amount, ...}}
+    faction_resources = {}
+
     for territory in territories:
-        # Skip territories with no controller
-        if territory.controller_character_id is None:
+        # Check controller type using helper method
+        owner_type = territory.get_owner_type()
+
+        if owner_type is None:
             logger.debug(f"Territory production: Territory {territory.territory_id} has no controller, skipping")
             continue
 
-        char_id = territory.controller_character_id
+        if owner_type == 'character':
+            char_id = territory.controller_character_id
 
-        # Initialize character entry if not exists
-        if char_id not in character_resources:
-            character_resources[char_id] = {
-                'ore': 0,
-                'lumber': 0,
-                'coal': 0,
-                'rations': 0,
-                'cloth': 0,
-                'platinum': 0
-            }
+            # Initialize character entry if not exists
+            if char_id not in character_resources:
+                character_resources[char_id] = {
+                    'ore': 0,
+                    'lumber': 0,
+                    'coal': 0,
+                    'rations': 0,
+                    'cloth': 0,
+                    'platinum': 0
+                }
 
-        # Aggregate resources
-        character_resources[char_id]['ore'] += territory.ore_production
-        character_resources[char_id]['lumber'] += territory.lumber_production
-        character_resources[char_id]['coal'] += territory.coal_production
-        character_resources[char_id]['rations'] += territory.rations_production
-        character_resources[char_id]['cloth'] += territory.cloth_production
-        character_resources[char_id]['platinum'] += territory.platinum_production
+            # Aggregate resources
+            character_resources[char_id]['ore'] += territory.ore_production
+            character_resources[char_id]['lumber'] += territory.lumber_production
+            character_resources[char_id]['coal'] += territory.coal_production
+            character_resources[char_id]['rations'] += territory.rations_production
+            character_resources[char_id]['cloth'] += territory.cloth_production
+            character_resources[char_id]['platinum'] += territory.platinum_production
+
+        elif owner_type == 'faction':
+            faction_id = territory.controller_faction_id
+
+            # Initialize faction entry if not exists
+            if faction_id not in faction_resources:
+                faction_resources[faction_id] = {
+                    'ore': 0,
+                    'lumber': 0,
+                    'coal': 0,
+                    'rations': 0,
+                    'cloth': 0,
+                    'platinum': 0
+                }
+
+            # Aggregate resources
+            faction_resources[faction_id]['ore'] += territory.ore_production
+            faction_resources[faction_id]['lumber'] += territory.lumber_production
+            faction_resources[faction_id]['coal'] += territory.coal_production
+            faction_resources[faction_id]['rations'] += territory.rations_production
+            faction_resources[faction_id]['cloth'] += territory.cloth_production
+            faction_resources[faction_id]['platinum'] += territory.platinum_production
 
     # Process each character's aggregated resources
     for char_id, resources in character_resources.items():
@@ -429,7 +459,79 @@ async def _collect_territory_production(
             guild_id=guild_id
         ))
 
-    logger.info(f"Territory production: finished for guild {guild_id}, turn {turn_number}. Processed {len(character_resources)} characters.")
+    # Process each faction's aggregated resources
+    for faction_id, resources in faction_resources.items():
+        # Fetch faction
+        faction = await Faction.fetch_by_id(conn, faction_id)
+        if not faction:
+            logger.warning(f"Territory production: Faction {faction_id} not found, skipping resource allocation")
+            continue
+
+        # Check if faction has any resources to collect
+        total_resources = sum(resources.values())
+        if total_resources == 0:
+            logger.debug(f"Territory production: Faction {faction_id} has no resources to collect")
+            continue
+
+        # Fetch or create FactionResources
+        faction_res = await FactionResources.fetch_by_faction(conn, faction_id, guild_id)
+
+        if not faction_res:
+            # Create new FactionResources entry
+            faction_res = FactionResources(
+                faction_id=faction_id,
+                ore=resources['ore'],
+                lumber=resources['lumber'],
+                coal=resources['coal'],
+                rations=resources['rations'],
+                cloth=resources['cloth'],
+                platinum=resources['platinum'],
+                guild_id=guild_id
+            )
+        else:
+            # Add to existing resources
+            faction_res.ore += resources['ore']
+            faction_res.lumber += resources['lumber']
+            faction_res.coal += resources['coal']
+            faction_res.rations += resources['rations']
+            faction_res.cloth += resources['cloth']
+            faction_res.platinum += resources['platinum']
+
+        # Update database
+        await faction_res.upsert(conn)
+
+        logger.info(f"Territory production: Awarded {resources} to faction {faction.name} (ID: {faction_id})")
+
+        # Get affected character IDs - those with FINANCIAL permission see resource events
+        affected_char_ids = await FactionPermission.fetch_characters_with_permission(
+            conn, faction_id, "FINANCIAL", guild_id
+        )
+
+        # Create single event for this faction with aggregated resources
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase='RESOURCE_COLLECTION',
+            event_type='FACTION_TERRITORY_PRODUCTION',
+            entity_type='faction',
+            entity_id=faction_id,
+            event_data={
+                'affected_character_ids': affected_char_ids,
+                'faction_id': faction.faction_id,
+                'faction_name': faction.name,
+                'resources': {
+                    'ore': resources['ore'],
+                    'lumber': resources['lumber'],
+                    'coal': resources['coal'],
+                    'rations': resources['rations'],
+                    'cloth': resources['cloth'],
+                    'platinum': resources['platinum']
+                }
+            },
+            guild_id=guild_id
+        ))
+
+    logger.info(f"Territory production: finished for guild {guild_id}, turn {turn_number}. "
+                f"Processed {len(character_resources)} characters and {len(faction_resources)} factions.")
     return events
 
 
@@ -646,8 +748,8 @@ async def execute_upkeep_phase(
     """
     Execute the Upkeep phase.
 
-    For each unit:
-    - Deduct upkeep from owner's resources
+    For each unit (character-owned or faction-owned):
+    - Deduct upkeep from owner's resources (PlayerResources or FactionResources)
     - If insufficient resources, deduct what's available
     - Reduce organization by 1 for EACH missing resource unit
     - If organization <= 0, do nothing special (handled later)
@@ -670,21 +772,31 @@ async def execute_upkeep_phase(
         logger.info(f"Upkeep phase: finished upkeep phase for guild {guild_id}, turn {turn_number}")
         return events
 
-    # Group units by owner (only active units need upkeep)
-    units_by_owner: Dict[int, List[Unit]] = {}
-    for unit in all_units:
+    # Group units by owner type and ID (only active units need upkeep)
+    # Oldest units first (by id) to ensure oldest get upkeep priority
+    units_by_character: Dict[int, List[Unit]] = {}
+    units_by_faction: Dict[int, List[Unit]] = {}
+
+    for unit in sorted(all_units, key=lambda u: u.id):
         if unit.status != 'ACTIVE':
             continue
-        owner_id = unit.owner_character_id
-        if owner_id not in units_by_owner:
-            units_by_owner[owner_id] = []
-        units_by_owner[owner_id].append(unit)
 
-    # Process upkeep for each owner
+        owner_type = unit.get_owner_type()
+        if owner_type == 'character':
+            owner_id = unit.owner_character_id
+            if owner_id not in units_by_character:
+                units_by_character[owner_id] = []
+            units_by_character[owner_id].append(unit)
+        elif owner_type == 'faction':
+            owner_id = unit.owner_faction_id
+            if owner_id not in units_by_faction:
+                units_by_faction[owner_id] = []
+            units_by_faction[owner_id].append(unit)
+
     resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum']
 
-    for owner_id, units in units_by_owner.items():
-        # Fetch owner character for name
+    # Process upkeep for character-owned units
+    for owner_id, units in units_by_character.items():
         owner = await Character.fetch_by_id(conn, owner_id)
         if not owner:
             logger.warning(f"Upkeep phase: owner character {owner_id} not found, skipping units")
@@ -713,25 +825,21 @@ async def execute_upkeep_phase(
                 available = getattr(resources, rt)
                 deducted = min(needed, available)
 
-                # Deduct from resources
                 setattr(resources, rt, available - deducted)
                 total_spent[rt] += deducted
 
-                # Track deficit
                 if deducted < needed:
                     unit_deficit[rt] = needed - deducted
                     total_deficit[rt] += needed - deducted
 
             units_maintained += 1
 
-            # If there was a deficit, penalize organization
             if unit_deficit:
                 units_with_deficit += 1
                 penalty = sum(unit_deficit.values())
                 unit.organization -= penalty
                 await unit.upsert(conn)
 
-                # Build affected_character_ids - include commander if different from owner
                 affected_ids = [owner_id]
                 if unit.commander_character_id and unit.commander_character_id != owner_id:
                     affected_ids.append(unit.commander_character_id)
@@ -756,10 +864,8 @@ async def execute_upkeep_phase(
                 ))
                 logger.info(f"Upkeep phase: unit {unit.unit_id} deficit {unit_deficit}, org -{penalty} -> {unit.organization}")
 
-        # Save updated resources
         await resources.upsert(conn)
 
-        # Generate summary event if any resources were spent
         if any(total_spent[rt] > 0 for rt in resource_types):
             events.append(TurnLog(
                 turn_number=turn_number,
@@ -777,7 +883,6 @@ async def execute_upkeep_phase(
             ))
             logger.info(f"Upkeep phase: {owner.name} spent {total_spent} on {units_maintained} units")
 
-        # Generate total deficit summary event if any deficits occurred
         if units_with_deficit > 0:
             non_zero_deficit = {rt: v for rt, v in total_deficit.items() if v > 0}
             events.append(TurnLog(
@@ -795,6 +900,119 @@ async def execute_upkeep_phase(
                 guild_id=guild_id
             ))
             logger.info(f"Upkeep phase: {owner.name} total deficit {non_zero_deficit} affecting {units_with_deficit} units")
+
+    # Process upkeep for faction-owned units
+    for faction_id, units in units_by_faction.items():
+        faction = await Faction.fetch_by_id(conn, faction_id)
+        if not faction:
+            logger.warning(f"Upkeep phase: owner faction {faction_id} not found, skipping units")
+            continue
+
+        # Fetch or create faction resources
+        resources = await FactionResources.fetch_by_faction(conn, faction_id, guild_id)
+        if not resources:
+            resources = FactionResources(
+                faction_id=faction_id,
+                ore=0, lumber=0, coal=0, rations=0, cloth=0, platinum=0,
+                guild_id=guild_id
+            )
+
+        # Get COMMAND permission holders for affected_character_ids
+        command_holders = await FactionPermission.fetch_characters_with_permission(
+            conn, faction_id, "COMMAND", guild_id
+        )
+
+        total_spent = {rt: 0 for rt in resource_types}
+        total_deficit = {rt: 0 for rt in resource_types}
+        units_maintained = 0
+        units_with_deficit = 0
+
+        for unit in units:
+            unit_deficit = {}
+
+            for rt in resource_types:
+                needed = getattr(unit, f'upkeep_{rt}')
+                available = getattr(resources, rt)
+                deducted = min(needed, available)
+
+                setattr(resources, rt, available - deducted)
+                total_spent[rt] += deducted
+
+                if deducted < needed:
+                    unit_deficit[rt] = needed - deducted
+                    total_deficit[rt] += needed - deducted
+
+            units_maintained += 1
+
+            if unit_deficit:
+                units_with_deficit += 1
+                penalty = sum(unit_deficit.values())
+                unit.organization -= penalty
+                await unit.upsert(conn)
+
+                # For faction units, affected includes COMMAND holders and commander
+                affected_ids = list(command_holders)
+                if unit.commander_character_id and unit.commander_character_id not in affected_ids:
+                    affected_ids.append(unit.commander_character_id)
+
+                events.append(TurnLog(
+                    turn_number=turn_number,
+                    phase=TurnPhase.UPKEEP.value,
+                    event_type='FACTION_UPKEEP_DEFICIT',
+                    entity_type='unit',
+                    entity_id=unit.id,
+                    event_data={
+                        'unit_id': unit.unit_id,
+                        'unit_name': unit.name or unit.unit_id,
+                        'resources_deficit': unit_deficit,
+                        'organization_penalty': penalty,
+                        'new_organization': unit.organization,
+                        'owner_faction_id': faction.faction_id,
+                        'owner_faction_name': faction.name,
+                        'affected_character_ids': affected_ids
+                    },
+                    guild_id=guild_id
+                ))
+                logger.info(f"Upkeep phase: faction unit {unit.unit_id} deficit {unit_deficit}, org -{penalty} -> {unit.organization}")
+
+        await resources.upsert(conn)
+
+        if any(total_spent[rt] > 0 for rt in resource_types):
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.UPKEEP.value,
+                event_type='FACTION_UPKEEP_SUMMARY',
+                entity_type='faction',
+                entity_id=faction_id,
+                event_data={
+                    'faction_id': faction.faction_id,
+                    'faction_name': faction.name,
+                    'resources_spent': total_spent,
+                    'units_maintained': units_maintained,
+                    'affected_character_ids': command_holders
+                },
+                guild_id=guild_id
+            ))
+            logger.info(f"Upkeep phase: faction {faction.name} spent {total_spent} on {units_maintained} units")
+
+        if units_with_deficit > 0:
+            non_zero_deficit = {rt: v for rt, v in total_deficit.items() if v > 0}
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.UPKEEP.value,
+                event_type='FACTION_UPKEEP_TOTAL_DEFICIT',
+                entity_type='faction',
+                entity_id=faction_id,
+                event_data={
+                    'faction_id': faction.faction_id,
+                    'faction_name': faction.name,
+                    'total_deficit': non_zero_deficit,
+                    'units_affected': units_with_deficit,
+                    'affected_character_ids': command_holders
+                },
+                guild_id=guild_id
+            ))
+            logger.info(f"Upkeep phase: faction {faction.name} total deficit {non_zero_deficit} affecting {units_with_deficit} units")
 
     logger.info(f"Upkeep phase: finished upkeep phase for guild {guild_id}, turn {turn_number}")
     return events

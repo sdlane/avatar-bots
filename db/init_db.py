@@ -363,6 +363,9 @@ async def ensure_tables():
     # Add owner_faction_id for faction ownership of units
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS owner_faction_id INTEGER;")
 
+    # Make owner_character_id nullable (units can now be owned by factions instead)
+    await conn.execute("ALTER TABLE Unit ALTER COLUMN owner_character_id DROP NOT NULL;")
+
     # Create index for faction-owned units
     await conn.execute("""
     CREATE INDEX IF NOT EXISTS idx_unit_owner_faction

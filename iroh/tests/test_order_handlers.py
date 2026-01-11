@@ -229,7 +229,7 @@ async def test_submit_join_faction_order_unauthorized(db_conn, test_server):
 
     # Verify failure
     assert success is False
-    assert "must" in message.lower() and "leader" in message.lower()
+    assert "not authorized" in message.lower() or "must be" in message.lower()
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -1013,7 +1013,7 @@ async def test_submit_transit_order_unauthorized_character(db_conn, test_server)
 
     # Verify failure
     assert success is False
-    assert "don't own or command" in message.lower()
+    assert "not authorized" in message.lower()
 
     # Cleanup
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)

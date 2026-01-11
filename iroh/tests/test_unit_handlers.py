@@ -59,7 +59,13 @@ async def test_create_unit_success(db_conn, test_server):
 
     # Create unit
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="unit-owner"
     )
 
     # Verify
@@ -131,13 +137,25 @@ async def test_create_unit_duplicate(db_conn, test_server):
 
     # Create first unit
     success1, _ = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="unit-owner"
     )
     assert success1 is True
 
     # Try to create duplicate
     success2, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="unit-owner"
     )
 
     # Verify failure
@@ -175,7 +193,13 @@ async def test_create_unit_nonexistent_owner(db_conn, test_server):
 
     # Try to create unit with nonexistent owner
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "nonexistent-owner", 1, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="nonexistent-owner"
     )
 
     # Verify failure
@@ -218,7 +242,13 @@ async def test_create_unit_owner_not_in_faction(db_conn, test_server):
 
     # Create unit (should succeed with null faction_id)
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "solo-char", 1, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="solo-char"
     )
 
     # Verify success (owner without faction is allowed)
@@ -258,7 +288,13 @@ async def test_create_unit_nonexistent_territory(db_conn, test_server):
 
     # Try to create unit in nonexistent territory
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 999, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=999,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="unit-owner"
     )
 
     # Verify failure
@@ -289,7 +325,13 @@ async def test_create_unit_nonexistent_unit_type(db_conn, test_server):
 
     # Try to create unit with nonexistent unit type
     success, message = await create_unit(
-        db_conn, "UNIT-001", "nonexistent-type", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="nonexistent-type",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="unit-owner"
     )
 
     # Verify failure
@@ -331,7 +373,13 @@ async def test_create_unit_stats_copied_from_type(db_conn, test_server):
 
     # Create unit
     success, _ = await create_unit(
-        db_conn, "UNIT-001", "custom-unit", "unit-owner", 1, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="custom-unit",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="unit-owner"
     )
     assert success is True
 
@@ -352,6 +400,164 @@ async def test_create_unit_stats_copied_from_type(db_conn, test_server):
 
     # Cleanup
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_create_faction_owned_unit(db_conn, test_server):
+    """Test creating a unit owned by a faction."""
+    # Create faction
+    faction = Faction(
+        faction_id="test-faction", name="Test Faction",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+
+    # Create unit type
+    unit_type = UnitType(
+        type_id="infantry", name="Infantry Division",
+        nation=None, guild_id=TEST_GUILD_ID,
+        movement=2, organization=10, attack=5, defense=5,
+        siege_attack=2, siege_defense=3,
+        cost_ore=5, cost_lumber=2, cost_coal=0, cost_rations=10, cost_cloth=5,
+        upkeep_rations=2, upkeep_cloth=1
+    )
+    await unit_type.upsert(db_conn)
+
+    # Create territory
+    territory = Territory(
+        territory_id=1, terrain_type="plains",
+        guild_id=TEST_GUILD_ID
+    )
+    await territory.upsert(db_conn)
+
+    # Create faction-owned unit
+    success, message = await create_unit(
+        conn=db_conn,
+        unit_id="FACTION-UNIT-001",
+        unit_type="infantry",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_faction="test-faction"
+    )
+
+    # Verify success
+    assert success is True
+    assert "created successfully" in message.lower()
+    assert "faction" in message.lower()
+
+    # Verify unit exists with faction ownership
+    unit = await Unit.fetch_by_unit_id(db_conn, "FACTION-UNIT-001", TEST_GUILD_ID)
+    assert unit is not None
+    assert unit.owner_character_id is None
+    assert unit.owner_faction_id == faction.id
+    assert unit.faction_id == faction.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_create_unit_both_owners_fails(db_conn, test_server):
+    """Test that specifying both character and faction owner fails."""
+    # Create character
+    char = Character(
+        identifier="unit-owner", name="Unit Owner",
+        user_id=100000000000000200, channel_id=900000000000000200,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+
+    # Create faction
+    faction = Faction(
+        faction_id="test-faction", name="Test Faction",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+
+    # Create unit type
+    unit_type = UnitType(
+        type_id="infantry", name="Infantry Division",
+        nation=None, guild_id=TEST_GUILD_ID,
+        movement=2, organization=10, attack=5, defense=5,
+        siege_attack=2, siege_defense=3,
+        cost_ore=5, cost_lumber=2, cost_coal=0, cost_rations=10, cost_cloth=5,
+        upkeep_rations=2, upkeep_cloth=1
+    )
+    await unit_type.upsert(db_conn)
+
+    # Create territory
+    territory = Territory(
+        territory_id=1, terrain_type="plains",
+        guild_id=TEST_GUILD_ID
+    )
+    await territory.upsert(db_conn)
+
+    # Try to create unit with BOTH owner types
+    success, message = await create_unit(
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="unit-owner",
+        owner_faction="test-faction"
+    )
+
+    # Verify failure
+    assert success is False
+    assert "cannot specify both" in message.lower()
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_create_unit_no_owner_fails(db_conn, test_server):
+    """Test that not specifying any owner fails."""
+    # Create unit type
+    unit_type = UnitType(
+        type_id="infantry", name="Infantry Division",
+        nation=None, guild_id=TEST_GUILD_ID,
+        movement=2, organization=10, attack=5, defense=5,
+        siege_attack=2, siege_defense=3,
+        cost_ore=5, cost_lumber=2, cost_coal=0, cost_rations=10, cost_cloth=5,
+        upkeep_rations=2, upkeep_cloth=1
+    )
+    await unit_type.upsert(db_conn)
+
+    # Create territory
+    territory = Territory(
+        territory_id=1, terrain_type="plains",
+        guild_id=TEST_GUILD_ID
+    )
+    await territory.upsert(db_conn)
+
+    # Try to create unit with NO owner
+    success, message = await create_unit(
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=1,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID
+        # No owner_character or owner_faction
+    )
+
+    # Verify failure
+    assert success is False
+    assert "must specify" in message.lower()
+
+    # Cleanup
     await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -817,7 +1023,13 @@ async def test_create_unit_rollback_on_error(db_conn, test_server):
 
     # Try to create unit in nonexistent territory (should fail validation)
     success, message = await create_unit(
-        db_conn, "UNIT-001", "infantry", "unit-owner", 999, "fire-nation", TEST_GUILD_ID
+        conn=db_conn,
+        unit_id="UNIT-001",
+        unit_type="infantry",
+        territory_id=999,
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID,
+        owner_character="unit-owner"
     )
 
     # Verify failure
