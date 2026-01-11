@@ -9,6 +9,8 @@ from .alias import *
 from .territory import *
 from .faction import *
 from .faction_member import *
+from .faction_resources import *
+from .faction_permission import *
 from .faction_join_request import *
 from .alliance import *
 from .war import *

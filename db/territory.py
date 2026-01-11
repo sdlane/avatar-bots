@@ -1,7 +1,11 @@
 import asyncpg
 from dataclasses import dataclass
-from typing import Optional, List
+from typing import Optional, List, Union, TYPE_CHECKING
 import logging
+
+if TYPE_CHECKING:
+    from db.character import Character
+    from db.faction import Faction
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +24,7 @@ class Territory:
     platinum_production: int = 0
     victory_points: int = 0
     controller_character_id: Optional[int] = None
+    controller_faction_id: Optional[int] = None
     original_nation: Optional[str] = None
     guild_id: Optional[int] = None
 
@@ -32,9 +37,9 @@ class Territory:
         INSERT INTO Territory (
             territory_id, name, terrain_type, ore_production, lumber_production,
             coal_production, rations_production, cloth_production, platinum_production,
-            victory_points, controller_character_id, original_nation, guild_id
+            victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (territory_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             terrain_type = EXCLUDED.terrain_type,
@@ -46,6 +51,7 @@ class Territory:
             platinum_production = EXCLUDED.platinum_production,
             victory_points = EXCLUDED.victory_points,
             controller_character_id = EXCLUDED.controller_character_id,
+            controller_faction_id = EXCLUDED.controller_faction_id,
             original_nation = EXCLUDED.original_nation;
         """
         await conn.execute(
@@ -61,6 +67,7 @@ class Territory:
             self.platinum_production,
             self.victory_points,
             self.controller_character_id,
+            self.controller_faction_id,
             self.original_nation,
             self.guild_id
         )
@@ -73,7 +80,7 @@ class Territory:
         row = await conn.fetchrow("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
             FROM Territory
             WHERE id = $1;
         """, territory_internal_id)
@@ -87,7 +94,7 @@ class Territory:
         row = await conn.fetchrow("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
             FROM Territory
             WHERE territory_id = $1 AND guild_id = $2;
         """, territory_id, guild_id)
@@ -101,7 +108,7 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
             FROM Territory
             WHERE guild_id = $1
             ORDER BY territory_id;
@@ -116,11 +123,26 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
             FROM Territory
             WHERE controller_character_id = $1 AND guild_id = $2
             ORDER BY territory_id;
         """, character_id, guild_id)
+        return [cls(**row) for row in rows]
+
+    @classmethod
+    async def fetch_by_faction_controller(cls, conn: asyncpg.Connection, faction_id: int, guild_id: int) -> List["Territory"]:
+        """
+        Fetch all Territories controlled by a specific faction.
+        """
+        rows = await conn.fetch("""
+            SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
+                   coal_production, rations_production, cloth_production, platinum_production,
+                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
+            FROM Territory
+            WHERE controller_faction_id = $1 AND guild_id = $2
+            ORDER BY territory_id;
+        """, faction_id, guild_id)
         return [cls(**row) for row in rows]
 
     @classmethod
@@ -175,4 +197,45 @@ class Territory:
         if self.guild_id is None or self.guild_id < 0:
             return False, "guild_id must be valid"
 
+        # Ensure mutual exclusivity of controller types
+        if self.controller_character_id is not None and self.controller_faction_id is not None:
+            return False, "Territory cannot be controlled by both a character and a faction"
+
         return True, ""
+
+    def get_owner_type(self) -> Optional[str]:
+        """
+        Returns the type of owner for this territory.
+        Returns 'character', 'faction', or None if uncontrolled.
+        """
+        if self.controller_character_id is not None:
+            return 'character'
+        elif self.controller_faction_id is not None:
+            return 'faction'
+        return None
+
+    def get_owner_id(self) -> Optional[int]:
+        """
+        Returns the internal ID of the owner (character or faction).
+        Returns None if uncontrolled.
+        """
+        if self.controller_character_id is not None:
+            return self.controller_character_id
+        elif self.controller_faction_id is not None:
+            return self.controller_faction_id
+        return None
+
+    async def get_owner(self, conn: asyncpg.Connection) -> Optional[Union["Character", "Faction"]]:
+        """
+        Fetch and return the actual owner object (Character or Faction).
+        Returns None if uncontrolled.
+        """
+        # Import here to avoid circular imports
+        from db.character import Character
+        from db.faction import Faction
+
+        if self.controller_character_id is not None:
+            return await Character.fetch_by_id(conn, self.controller_character_id)
+        elif self.controller_faction_id is not None:
+            return await Faction.fetch_by_id(conn, self.controller_faction_id)
+        return None

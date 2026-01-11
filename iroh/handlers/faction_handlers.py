@@ -3,7 +3,210 @@ Faction management command handlers.
 """
 import asyncpg
 from typing import Optional, Tuple, List, Dict, Any
-from db import Faction, FactionMember, Character, Unit, WargameConfig, War, WarParticipant
+from db import (
+    Faction, FactionMember, Character, Unit, WargameConfig, War, WarParticipant,
+    FactionPermission, VALID_PERMISSION_TYPES
+)
+
+
+# ============== Permission Management Handlers ==============
+
+
+async def sync_leader_permissions(
+    conn: asyncpg.Connection,
+    faction_id: int,
+    new_leader_character_id: int,
+    old_leader_character_id: Optional[int],
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Sync permissions when faction leader changes.
+    Revokes all permissions from old leader, grants all to new leader.
+
+    Args:
+        conn: Database connection
+        faction_id: Internal faction ID
+        new_leader_character_id: Internal character ID of new leader
+        old_leader_character_id: Internal character ID of old leader (or None)
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Revoke all permissions from old leader if there was one
+    if old_leader_character_id is not None:
+        await FactionPermission.delete_all_for_character_in_faction(
+            conn, old_leader_character_id, faction_id, guild_id
+        )
+
+    # Grant all permissions to new leader
+    for perm_type in VALID_PERMISSION_TYPES:
+        permission = FactionPermission(
+            faction_id=faction_id,
+            character_id=new_leader_character_id,
+            permission_type=perm_type,
+            guild_id=guild_id
+        )
+        await permission.upsert(conn)
+
+    return True, "Leader permissions synced."
+
+
+async def grant_faction_permission(
+    conn: asyncpg.Connection,
+    faction_id: str,
+    character_identifier: str,
+    permission_type: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Grant a permission to a character for a faction.
+    Validates that the character is a faction member.
+
+    Args:
+        conn: Database connection
+        faction_id: Faction identifier (user-facing)
+        character_identifier: Character identifier
+        permission_type: One of VALID_PERMISSION_TYPES
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate permission type
+    if permission_type not in VALID_PERMISSION_TYPES:
+        return False, f"Invalid permission type '{permission_type}'. Must be one of: {', '.join(VALID_PERMISSION_TYPES)}"
+
+    # Validate faction
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found."
+
+    # Validate character
+    char = await Character.fetch_by_identifier(conn, character_identifier, guild_id)
+    if not char:
+        return False, f"Character '{character_identifier}' not found."
+
+    # Check if character is a member of the faction
+    membership = await FactionMember.fetch_by_character(conn, char.id, guild_id)
+    if not membership or membership.faction_id != faction.id:
+        return False, f"{char.name} is not a member of {faction.name}. Only faction members can hold permissions."
+
+    # Check if already has the permission
+    has_perm = await FactionPermission.has_permission(conn, faction.id, char.id, permission_type, guild_id)
+    if has_perm:
+        return False, f"{char.name} already has {permission_type} permission for {faction.name}."
+
+    # Grant permission
+    permission = FactionPermission(
+        faction_id=faction.id,
+        character_id=char.id,
+        permission_type=permission_type,
+        guild_id=guild_id
+    )
+    await permission.upsert(conn)
+
+    return True, f"Granted {permission_type} permission to {char.name} for {faction.name}."
+
+
+async def revoke_faction_permission(
+    conn: asyncpg.Connection,
+    faction_id: str,
+    character_identifier: str,
+    permission_type: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Revoke a permission from a character for a faction.
+
+    Args:
+        conn: Database connection
+        faction_id: Faction identifier (user-facing)
+        character_identifier: Character identifier
+        permission_type: One of VALID_PERMISSION_TYPES
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate permission type
+    if permission_type not in VALID_PERMISSION_TYPES:
+        return False, f"Invalid permission type '{permission_type}'. Must be one of: {', '.join(VALID_PERMISSION_TYPES)}"
+
+    # Validate faction
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found."
+
+    # Validate character
+    char = await Character.fetch_by_identifier(conn, character_identifier, guild_id)
+    if not char:
+        return False, f"Character '{character_identifier}' not found."
+
+    # Check if has the permission
+    has_perm = await FactionPermission.has_permission(conn, faction.id, char.id, permission_type, guild_id)
+    if not has_perm:
+        return False, f"{char.name} does not have {permission_type} permission for {faction.name}."
+
+    # Revoke permission
+    permission = FactionPermission(
+        faction_id=faction.id,
+        character_id=char.id,
+        permission_type=permission_type,
+        guild_id=guild_id
+    )
+    await permission.delete(conn)
+
+    return True, f"Revoked {permission_type} permission from {char.name} for {faction.name}."
+
+
+async def get_faction_permissions(
+    conn: asyncpg.Connection,
+    faction_id: str,
+    guild_id: int
+) -> Tuple[bool, str, Optional[List[Dict[str, Any]]]]:
+    """
+    Get all permissions for a faction.
+
+    Args:
+        conn: Database connection
+        faction_id: Faction identifier (user-facing)
+        guild_id: Guild ID
+
+    Returns:
+        (success, message, list of permission dicts or None)
+    """
+    # Validate faction
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found.", None
+
+    # Fetch all permissions
+    permissions = await FactionPermission.fetch_by_faction(conn, faction.id, guild_id)
+
+    if not permissions:
+        return True, f"No permissions set for {faction.name}.", []
+
+    # Build result with character names
+    result = []
+    char_cache = {}  # Cache character lookups
+
+    for perm in permissions:
+        if perm.character_id not in char_cache:
+            char = await Character.fetch_by_id(conn, perm.character_id)
+            char_cache[perm.character_id] = char
+
+        char = char_cache[perm.character_id]
+        result.append({
+            'character_identifier': char.identifier if char else 'unknown',
+            'character_name': char.name if char else 'Unknown',
+            'permission_type': perm.permission_type
+        })
+
+    return True, f"Found {len(permissions)} permission(s) for {faction.name}.", result
+
+
+# ============== Faction Management Handlers ==============
 
 
 async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, guild_id: int, leader_identifier: Optional[str] = None) -> Tuple[bool, str]:
@@ -61,6 +264,9 @@ async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, g
         )
         await faction_member.insert(conn)
 
+        # Grant all permissions to the leader
+        await sync_leader_permissions(conn, faction.id, leader_character_id, None, guild_id)
+
     if leader_identifier:
         return True, f"Faction '{name}' created successfully with leader {leader_identifier}."
     else:
@@ -113,8 +319,15 @@ async def set_faction_leader(conn: asyncpg.Connection, faction_id: str, leader_i
     if not faction:
         return False, f"Faction '{faction_id}' not found."
 
+    old_leader_id = faction.leader_character_id
+
     # Handle removing leader
     if leader_identifier.lower() == 'none':
+        # Revoke permissions from old leader
+        if old_leader_id is not None:
+            await FactionPermission.delete_all_for_character_in_faction(
+                conn, old_leader_id, faction.id, guild_id
+            )
         faction.leader_character_id = None
         await faction.upsert(conn)
         return True, f"Removed leader from faction '{faction.name}'."
@@ -132,6 +345,9 @@ async def set_faction_leader(conn: asyncpg.Connection, faction_id: str, leader_i
     # Update leader
     faction.leader_character_id = leader_char.id
     await faction.upsert(conn)
+
+    # Sync permissions: revoke from old leader, grant to new leader
+    await sync_leader_permissions(conn, faction.id, leader_char.id, old_leader_id, guild_id)
 
     return True, f"{leader_char.name} is now the leader of {faction.name}."
 
@@ -212,6 +428,11 @@ async def remove_faction_member(conn: asyncpg.Connection, character_identifier: 
     # Check if character is the leader
     if faction.leader_character_id == char.id:
         return False, f"{char.name} is the leader of {faction.name}. Assign a new leader first using `/set-faction-leader`."
+
+    # Revoke all permissions for this character in this faction
+    await FactionPermission.delete_all_for_character_in_faction(
+        conn, char.id, faction.id, guild_id
+    )
 
     # Remove member
     await FactionMember.delete(conn, char.id, guild_id)

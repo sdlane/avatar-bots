@@ -199,13 +199,19 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS victory_points INTEGER DEFAULT 0;")
 
-    # Remove old controller_faction_id column if it exists
-    await conn.execute("ALTER TABLE Territory DROP COLUMN IF EXISTS controller_faction_id;")
+    # Add controller_faction_id for faction ownership of territories
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS controller_faction_id INTEGER;")
 
     # Add index for controller_character_id
     await conn.execute("""
     CREATE INDEX IF NOT EXISTS idx_territory_controller
     ON Territory(controller_character_id, guild_id);
+    """)
+
+    # Add index for controller_faction_id
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_territory_faction_controller
+    ON Territory(controller_faction_id, guild_id);
     """)
 
     # --- Faction table ---
@@ -243,6 +249,54 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE FactionMember ADD COLUMN IF NOT EXISTS character_id INTEGER;")
     await conn.execute("ALTER TABLE FactionMember ADD COLUMN IF NOT EXISTS joined_turn INTEGER;")
     await conn.execute("ALTER TABLE FactionMember ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- FactionResources table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS FactionResources (
+        id SERIAL PRIMARY KEY,
+        faction_id INTEGER NOT NULL REFERENCES Faction(id) ON DELETE CASCADE,
+        ore INTEGER DEFAULT 0,
+        lumber INTEGER DEFAULT 0,
+        coal INTEGER DEFAULT 0,
+        rations INTEGER DEFAULT 0,
+        cloth INTEGER DEFAULT 0,
+        platinum INTEGER DEFAULT 0,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(faction_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE FactionResources ADD COLUMN IF NOT EXISTS faction_id INTEGER;")
+    await conn.execute("ALTER TABLE FactionResources ADD COLUMN IF NOT EXISTS ore INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE FactionResources ADD COLUMN IF NOT EXISTS lumber INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE FactionResources ADD COLUMN IF NOT EXISTS coal INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE FactionResources ADD COLUMN IF NOT EXISTS rations INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE FactionResources ADD COLUMN IF NOT EXISTS cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE FactionResources ADD COLUMN IF NOT EXISTS platinum INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE FactionResources ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- FactionPermission table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS FactionPermission (
+        id SERIAL PRIMARY KEY,
+        faction_id INTEGER NOT NULL REFERENCES Faction(id) ON DELETE CASCADE,
+        character_id INTEGER NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
+        permission_type VARCHAR(20) NOT NULL,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(faction_id, character_id, permission_type, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE FactionPermission ADD COLUMN IF NOT EXISTS faction_id INTEGER;")
+    await conn.execute("ALTER TABLE FactionPermission ADD COLUMN IF NOT EXISTS character_id INTEGER;")
+    await conn.execute("ALTER TABLE FactionPermission ADD COLUMN IF NOT EXISTS permission_type VARCHAR(20);")
+    await conn.execute("ALTER TABLE FactionPermission ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create index for FactionPermission lookups
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_faction_permission_lookup
+        ON FactionPermission(faction_id, permission_type, guild_id);
+    """)
 
     # --- Unit table ---
     await conn.execute("""
@@ -305,6 +359,15 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS keywords TEXT[];")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'ACTIVE';")
+
+    # Add owner_faction_id for faction ownership of units
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS owner_faction_id INTEGER;")
+
+    # Create index for faction-owned units
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_unit_owner_faction
+        ON Unit(owner_faction_id, guild_id);
+    """)
 
     # --- UnitType table ---
     await conn.execute("""
@@ -668,6 +731,54 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE ScheduledTurn ADD COLUMN IF NOT EXISTS scheduled_time TIMESTAMP;")
     await conn.execute("ALTER TABLE ScheduledTurn ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'SCHEDULED';")
     await conn.execute("ALTER TABLE ScheduledTurn ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # --- Add foreign key constraints for faction ownership ---
+    # FK for Territory.controller_faction_id -> Faction.id (ON DELETE SET NULL)
+    await conn.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'territory_controller_faction_id_fkey'
+        ) THEN
+            ALTER TABLE Territory
+            ADD CONSTRAINT territory_controller_faction_id_fkey
+            FOREIGN KEY (controller_faction_id) REFERENCES Faction(id) ON DELETE SET NULL;
+        END IF;
+    END$$;
+    """)
+
+    # FK for Unit.owner_faction_id -> Faction.id (ON DELETE CASCADE)
+    await conn.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'unit_owner_faction_id_fkey'
+        ) THEN
+            ALTER TABLE Unit
+            ADD CONSTRAINT unit_owner_faction_id_fkey
+            FOREIGN KEY (owner_faction_id) REFERENCES Faction(id) ON DELETE CASCADE;
+        END IF;
+    END$$;
+    """)
+
+    # --- Migrate existing faction leaders to have all permissions ---
+    VALID_PERMISSION_TYPES = ["COMMAND", "FINANCIAL", "MEMBERSHIP", "CONSTRUCTION"]
+    factions = await conn.fetch("""
+        SELECT id, leader_character_id, guild_id
+        FROM Faction
+        WHERE leader_character_id IS NOT NULL
+    """)
+    for faction in factions:
+        for perm_type in VALID_PERMISSION_TYPES:
+            await conn.execute("""
+                INSERT INTO FactionPermission (faction_id, character_id, permission_type, guild_id)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT DO NOTHING;
+            """, faction['id'], faction['leader_character_id'], perm_type, faction['guild_id'])
+    if factions:
+        logger.info(f"Migrated permissions for {len(factions)} faction leaders")
 
     logger.info("Schema verified and updated successfully.")
     await conn.close()
