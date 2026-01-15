@@ -426,6 +426,17 @@ STEPS:
 
     EXPECTED: Error message
 
+3.6.4 Try removing the character again:
+    /remove-faction-member character:test-member
+
+    EXPECTED: Error message
+
+3.6.5 Try removing the faction leader:
+    /set-faction-leader faction_id:fire-nation leader:test-leader
+    /remove-faction-member character:test-leader
+
+    EXPECTED: Error message
+
 
 --------------------------------------------------------------------------------
 TEST 3.7: /delete-faction
