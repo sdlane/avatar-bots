@@ -881,19 +881,17 @@ async def create_territory_cmd(interaction: discord.Interaction, territory_id: i
 @app_commands.checks.has_permissions(manage_guild=True)
 async def edit_territory_cmd(interaction: discord.Interaction, territory_id: int):
     async with db_pool.acquire() as conn:
-        # Fetch territory for modal
-        success, message, territory = await handlers.edit_territory(
-            conn, territory_id, interaction.guild_id
-        )
+        # Fetch territory for modal (don't edit it yet)
+        territory = await Territory.fetch_by_territory_id(conn, territory_id, interaction.guild_id)
 
-        if not success:
+        if not territory:
             await interaction.response.send_message(
-                emotive_message(message),
+                emotive_message(f"Territory {territory_id} not found."),
                 ephemeral=True
             )
             return
 
-        # Show modal
+        # Show modal with existing values pre-populated
         modal = EditTerritoryModal(territory, db_pool)
         await interaction.response.send_modal(modal)
 

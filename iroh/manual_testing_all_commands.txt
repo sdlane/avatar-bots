@@ -1,0 +1,1496 @@
+================================================================================
+IROH BOT - COMPLETE MANUAL TESTING GUIDE
+================================================================================
+
+This guide covers manual testing for ALL Discord commands in the Iroh bot.
+Commands are organized by category and include dependencies, expected results,
+and error case testing.
+
+--------------------------------------------------------------------------------
+PREREQUISITES
+--------------------------------------------------------------------------------
+
+Before testing, ensure you have:
+1. A Discord server with the Iroh bot added
+2. Admin permissions (manage_guild) on that server
+3. At least one character created (via Hawky bot)
+4. A second character for multi-character tests (optional but recommended)
+5. The database migration has been run (init_db.py)
+
+Note: [Admin] commands require manage_guild permission.
+Note: Player commands may require a character linked to your Discord account.
+
+================================================================================
+SECTION 1: INITIAL SETUP COMMANDS
+================================================================================
+
+These commands help set up the testing environment.
+
+--------------------------------------------------------------------------------
+TEST 1.1: /advice
+--------------------------------------------------------------------------------
+PURPOSE: Fun command that returns Uncle Iroh wisdom
+
+STEPS:
+1.1.1 Run the command:
+    /advice
+
+    EXPECTED: A random piece of wisdom from Uncle Iroh
+
+1.1.2 Run multiple times:
+    /advice
+    /advice
+    /advice
+
+    EXPECTED: Different quotes each time (may occasionally repeat)
+
+
+--------------------------------------------------------------------------------
+TEST 1.2: /create-test-config
+--------------------------------------------------------------------------------
+PURPOSE: Create a preconfigured test environment
+
+STEPS:
+1.2.1 Clear any existing data first:
+    /clear-wargame-config
+
+    EXPECTED: Success message about clearing data
+
+1.2.2 Create test configuration:
+    /create-test-config
+
+    EXPECTED: Success message listing created entities (factions, territories, units, etc.)
+
+
+--------------------------------------------------------------------------------
+TEST 1.3: /clear-wargame-config
+--------------------------------------------------------------------------------
+PURPOSE: Clear all wargame data
+
+STEPS:
+1.3.1 After creating test config, clear it:
+    /clear-wargame-config
+
+    EXPECTED: Success message about clearing data
+
+1.3.2 Try listing data after clear:
+    /list-factions
+
+    EXPECTED: Message indicating no factions exist
+
+
+================================================================================
+SECTION 2: TERRITORY MANAGEMENT (Admin)
+================================================================================
+
+Setup:
+Run /clear-wargame-config
+
+--------------------------------------------------------------------------------
+TEST 2.1: /create-territory
+--------------------------------------------------------------------------------
+PURPOSE: Create new territories
+
+STEPS:
+2.1.1 Create a basic territory:
+    /create-territory territory_id:1 terrain_type:plains name:Central Plains
+
+    EXPECTED: Success message
+
+2.1.2 Create additional territories for adjacency testing:
+    /create-territory territory_id:2 terrain_type:mountain name:Northern Mountains
+    /create-territory territory_id:3 terrain_type:desert name:Eastern Desert
+    /create-territory territory_id:4 terrain_type:ocean name:Western Sea
+    /create-territory territory_id:5 terrain_type:lake name:Sacred Lake
+
+    EXPECTED: Success messages for each
+
+2.1.3 Try creating territory with duplicate ID:
+    /create-territory territory_id:1 terrain_type:plains name:Duplicate
+
+    EXPECTED: Error about territory already existing
+
+2.1.4 Try invalid terrain type:
+    /create-territory territory_id:99 terrain_type:invalid name:Test
+
+    EXPECTED: Error about invalid terrain type
+
+
+--------------------------------------------------------------------------------
+TEST 2.2: /view-territory
+--------------------------------------------------------------------------------
+PURPOSE: View territory details (Player accessible)
+
+STEPS:
+2.2.1 View existing territory:
+    /view-territory territory_id:1
+
+    EXPECTED: Embed showing territory details including:
+    - Territory ID
+    - Name
+    - Terrain type
+    - Controller (should be uncontrolled initially)
+    - Production values
+    - Adjacent territories
+
+2.2.2 View nonexistent territory:
+    /view-territory territory_id:999
+
+    EXPECTED: Error about territory not found
+
+
+--------------------------------------------------------------------------------
+TEST 2.3: /add-adjacency
+--------------------------------------------------------------------------------
+PURPOSE: Connect territories
+
+STEPS:
+2.3.1 Add adjacency between territories:
+    /add-adjacency territory_id_1:1 territory_id_2:2
+    /add-adjacency territory_id_1:1 territory_id_2:3
+    /add-adjacency territory_id_1:2 territory_id_2:3
+
+    EXPECTED: Success messages
+
+2.3.2 Verify adjacencies:
+    /view-territory territory_id:1
+
+    EXPECTED: Should show territories 2 and 3 as adjacent
+
+2.3.3 Try adding duplicate adjacency:
+    /add-adjacency territory_id_1:1 territory_id_2:2
+    /add-adjacency territory_id_1:2 territory_id_2:1
+    EXPECTED: Error message in both cases stating the territories are already adjacent
+2.3.4 Try adding adjacency with nonexistent territory:
+    /add-adjacency territory_id_1:1 territory_id_2:999
+
+    EXPECTED: Error about territory not found
+
+
+--------------------------------------------------------------------------------
+TEST 2.4: /remove-adjacency
+--------------------------------------------------------------------------------
+PURPOSE: Remove territory connections
+
+STEPS:
+2.4.1 Remove an existing adjacency:
+    /remove-adjacency territory_id_1:2 territory_id_2:3
+
+    EXPECTED: Success message
+
+2.4.2 Verify removal:
+    /view-territory territory_id:2
+
+    EXPECTED: Territory 3 should no longer be listed as adjacent
+
+2.4.3 Try removing nonexistent territory adjacency:
+    /remove-adjacency territory_id_1:1 territory_id_2:999
+
+    EXPECTED: Error message
+
+2.4.4 Try removing nonexistent adjacency:
+    /remove-adjacency territory_id_1:2 territory_id_2:3
+
+    EXPECTED: Error message
+
+
+
+--------------------------------------------------------------------------------
+TEST 2.5: /edit-territory
+--------------------------------------------------------------------------------
+PURPOSE: Edit territory properties via modal
+
+STEPS:
+2.5.1 Open edit modal:
+    /edit-territory territory_id:1
+
+    EXPECTED: Modal appears with fields pre-populated with current territory values:
+    - Name field shows current name (or empty if none)
+    - Original Nation field shows current value (or empty if none)
+    - Production field shows 6 comma-separated values: ore,lumber,coal,rations,cloth,platinum
+
+2.5.2 Verify existing values are preserved:
+    - Note the current production values displayed in the modal
+    - Click Cancel or close without submitting
+    - Run /view-territory territory_id:1 to confirm values are unchanged
+
+    EXPECTED: Territory values should be unchanged (modal opening doesn't modify data)
+
+2.5.3 Edit values in the modal:
+    - Change name to "Central Plains - Capital"
+    - Set production to "10,5,0,0,0,0" (ore=10, lumber=5, others=0)
+    - Submit
+
+    EXPECTED: Success message with updated values
+
+2.5.4 Verify changes:
+    /view-territory territory_id:1
+
+    EXPECTED: Should show updated name and production values
+
+2.5.5 Test platinum production:
+    /edit-territory territory_id:1
+    - Set production to "10,5,0,0,0,3" (adding platinum=3)
+    - Submit
+
+    EXPECTED: Success message; /view-territory should show platinum_production=3
+
+
+--------------------------------------------------------------------------------
+TEST 2.6: /list-territories
+--------------------------------------------------------------------------------
+PURPOSE: List all territories
+
+STEPS:
+2.6.1 List all territories:
+    /list-territories
+
+    EXPECTED: Embed showing all territories with:
+    - Territory ID
+    - Name
+    - Terrain type
+    - Controller
+
+
+--------------------------------------------------------------------------------
+TEST 2.7: /delete-territory
+--------------------------------------------------------------------------------
+PURPOSE: Delete a territory
+
+STEPS:
+2.7.1 Delete a territory:
+    /delete-territory territory_id:5
+
+    EXPECTED: Success message
+
+2.7.2 Verify deletion:
+    /view-territory territory_id:5
+
+    EXPECTED: Error about territory not found
+
+2.7.3 Try deleting nonexistent territory:
+    /delete-territory territory_id:999
+
+    EXPECTED: Error message
+
+
+================================================================================
+SECTION 3: FACTION MANAGEMENT (Admin)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 3.1: /create-faction
+--------------------------------------------------------------------------------
+PURPOSE: Create new factions
+
+PREREQUISITE: Have a character created via Hawky (e.g., "test-leader")
+
+STEPS:
+3.1.1 Create a faction with a leader:
+    /create-faction faction_id:fire-nation name:Fire Nation leader:test-leader
+
+    EXPECTED: Success message
+
+3.1.2 Create a faction without a leader:
+    /create-faction faction_id:earth-kingdom name:Earth Kingdom
+
+    EXPECTED: Success message
+
+3.1.3 Try creating duplicate faction:
+    /create-faction faction_id:fire-nation name:Duplicate
+
+    EXPECTED: Error about faction already existing
+
+3.1.4 Try creating faction with invalid leader:
+    /create-faction faction_id:test-faction name:Test leader:nonexistent-char
+
+    EXPECTED: Error about character not found
+
+
+--------------------------------------------------------------------------------
+TEST 3.2: /view-faction
+--------------------------------------------------------------------------------
+PURPOSE: View faction details
+
+STEPS:
+3.2.1 View as admin:
+    /view-faction faction_id:fire-nation
+
+    EXPECTED: Full embed with:
+    - Faction name and ID
+    - Leader name
+    - Member list
+
+3.2.2 View nonexistent faction:
+    /view-faction faction_id:nonexistent
+
+    EXPECTED: Error about faction not found
+
+Note: Non-admin users see limited information
+
+
+--------------------------------------------------------------------------------
+TEST 3.3: /list-factions
+--------------------------------------------------------------------------------
+PURPOSE: List all factions
+
+STEPS:
+3.3.1 List factions:
+    /list-factions
+
+    EXPECTED: Embed showing all factions with:
+    - Faction ID
+    - Name
+    - Member count
+
+
+--------------------------------------------------------------------------------
+TEST 3.4: /add-faction-member
+--------------------------------------------------------------------------------
+PURPOSE: Add members to a faction
+
+PREREQUISITE: Create another character via Hawky (e.g., "test-member")
+
+STEPS:
+3.4.1 Add a member:
+    /add-faction-member faction_id:fire-nation character:test-member
+
+    EXPECTED: Success message
+
+3.4.2 Verify:
+    /view-faction faction_id:fire-nation
+
+    EXPECTED: test-member should appear in member list
+
+3.4.3 Try adding to nonexistent faction:
+    /add-faction-member faction_id:nonexistent character:test-member
+
+    EXPECTED: Error about faction not found
+
+3.4.4 Try adding nonexistent character:
+    /add-faction-member faction_id:fire-nation character:nonexistent
+
+    EXPECTED: Error about character not found
+
+3.4.5 Try adding character already in a faction:
+    /add-faction-member faction_id:earth-kingdom character:test-member
+
+    EXPECTED: Error about character already in a faction
+
+
+--------------------------------------------------------------------------------
+TEST 3.5: /set-faction-leader
+--------------------------------------------------------------------------------
+PURPOSE: Change faction leadership
+
+STEPS:
+3.5.1 Change leader:
+    /set-faction-leader faction_id:fire-nation leader:test-member
+
+    EXPECTED: Success message
+
+3.5.2 Verify change:
+    /view-faction faction_id:fire-nation
+
+    EXPECTED: test-member should now be leader
+
+3.5.3 Remove leader:
+    /set-faction-leader faction_id:fire-nation leader:none
+
+    EXPECTED: Success message
+
+3.5.4 Try setting nonexistent character as leader:
+    /set-faction-leader faction_id:fire-nation leader:nonexistent
+
+    EXPECTED: Error about character not found
+
+
+--------------------------------------------------------------------------------
+TEST 3.6: /remove-faction-member
+--------------------------------------------------------------------------------
+PURPOSE: Remove members from a faction
+
+STEPS:
+3.6.1 Remove a member:
+    /remove-faction-member character:test-member
+
+    EXPECTED: Success message
+
+3.6.2 Verify:
+    /view-faction faction_id:fire-nation
+
+    EXPECTED: test-member should not appear in member list
+
+3.6.3 Try removing nonexistent character:
+    /remove-faction-member character:nonexistent
+
+    EXPECTED: Error message
+
+
+--------------------------------------------------------------------------------
+TEST 3.7: /delete-faction
+--------------------------------------------------------------------------------
+PURPOSE: Delete a faction
+
+STEPS:
+3.7.1 Delete a faction:
+    /delete-faction faction_id:earth-kingdom
+
+    EXPECTED: Success message
+
+3.7.2 Verify:
+    /view-faction faction_id:earth-kingdom
+
+    EXPECTED: Error about faction not found
+
+
+================================================================================
+SECTION 4: UNIT TYPE MANAGEMENT (Admin)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 4.1: /create-unit-type
+--------------------------------------------------------------------------------
+PURPOSE: Create unit types via modal
+
+STEPS:
+4.1.1 Create a nation-agnostic unit type:
+    /create-unit-type type_id:infantry name:Infantry
+
+    EXPECTED: Modal appears for entering stats
+
+4.1.2 In the modal:
+    - Set movement: 2
+    - Set organization: 10
+    - Set attack: 5
+    - Set defense: 5
+    - Set siege values as desired
+    - Set upkeep values as desired
+    - Submit
+
+    EXPECTED: Success message
+
+4.1.3 Create a nation-specific unit type:
+    /create-unit-type type_id:cavalry name:Fire Nation Cavalry nation:fire_nation
+
+    EXPECTED: Modal appears, fill in and submit
+
+4.1.4 Try creating duplicate:
+    /create-unit-type type_id:infantry name:Duplicate
+
+    EXPECTED: Error about unit type already existing
+
+
+--------------------------------------------------------------------------------
+TEST 4.2: /view-unit-type
+--------------------------------------------------------------------------------
+PURPOSE: View unit type details
+
+STEPS:
+4.2.1 View nation-agnostic type:
+    /view-unit-type type_id:infantry
+
+    EXPECTED: Embed showing unit type stats
+
+4.2.2 View nation-specific type:
+    /view-unit-type type_id:cavalry nation:fire_nation
+
+    EXPECTED: Embed showing stats including nation
+
+4.2.3 View nonexistent:
+    /view-unit-type type_id:nonexistent
+
+    EXPECTED: Error about unit type not found
+
+
+--------------------------------------------------------------------------------
+TEST 4.3: /list-unit-types
+--------------------------------------------------------------------------------
+PURPOSE: List all unit types
+
+STEPS:
+4.3.1 List unit types:
+    /list-unit-types
+
+    EXPECTED: Embed showing all unit types with:
+    - Type ID
+    - Name
+    - Nation (if applicable)
+
+
+--------------------------------------------------------------------------------
+TEST 4.4: /edit-unit-type
+--------------------------------------------------------------------------------
+PURPOSE: Edit unit type properties
+
+STEPS:
+4.4.1 Edit a unit type:
+    /edit-unit-type type_id:infantry
+
+    EXPECTED: Modal with current values
+
+4.4.2 Make changes and submit
+
+    EXPECTED: Success message
+
+4.4.3 Verify:
+    /view-unit-type type_id:infantry
+
+    EXPECTED: Updated values shown
+
+
+--------------------------------------------------------------------------------
+TEST 4.5: /delete-unit-type
+--------------------------------------------------------------------------------
+PURPOSE: Delete a unit type
+
+STEPS:
+4.5.1 Delete:
+    /delete-unit-type type_id:cavalry nation:fire_nation
+
+    EXPECTED: Success message
+
+4.5.2 Verify:
+    /view-unit-type type_id:cavalry nation:fire_nation
+
+    EXPECTED: Error about unit type not found
+
+
+================================================================================
+SECTION 5: UNIT MANAGEMENT (Admin)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 5.1: /create-unit
+--------------------------------------------------------------------------------
+PURPOSE: Create units with character or faction ownership
+
+PREREQUISITES:
+- At least one unit type exists
+- At least one territory exists
+- Character or faction exists to own unit
+
+STEPS:
+5.1.1 Create character-owned unit:
+    /create-unit unit_id:FN-001 unit_type:infantry territory_id:1 nation:fire_nation owner:test-leader
+
+    EXPECTED: Success message
+
+5.1.2 Create faction-owned unit:
+    /create-unit unit_id:FN-002 unit_type:infantry territory_id:1 nation:fire_nation owner_faction:fire-nation
+
+    EXPECTED: Success message
+
+5.1.3 Try both owner and owner_faction:
+    /create-unit unit_id:FAIL-001 unit_type:infantry territory_id:1 nation:fire_nation owner:test-leader owner_faction:fire-nation
+
+    EXPECTED: Error about mutual exclusivity
+
+5.1.4 Try no owner specified:
+    /create-unit unit_id:FAIL-002 unit_type:infantry territory_id:1 nation:fire_nation
+
+    EXPECTED: Error about must specify owner
+
+5.1.5 Try duplicate unit ID:
+    /create-unit unit_id:FN-001 unit_type:infantry territory_id:1 nation:fire_nation owner:test-leader
+
+    EXPECTED: Error about unit already existing
+
+
+--------------------------------------------------------------------------------
+TEST 5.2: /view-unit
+--------------------------------------------------------------------------------
+PURPOSE: View unit details
+
+STEPS:
+5.2.1 View existing unit:
+    /view-unit unit_id:FN-001
+
+    EXPECTED: Embed showing:
+    - Unit ID and name
+    - Type
+    - Owner
+    - Commander
+    - Location
+    - Stats (for admin)
+
+5.2.2 View nonexistent:
+    /view-unit unit_id:NONEXISTENT
+
+    EXPECTED: Error about unit not found
+
+
+--------------------------------------------------------------------------------
+TEST 5.3: /list-units
+--------------------------------------------------------------------------------
+PURPOSE: List all units
+
+STEPS:
+5.3.1 List units:
+    /list-units
+
+    EXPECTED: Embed showing all units with:
+    - Unit ID
+    - Type/Name
+    - Faction
+    - Location
+    - Owner
+
+
+--------------------------------------------------------------------------------
+TEST 5.4: /set-unit-commander
+--------------------------------------------------------------------------------
+PURPOSE: Assign commanders to units
+
+STEPS:
+5.4.1 Assign commander:
+    /set-unit-commander unit_id:FN-001 commander:test-leader
+
+    EXPECTED: Success message
+
+5.4.2 Verify:
+    /view-unit unit_id:FN-001
+
+    EXPECTED: Commander field shows test-leader
+
+5.4.3 Remove commander:
+    /set-unit-commander unit_id:FN-001 commander:none
+
+    EXPECTED: Success message
+
+5.4.4 Try nonexistent unit:
+    /set-unit-commander unit_id:NONEXISTENT commander:test-leader
+
+    EXPECTED: Error message
+
+
+--------------------------------------------------------------------------------
+TEST 5.5: /set-unit-status
+--------------------------------------------------------------------------------
+PURPOSE: Change unit active/disbanded status
+
+STEPS:
+5.5.1 Disband a unit:
+    /set-unit-status unit_id:FN-001 status:DISBANDED
+
+    EXPECTED: Success message
+
+5.5.2 Verify:
+    /view-unit unit_id:FN-001
+
+    EXPECTED: Status shows DISBANDED
+
+5.5.3 Reactivate:
+    /set-unit-status unit_id:FN-001 status:ACTIVE
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 5.6: /delete-unit
+--------------------------------------------------------------------------------
+PURPOSE: Delete units
+
+STEPS:
+5.6.1 Delete:
+    /delete-unit unit_id:FN-002
+
+    EXPECTED: Success message
+
+5.6.2 Verify:
+    /view-unit unit_id:FN-002
+
+    EXPECTED: Error about unit not found
+
+
+================================================================================
+SECTION 6: RESOURCE MANAGEMENT (Admin)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 6.1: /modify-resources
+--------------------------------------------------------------------------------
+PURPOSE: Modify character resources via modal
+
+STEPS:
+6.1.1 Open modal:
+    /modify-resources character:test-leader
+
+    EXPECTED: Modal showing current resource values
+
+6.1.2 Modify values and submit
+
+    EXPECTED: Success message with changes
+
+6.1.3 Try nonexistent character:
+    /modify-resources character:nonexistent
+
+    EXPECTED: Error message
+
+
+--------------------------------------------------------------------------------
+TEST 6.2: /modify-character-production
+--------------------------------------------------------------------------------
+PURPOSE: Modify character's production values
+
+STEPS:
+6.2.1 Open modal:
+    /modify-character-production character:test-leader
+
+    EXPECTED: Modal showing production values
+
+6.2.2 Modify and submit
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 6.3: /modify-character-vp
+--------------------------------------------------------------------------------
+PURPOSE: Modify character's victory points
+
+STEPS:
+6.3.1 Open modal:
+    /modify-character-vp character:test-leader
+
+    EXPECTED: Modal for VP modification
+
+6.3.2 Modify and submit
+
+    EXPECTED: Success message
+
+
+================================================================================
+SECTION 7: PLAYER VIEW COMMANDS
+================================================================================
+
+Note: These require a character linked to your Discord account
+
+--------------------------------------------------------------------------------
+TEST 7.1: /my-resources
+--------------------------------------------------------------------------------
+PURPOSE: View your character's resources
+
+STEPS:
+7.1.1 View resources:
+    /my-resources
+
+    EXPECTED: Ephemeral embed showing your resource inventory
+
+7.1.2 If no character:
+    EXPECTED: Error about not having a character
+
+
+--------------------------------------------------------------------------------
+TEST 7.2: /my-faction
+--------------------------------------------------------------------------------
+PURPOSE: View your faction membership
+
+STEPS:
+7.2.1 If in a faction:
+    /my-faction
+
+    EXPECTED: Embed showing your faction details
+
+7.2.2 If not in a faction:
+    EXPECTED: Error message
+
+
+--------------------------------------------------------------------------------
+TEST 7.3: /my-units
+--------------------------------------------------------------------------------
+PURPOSE: View units you own or command
+
+STEPS:
+7.3.1 View units:
+    /my-units
+
+    EXPECTED: Embed with:
+    - Owned units section
+    - Commanded units section
+    - Disbanded units section
+
+
+--------------------------------------------------------------------------------
+TEST 7.4: /my-units-list
+--------------------------------------------------------------------------------
+PURPOSE: Get simple list of unit IDs
+
+STEPS:
+7.4.1 Get list:
+    /my-units-list
+
+    EXPECTED: Simple text message with comma-separated unit IDs
+
+
+--------------------------------------------------------------------------------
+TEST 7.5: /my-territories
+--------------------------------------------------------------------------------
+PURPOSE: View territories you control
+
+STEPS:
+7.5.1 View territories:
+    /my-territories
+
+    EXPECTED: Embed with controlled territories
+
+
+--------------------------------------------------------------------------------
+TEST 7.6: /my-territories-list
+--------------------------------------------------------------------------------
+PURPOSE: Get simple list of territory IDs
+
+STEPS:
+7.6.1 Get list:
+    /my-territories-list
+
+    EXPECTED: Simple text with territory IDs
+
+
+--------------------------------------------------------------------------------
+TEST 7.7: /my-victory-points
+--------------------------------------------------------------------------------
+PURPOSE: View your victory points
+
+STEPS:
+7.7.1 View VPs:
+    /my-victory-points
+
+    EXPECTED: Embed showing personal and faction VP totals
+
+
+--------------------------------------------------------------------------------
+TEST 7.8: /my-orders
+--------------------------------------------------------------------------------
+PURPOSE: View your pending and ongoing orders
+
+STEPS:
+7.8.1 View orders:
+    /my-orders
+
+    EXPECTED: Embed showing pending and ongoing orders
+
+
+================================================================================
+SECTION 8: ORDER COMMANDS (Player)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 8.1: /order-transit
+--------------------------------------------------------------------------------
+PURPOSE: Submit unit movement orders
+
+PREREQUISITES:
+- Unit with commander (your character)
+- Valid path through adjacent territories
+
+STEPS:
+8.1.1 Submit transit order:
+    /order-transit unit_ids:FN-001 path:1,2
+
+    EXPECTED: Success message about order submitted
+
+8.1.2 Verify:
+    /my-orders
+
+    EXPECTED: Transit order should appear
+
+8.1.3 Try invalid path (non-adjacent):
+    /order-transit unit_ids:FN-001 path:1,3,4
+
+    EXPECTED: Error about path not being valid
+
+8.1.4 Try with unit you don't command:
+    EXPECTED: Error about authorization
+
+
+--------------------------------------------------------------------------------
+TEST 8.2: /order-assign-commander
+--------------------------------------------------------------------------------
+PURPOSE: Assign new commander to your unit
+
+STEPS:
+8.2.1 Submit order:
+    /order-assign-commander unit_id:FN-001 new_commander:test-member
+
+    EXPECTED: Success message (or confirmation dialog if faction mismatch)
+
+8.2.2 Verify:
+    /my-orders
+
+    EXPECTED: Assign commander order should appear
+
+
+--------------------------------------------------------------------------------
+TEST 8.3: /order-resource-transfer
+--------------------------------------------------------------------------------
+PURPOSE: Submit one-time resource transfer
+
+STEPS:
+8.3.1 Submit transfer:
+    /order-resource-transfer recipient:test-member ore:10 lumber:5
+
+    EXPECTED: Success message
+
+8.3.2 Try with no resources:
+    /order-resource-transfer recipient:test-member
+
+    EXPECTED: Error about must transfer at least one resource
+
+
+--------------------------------------------------------------------------------
+TEST 8.4: /order-ongoing-transfer
+--------------------------------------------------------------------------------
+PURPOSE: Submit recurring resource transfer
+
+STEPS:
+8.4.1 Submit with term:
+    /order-ongoing-transfer recipient:test-member ore:5 term:5
+
+    EXPECTED: Success message
+
+8.4.2 Submit indefinite:
+    /order-ongoing-transfer recipient:test-member lumber:3
+
+    EXPECTED: Success message
+
+8.4.3 Try term < 2:
+    /order-ongoing-transfer recipient:test-member ore:5 term:1
+
+    EXPECTED: Error about term must be at least 2
+
+
+--------------------------------------------------------------------------------
+TEST 8.5: /order-cancel-transfer
+--------------------------------------------------------------------------------
+PURPOSE: Cancel ongoing transfers
+
+STEPS:
+8.5.1 Get order ID from /my-orders
+8.5.2 Cancel transfer:
+    /order-cancel-transfer order_id:ORD-XXXX
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 8.6: /cancel-order
+--------------------------------------------------------------------------------
+PURPOSE: Cancel pending orders
+
+STEPS:
+8.6.1 Get order ID from /my-orders
+8.6.2 Cancel:
+    /cancel-order order_id:ORD-XXXX
+
+    EXPECTED: Success message
+
+8.6.3 Try cancelling ongoing order:
+    EXPECTED: Error (use /order-cancel-transfer for ongoing transfers)
+
+
+--------------------------------------------------------------------------------
+TEST 8.7: /order-join-faction
+--------------------------------------------------------------------------------
+PURPOSE: Request to join a faction
+
+PREREQUISITE: Character not in a faction
+
+STEPS:
+8.7.1 Submit join request:
+    /order-join-faction faction_id:fire-nation
+
+    EXPECTED: Success message about order submitted
+
+
+--------------------------------------------------------------------------------
+TEST 8.8: /order-leave-faction
+--------------------------------------------------------------------------------
+PURPOSE: Leave your current faction
+
+PREREQUISITE: Character is in a faction (not leader)
+
+STEPS:
+8.8.1 Submit leave order:
+    /order-leave-faction
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 8.9: /order-kick-from-faction
+--------------------------------------------------------------------------------
+PURPOSE: Kick a member from faction (faction leader only)
+
+PREREQUISITE: You are faction leader
+
+STEPS:
+8.9.1 Submit kick order:
+    /order-kick-from-faction target_character:test-member
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 8.10: /order-assign-vp
+--------------------------------------------------------------------------------
+PURPOSE: Assign your VPs to a faction
+
+STEPS:
+8.10.1 Submit assignment:
+    /order-assign-vp faction_id:fire-nation
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 8.11: /order-make-alliance
+--------------------------------------------------------------------------------
+PURPOSE: Propose alliance (faction leader only)
+
+STEPS:
+8.11.1 Submit alliance order:
+    /order-make-alliance target_faction_id:earth-kingdom
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 8.12: /order-declare-war
+--------------------------------------------------------------------------------
+PURPOSE: Declare war (faction leader only)
+
+STEPS:
+8.12.1 Submit declaration:
+    /order-declare-war target_faction_ids:earth-kingdom objective:Conquest of the Earth Kingdom
+
+    EXPECTED: Success message
+
+
+================================================================================
+SECTION 9: TURN MANAGEMENT (Admin)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 9.1: /turn-status
+--------------------------------------------------------------------------------
+PURPOSE: View current turn status
+
+STEPS:
+9.1.1 View status:
+    /turn-status
+
+    EXPECTED: Embed showing:
+    - Current turn number
+    - Pending orders summary
+    - Other turn state
+
+
+--------------------------------------------------------------------------------
+TEST 9.2: /set-gm-reports-channel
+--------------------------------------------------------------------------------
+PURPOSE: Set channel for GM reports
+
+STEPS:
+9.2.1 Set channel:
+    /set-gm-reports-channel channel:#gm-reports
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 9.3: /resolve-turn
+--------------------------------------------------------------------------------
+PURPOSE: Execute turn resolution
+
+STEPS:
+9.3.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Success message
+    - GM report sent to configured channel
+    - Character reports sent to their channels
+
+9.3.2 Verify turn number incremented:
+    /turn-status
+
+    EXPECTED: Turn number should be +1
+
+
+--------------------------------------------------------------------------------
+TEST 9.4: /turn-report (Player)
+--------------------------------------------------------------------------------
+PURPOSE: View your character's turn report
+
+STEPS:
+9.4.1 View latest:
+    /turn-report
+
+    EXPECTED: Embed with events from latest turn
+
+9.4.2 View specific turn:
+    /turn-report turn_number:0
+
+    EXPECTED: Embed with events from turn 0
+
+
+--------------------------------------------------------------------------------
+TEST 9.5: /gm-turn-report (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: View GM turn report
+
+STEPS:
+9.5.1 View latest:
+    /gm-turn-report
+
+    EXPECTED: Embed with all events from latest turn
+
+9.5.2 View specific turn:
+    /gm-turn-report turn_number:0
+
+    EXPECTED: Embed with events from turn 0
+
+
+--------------------------------------------------------------------------------
+TEST 9.6: /edit-wargame-config
+--------------------------------------------------------------------------------
+PURPOSE: Edit wargame configuration
+
+STEPS:
+9.6.1 Open modal:
+    /edit-wargame-config
+
+    EXPECTED: Modal with current config values
+
+9.6.2 Modify and submit
+
+    EXPECTED: Success message
+
+
+================================================================================
+SECTION 10: ALLIANCE MANAGEMENT
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 10.1: /view-alliances
+--------------------------------------------------------------------------------
+PURPOSE: View all alliances
+
+STEPS:
+10.1.1 View alliances:
+    /view-alliances
+
+    EXPECTED: Embed showing alliances with:
+    - Participating factions
+    - Status (ACTIVE or PENDING)
+
+
+--------------------------------------------------------------------------------
+TEST 10.2: /add-alliance (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Create an active alliance
+
+PREREQUISITE: Two factions exist
+
+STEPS:
+10.2.1 Create alliance:
+    /add-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom
+
+    EXPECTED: Success message
+
+10.2.2 Verify:
+    /view-alliances
+
+    EXPECTED: New alliance should appear
+
+
+--------------------------------------------------------------------------------
+TEST 10.3: /edit-alliance (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Edit alliance status
+
+STEPS:
+10.3.1 Edit status:
+    /edit-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom status:PENDING_FACTION_A
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 10.4: /delete-alliance (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Delete an alliance
+
+STEPS:
+10.4.1 Delete:
+    /delete-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom
+
+    EXPECTED: Success message
+
+
+================================================================================
+SECTION 11: WAR MANAGEMENT
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 11.1: /view-wars
+--------------------------------------------------------------------------------
+PURPOSE: View all wars
+
+STEPS:
+11.1.1 View wars:
+    /view-wars
+
+    EXPECTED: Embed showing wars with:
+    - War ID
+    - Objective
+    - Sides (participating factions)
+    - Declared turn
+
+
+--------------------------------------------------------------------------------
+TEST 11.2: /edit-war (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Edit war objective
+
+PREREQUISITE: A war exists (created via /order-declare-war and turn resolution)
+
+STEPS:
+11.2.1 Edit objective:
+    /edit-war war_id:WAR-0001 objective:New objective text
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 11.3: /add-war-participant (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Add faction to a war
+
+STEPS:
+11.3.1 Add to Side A:
+    /add-war-participant war_id:WAR-0001 faction_id:earth-kingdom side:SIDE_A
+
+    EXPECTED: Success message
+
+11.3.2 Add to Side B:
+    /add-war-participant war_id:WAR-0001 faction_id:water-tribe side:SIDE_B
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 11.4: /remove-war-participant (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Remove faction from war
+
+STEPS:
+11.4.1 Remove:
+    /remove-war-participant war_id:WAR-0001 faction_id:earth-kingdom
+
+    EXPECTED: Success message
+
+
+--------------------------------------------------------------------------------
+TEST 11.5: /delete-war (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Delete a war entirely
+
+STEPS:
+11.5.1 Delete:
+    /delete-war war_id:WAR-0001
+
+    EXPECTED: Success message
+
+
+================================================================================
+SECTION 12: VICTORY POINTS (Admin)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 12.1: /view-victory-points (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: View faction victory points
+
+STEPS:
+12.1.1 View for a faction:
+    /view-victory-points faction_id:fire-nation
+
+    EXPECTED: Embed showing:
+    - Faction total VPs
+    - Individual member VPs
+    - Assigned VPs
+
+
+================================================================================
+SECTION 13: SET TERRITORY CONTROLLER
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 13.1: /set-territory-controller (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Assign territory control to character or faction
+
+STEPS:
+13.1.1 Assign to character:
+    /set-territory-controller territory_id:1 character:test-leader
+
+    EXPECTED: Success message
+
+13.1.2 Verify:
+    /view-territory territory_id:1
+
+    EXPECTED: Controller should show test-leader
+
+13.1.3 Assign to faction:
+    /set-territory-controller territory_id:1 faction:fire-nation
+
+    EXPECTED: Success message
+
+13.1.4 Remove controller:
+    /set-territory-controller territory_id:1 character:none
+
+    EXPECTED: Success message
+
+13.1.5 Try both character and faction:
+    /set-territory-controller territory_id:1 character:test-leader faction:fire-nation
+
+    EXPECTED: Error about mutual exclusivity
+
+
+================================================================================
+CLEANUP
+================================================================================
+
+After testing, clean up all test data:
+
+/delete-unit unit_id:FN-001
+/delete-unit-type type_id:infantry
+/delete-territory territory_id:1
+/delete-territory territory_id:2
+/delete-territory territory_id:3
+/delete-territory territory_id:4
+/delete-faction faction_id:fire-nation
+/clear-wargame-config
+
+
+================================================================================
+TESTING CHECKLIST
+================================================================================
+
+Copy this checklist and mark items as you complete testing:
+
+[ ] Section 1: Initial Setup
+    [ ] /advice
+    [ ] /create-test-config
+    [ ] /clear-wargame-config
+
+[ ] Section 2: Territory Management
+    [ ] /create-territory
+    [ ] /view-territory
+    [ ] /add-adjacency
+    [ ] /remove-adjacency
+    [ ] /edit-territory
+    [ ] /list-territories
+    [ ] /delete-territory
+
+[ ] Section 3: Faction Management
+    [ ] /create-faction
+    [ ] /view-faction
+    [ ] /list-factions
+    [ ] /add-faction-member
+    [ ] /set-faction-leader
+    [ ] /remove-faction-member
+    [ ] /delete-faction
+
+[ ] Section 4: Unit Type Management
+    [ ] /create-unit-type
+    [ ] /view-unit-type
+    [ ] /list-unit-types
+    [ ] /edit-unit-type
+    [ ] /delete-unit-type
+
+[ ] Section 5: Unit Management
+    [ ] /create-unit (character owner)
+    [ ] /create-unit (faction owner)
+    [ ] /view-unit
+    [ ] /list-units
+    [ ] /set-unit-commander
+    [ ] /set-unit-status
+    [ ] /delete-unit
+
+[ ] Section 6: Resource Management
+    [ ] /modify-resources
+    [ ] /modify-character-production
+    [ ] /modify-character-vp
+    [ ] /view-faction-resources
+    [ ] /modify-faction-resources
+
+[ ] Section 7: Player View Commands
+    [ ] /my-resources
+    [ ] /my-faction
+    [ ] /my-units
+    [ ] /my-units-list
+    [ ] /my-territories
+    [ ] /my-territories-list
+    [ ] /my-victory-points
+    [ ] /my-orders
+
+[ ] Section 8: Order Commands
+    [ ] /order-transit
+    [ ] /order-assign-commander
+    [ ] /order-resource-transfer
+    [ ] /order-ongoing-transfer
+    [ ] /order-cancel-transfer
+    [ ] /cancel-order
+    [ ] /order-join-faction
+    [ ] /order-leave-faction
+    [ ] /order-kick-from-faction
+    [ ] /order-assign-vp
+    [ ] /order-make-alliance
+    [ ] /order-declare-war
+
+[ ] Section 9: Turn Management
+    [ ] /turn-status
+    [ ] /set-gm-reports-channel
+    [ ] /resolve-turn
+    [ ] /turn-report
+    [ ] /gm-turn-report
+    [ ] /edit-wargame-config
+
+[ ] Section 10: Alliance Management
+    [ ] /view-alliances
+    [ ] /add-alliance
+    [ ] /edit-alliance
+    [ ] /delete-alliance
+
+[ ] Section 11: War Management
+    [ ] /view-wars
+    [ ] /edit-war
+    [ ] /add-war-participant
+    [ ] /remove-war-participant
+    [ ] /delete-war
+
+[ ] Section 12: Victory Points
+    [ ] /view-victory-points (admin)
+
+[ ] Section 13: Territory Controller
+    [ ] /set-territory-controller (character)
+    [ ] /set-territory-controller (faction)
+
+[ ] Faction Ownership System (see manual_testing_faction_ownership.txt)
+    [ ] All faction ownership tests
+
+================================================================================
+NOTES
+================================================================================
+
+1. Commands marked [Admin] require manage_guild permission
+2. Player commands require a character linked to your Discord account
+3. Some tests depend on data created in previous tests
+4. Modal-based commands require manual interaction with the Discord UI
+5. Order commands require turn resolution (/resolve-turn) to take effect
+6. Check the log output for additional debugging information
+
+================================================================================

@@ -1,0 +1,365 @@
+================================================================================
+FACTION OWNERSHIP SYSTEM - MANUAL TESTING GUIDE
+================================================================================
+
+This guide covers manual testing for the new Discord commands added as part of
+the faction ownership system implementation.
+
+--------------------------------------------------------------------------------
+PREREQUISITES
+--------------------------------------------------------------------------------
+
+Before testing, ensure you have:
+1. A Discord server with the Iroh bot
+2. Admin permissions (manage_guild) on that server
+3. At least one character created (via Hawky)
+4. The database migration has been run (init_db.py)
+
+--------------------------------------------------------------------------------
+TEST SETUP
+--------------------------------------------------------------------------------
+
+Create test data using existing commands:
+
+1. Create a test character (if not already done via Hawky):
+   - Use Hawky to create a character, e.g., "test-leader"
+
+2. Create a test faction:
+   /create-faction faction_id:test-faction name:Test Faction leader:test-leader
+
+3. Create another character and add as member:
+   - Create "test-member" via Hawky
+   /add-faction-member faction_id:test-faction character:test-member
+
+4. Create a territory:
+   /create-territory territory_id:100 terrain_type:plains name:Test Territory
+
+5. Create a unit type:
+   /create-unit-type type_id:test-infantry name:Test Infantry movement:2 organization:10 attack:5 defense:5 siege_attack:2 siege_defense:3
+
+================================================================================
+TEST 1: /set-territory-controller (Faction Controller)
+================================================================================
+
+PURPOSE: Verify territories can be controlled by factions
+
+STEPS:
+
+1.1 Set territory controller to a faction:
+    /set-territory-controller territory_id:100 faction:test-faction
+
+    EXPECTED: Success message indicating territory is now controlled by faction
+
+1.2 Verify the change:
+    /view-territory territory_id:100
+
+    EXPECTED: Should show "test-faction" as controller
+
+1.3 Set territory controller to a character (verify old behavior still works):
+    /set-territory-controller territory_id:100 character:test-leader
+
+    EXPECTED: Success message indicating territory is now controlled by character
+
+1.4 Test mutual exclusivity (should fail):
+    /set-territory-controller territory_id:100 character:test-leader faction:test-faction
+
+    EXPECTED: Error message about mutual exclusivity
+
+1.5 Remove controller:
+    /set-territory-controller territory_id:100 character:none
+
+    EXPECTED: Success message indicating territory is now uncontrolled
+
+
+================================================================================
+TEST 2: /create-unit (Faction Ownership)
+================================================================================
+
+PURPOSE: Verify units can be created with faction ownership
+
+STEPS:
+
+2.1 Create a faction-owned unit:
+    /create-unit unit_id:FACTION-001 unit_type:test-infantry territory_id:100 nation:test-nation owner_faction:test-faction
+
+    EXPECTED: Success message mentioning faction ownership
+
+2.2 Verify the unit:
+    /view-unit unit_id:FACTION-001
+
+    EXPECTED: Should show faction as owner (not a character)
+
+2.3 Create a character-owned unit (verify old behavior):
+    /create-unit unit_id:CHAR-001 unit_type:test-infantry territory_id:100 nation:test-nation owner:test-leader
+
+    EXPECTED: Success message for character-owned unit
+
+2.4 Test mutual exclusivity - both owner and owner_faction (should fail):
+    /create-unit unit_id:FAIL-001 unit_type:test-infantry territory_id:100 nation:test-nation owner:test-leader owner_faction:test-faction
+
+    EXPECTED: Error about cannot specify both
+
+2.5 Test no owner specified (should fail):
+    /create-unit unit_id:FAIL-002 unit_type:test-infantry territory_id:100 nation:test-nation
+
+    EXPECTED: Error about must specify owner
+
+
+================================================================================
+TEST 3: /view-faction-resources
+================================================================================
+
+PURPOSE: Verify faction resource viewing works
+
+STEPS:
+
+3.1 View resources for a faction (initially zero):
+    /view-faction-resources faction_id:test-faction
+
+    EXPECTED: Display showing all resources (ore, lumber, coal, rations, cloth, platinum) - likely all zeros
+
+3.2 Test nonexistent faction:
+    /view-faction-resources faction_id:nonexistent-faction
+
+    EXPECTED: Error message about faction not found
+
+
+================================================================================
+TEST 4: /modify-faction-resources
+================================================================================
+
+PURPOSE: Verify faction resources can be modified by GMs
+
+STEPS:
+
+4.1 Add resources to faction:
+    /modify-faction-resources faction_id:test-faction ore:100 lumber:50 rations:25
+
+    EXPECTED: Success message showing resource changes
+
+4.2 Verify the changes:
+    /view-faction-resources faction_id:test-faction
+
+    EXPECTED: Should show ore:100, lumber:50, rations:25
+
+4.3 Reduce resources:
+    /modify-faction-resources faction_id:test-faction ore:-50
+
+    EXPECTED: Success message showing ore reduced
+
+4.4 Try to reduce below zero (should fail):
+    /modify-faction-resources faction_id:test-faction ore:-1000
+
+    EXPECTED: Error about cannot reduce below 0
+
+4.5 Test nonexistent faction:
+    /modify-faction-resources faction_id:nonexistent ore:10
+
+    EXPECTED: Error message about faction not found
+
+
+================================================================================
+TEST 5: /grant-faction-permission
+================================================================================
+
+PURPOSE: Verify permissions can be granted to faction members
+
+STEPS:
+
+5.1 Grant COMMAND permission to a member:
+    /grant-faction-permission faction_id:test-faction character:test-member permission_type:COMMAND
+
+    EXPECTED: Success message about permission granted
+
+5.2 Grant FINANCIAL permission:
+    /grant-faction-permission faction_id:test-faction character:test-member permission_type:FINANCIAL
+
+    EXPECTED: Success message about permission granted
+
+5.3 Try to grant to non-member (should fail):
+    - First create a character not in the faction via Hawky: "outsider"
+    /grant-faction-permission faction_id:test-faction character:outsider permission_type:COMMAND
+
+    EXPECTED: Error about character not being a member
+
+5.4 Try invalid permission type:
+    /grant-faction-permission faction_id:test-faction character:test-member permission_type:INVALID
+
+    EXPECTED: Error about invalid permission type
+
+5.5 Valid permission types to test:
+    - COMMAND
+    - FINANCIAL
+    - MEMBERSHIP
+    - CONSTRUCTION
+
+
+================================================================================
+TEST 6: /view-faction-permissions
+================================================================================
+
+PURPOSE: Verify faction permissions can be viewed
+
+STEPS:
+
+6.1 View permissions after granting some:
+    /view-faction-permissions faction_id:test-faction
+
+    EXPECTED: List showing:
+    - test-leader with all 4 permissions (auto-granted as leader)
+    - test-member with COMMAND and FINANCIAL (granted in Test 5)
+
+6.2 Test nonexistent faction:
+    /view-faction-permissions faction_id:nonexistent
+
+    EXPECTED: Error message about faction not found
+
+
+================================================================================
+TEST 7: /revoke-faction-permission
+================================================================================
+
+PURPOSE: Verify permissions can be revoked
+
+STEPS:
+
+7.1 Revoke a permission:
+    /revoke-faction-permission faction_id:test-faction character:test-member permission_type:COMMAND
+
+    EXPECTED: Success message about permission revoked
+
+7.2 Verify the change:
+    /view-faction-permissions faction_id:test-faction
+
+    EXPECTED: test-member should only have FINANCIAL now
+
+7.3 Try to revoke non-existent permission:
+    /revoke-faction-permission faction_id:test-faction character:test-member permission_type:COMMAND
+
+    EXPECTED: Error or message indicating permission doesn't exist
+
+
+================================================================================
+TEST 8: PERMISSION SYNC ON LEADER CHANGE
+================================================================================
+
+PURPOSE: Verify permissions transfer when faction leader changes
+
+STEPS:
+
+8.1 Check current leader permissions:
+    /view-faction-permissions faction_id:test-faction
+
+    EXPECTED: test-leader should have all 4 permissions
+
+8.2 Change faction leader:
+    /set-faction-leader faction_id:test-faction leader:test-member
+
+    EXPECTED: Success message
+
+8.3 Verify permission transfer:
+    /view-faction-permissions faction_id:test-faction
+
+    EXPECTED:
+    - test-member should now have all 4 permissions
+    - test-leader should have lost all permissions (or only have manually granted ones)
+
+
+================================================================================
+TEST 9: PERMISSION REVOKE ON MEMBER REMOVAL
+================================================================================
+
+PURPOSE: Verify permissions are revoked when member leaves faction
+
+STEPS:
+
+9.1 Grant permission to a member:
+    /add-faction-member faction_id:test-faction character:test-leader
+    /grant-faction-permission faction_id:test-faction character:test-leader permission_type:COMMAND
+
+9.2 Verify permission exists:
+    /view-faction-permissions faction_id:test-faction
+
+9.3 Remove member from faction:
+    /remove-faction-member character:test-leader
+
+9.4 Add them back and check permissions are gone:
+    /add-faction-member faction_id:test-faction character:test-leader
+    /view-faction-permissions faction_id:test-faction
+
+    EXPECTED: test-leader should NOT have COMMAND permission anymore
+
+
+================================================================================
+TEST 10: INTEGRATION - FACTION TERRITORY PRODUCTION
+================================================================================
+
+PURPOSE: Verify faction-owned territories produce resources for the faction
+
+STEPS:
+
+10.1 Set up faction-controlled territory with production:
+    /set-territory-controller territory_id:100 faction:test-faction
+    /edit-territory territory_id:100 ore:10 lumber:5
+
+10.2 Check faction resources before turn:
+    /view-faction-resources faction_id:test-faction
+
+    EXPECTED: Note current values
+
+10.3 Resolve a turn:
+    /resolve-turn
+
+10.4 Check faction resources after turn:
+    /view-faction-resources faction_id:test-faction
+
+    EXPECTED: Resources should have increased by territory production amounts
+
+
+================================================================================
+TEST 11: INTEGRATION - FACTION UNIT UPKEEP
+================================================================================
+
+PURPOSE: Verify faction-owned units consume faction resources for upkeep
+
+STEPS:
+
+11.1 Ensure faction has resources:
+    /modify-faction-resources faction_id:test-faction rations:100 cloth:50
+
+11.2 Check resources before turn:
+    /view-faction-resources faction_id:test-faction
+
+11.3 Resolve a turn (faction unit should consume upkeep):
+    /resolve-turn
+
+11.4 Check resources after turn:
+    /view-faction-resources faction_id:test-faction
+
+    EXPECTED: Resources should have decreased by unit upkeep amounts
+
+
+================================================================================
+CLEANUP
+================================================================================
+
+After testing, clean up test data:
+
+/delete-unit unit_id:FACTION-001
+/delete-unit unit_id:CHAR-001
+/delete-territory territory_id:100
+/delete-faction faction_id:test-faction
+/delete-unit-type type_id:test-infantry
+
+================================================================================
+NOTES
+================================================================================
+
+- All commands tested require admin permissions (manage_guild)
+- The faction leader automatically receives all 4 permission types
+- Permissions are: COMMAND, FINANCIAL, MEMBERSHIP, CONSTRUCTION
+- CONSTRUCTION permission is reserved for future building features
+- Units can only have ONE owner type (character OR faction, not both)
+- Territories can only have ONE controller type (character OR faction, not both)
+
+================================================================================

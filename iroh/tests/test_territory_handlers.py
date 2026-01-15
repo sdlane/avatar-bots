@@ -5,7 +5,6 @@ import pytest
 import asyncpg
 from handlers.territory_handlers import (
     create_territory,
-    edit_territory,
     delete_territory,
     set_territory_controller,
     add_adjacency,
@@ -83,59 +82,6 @@ async def test_create_territory_valid_terrain_types(db_conn, test_server):
 
         territory = await Territory.fetch_by_territory_id(db_conn, 200 + i, TEST_GUILD_ID)
         assert territory.terrain_type == terrain
-
-
-@pytest.mark.asyncio
-async def test_edit_territory_success(db_conn, test_server):
-    """Test editing territory name and production values."""
-    # Create territory
-    territory = Territory(
-        territory_id=300, terrain_type="plains", guild_id=TEST_GUILD_ID
-    )
-    await territory.upsert(db_conn)
-
-    # Edit territory
-    success, message, updated_territory = await edit_territory(
-        db_conn, 300, TEST_GUILD_ID,
-        name="New Name", ore=5, lumber=3
-    )
-
-    assert success is True
-    assert updated_territory is not None
-    assert updated_territory.name == "New Name"
-    assert updated_territory.ore_production == 5
-    assert updated_territory.lumber_production == 3
-
-
-@pytest.mark.asyncio
-async def test_edit_territory_partial_update(db_conn, test_server):
-    """Test editing only some fields."""
-    # Create territory with values
-    territory = Territory(
-        territory_id=301, terrain_type="plains", guild_id=TEST_GUILD_ID,
-        name="Original Name", ore_production=10
-    )
-    await territory.upsert(db_conn)
-
-    # Edit only name
-    success, message, updated_territory = await edit_territory(
-        db_conn, 301, TEST_GUILD_ID, name="New Name"
-    )
-
-    assert success is True
-    assert updated_territory.name == "New Name"
-    assert updated_territory.ore_production == 0  # Reset to 0 by default
-
-
-@pytest.mark.asyncio
-async def test_edit_territory_nonexistent(db_conn, test_server):
-    """Test editing non-existent territory."""
-    success, message, territory = await edit_territory(
-        db_conn, 999, TEST_GUILD_ID, name="Test"
-    )
-
-    assert success is False
-    assert territory is None
 
 
 @pytest.mark.asyncio
@@ -324,7 +270,7 @@ async def test_add_adjacency_self(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_add_adjacency_duplicate(db_conn, test_server):
-    """Test adding adjacency that already exists."""
+    """Test adding adjacency that already exists returns an error."""
     # Create territories
     territory1 = Territory(
         territory_id=603, terrain_type="plains", guild_id=TEST_GUILD_ID
@@ -336,21 +282,19 @@ async def test_add_adjacency_duplicate(db_conn, test_server):
     )
     await territory2.upsert(db_conn)
 
-    # Add adjacency directly to trigger duplicate key error
-    adjacency = TerritoryAdjacency(
-        territory_a_id=603, territory_b_id=604, guild_id=TEST_GUILD_ID
+    # Add adjacency first time - should succeed
+    success, message = await add_adjacency(
+        db_conn, 603, 604, TEST_GUILD_ID
     )
-    await adjacency.upsert(db_conn)
+    assert success is True
 
-    # Try to add via handler (which uses upsert internally)
-    # The handler catches duplicate key errors and returns False
+    # Try to add the same adjacency again - should fail
     success, message = await add_adjacency(
         db_conn, 603, 604, TEST_GUILD_ID
     )
 
-    # Handler uses upsert which succeeds on duplicates
-    # So this test verifies the handler completes without error
-    assert success is True
+    assert success is False
+    assert "already adjacent" in message
 
 
 @pytest.mark.asyncio
@@ -463,8 +407,10 @@ async def test_territory_guild_isolation(db_conn, test_server_multi_guild):
     territory_a_check = await Territory.fetch_by_territory_id(db_conn, 1, TEST_GUILD_ID)
     assert territory_a_check.controller_character_id == character_a.id
 
-    # Edit territory in guild A
-    await edit_territory(db_conn, 1, TEST_GUILD_ID, name="Modified Name", lumber=7)
+    # Edit territory in guild A directly via model
+    territory_a_check.name = "Modified Name"
+    territory_a_check.lumber_production = 7
+    await territory_a_check.upsert(db_conn)
 
     # Verify guild B's territory still unchanged
     territory_b_check = await Territory.fetch_by_territory_id(db_conn, 1, TEST_GUILD_ID_2)

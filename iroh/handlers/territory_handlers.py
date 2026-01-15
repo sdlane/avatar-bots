@@ -40,34 +40,6 @@ async def create_territory(conn: asyncpg.Connection, territory_id: int, terrain_
     else:
         return True, f"Territory {territory_id} created successfully."
 
-
-async def edit_territory(conn: asyncpg.Connection, territory_id: int, guild_id: int,
-                        name: Optional[str] = None, original_nation: Optional[str] = None,
-                        ore: int = 0, lumber: int = 0, coal: int = 0, rations: int = 0, cloth: int = 0) -> Tuple[bool, str, Optional[Territory]]:
-    """
-    Edit territory properties.
-
-    Returns:
-        (success, message, territory) - territory is returned for modal display
-    """
-    territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
-    if not territory:
-        return False, f"Territory {territory_id} not found.", None
-
-    # Update fields
-    territory.name = name if name else None
-    territory.original_nation = original_nation if original_nation else None
-    territory.ore_production = ore
-    territory.lumber_production = lumber
-    territory.coal_production = coal
-    territory.rations_production = rations
-    territory.cloth_production = cloth
-
-    await territory.upsert(conn)
-
-    return True, f"Territory {territory_id} updated successfully.", territory
-
-
 async def delete_territory(conn: asyncpg.Connection, territory_id: int, guild_id: int) -> Tuple[bool, str]:
     """Delete a territory."""
     territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
@@ -165,6 +137,11 @@ async def add_adjacency(conn: asyncpg.Connection, territory_id_1: int, territory
     if not territory2:
         return False, f"Territory {territory_id_2} not found."
 
+    # Check if adjacency already exists
+    already_adjacent = await TerritoryAdjacency.are_adjacent(conn, territory_id_1, territory_id_2, guild_id)
+    if already_adjacent:
+        return False, f"Territories {territory_id_1} and {territory_id_2} are already adjacent."
+
     # Create adjacency
     adjacency = TerritoryAdjacency(
         territory_a_id=min(territory_id_1, territory_id_2),
@@ -172,14 +149,8 @@ async def add_adjacency(conn: asyncpg.Connection, territory_id_1: int, territory
         guild_id=guild_id
     )
 
-    try:
-        await adjacency.upsert(conn)
-        return True, f"Territories {territory_id_1} and {territory_id_2} are now adjacent."
-    except Exception as e:
-        if "duplicate key" in str(e).lower():
-            return False, f"Territories {territory_id_1} and {territory_id_2} are already adjacent."
-        else:
-            raise
+    await adjacency.upsert(conn)
+    return True, f"Territories {territory_id_1} and {territory_id_2} are now adjacent."
 
 
 async def remove_adjacency(conn: asyncpg.Connection, territory_id_1: int, territory_id_2: int, guild_id: int) -> Tuple[bool, str]:

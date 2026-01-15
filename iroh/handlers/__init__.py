@@ -31,7 +31,6 @@ from .faction_handlers import (
 
 from .territory_handlers import (
     create_territory,
-    edit_territory,
     delete_territory,
     set_territory_controller,
     add_adjacency,
@@ -123,7 +122,6 @@ __all__ = [
     'delete_war',
     # Territory handlers
     'create_territory',
-    'edit_territory',
     'delete_territory',
     'set_territory_controller',
     'add_adjacency',

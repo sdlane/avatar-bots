@@ -38,10 +38,10 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
         self.add_item(self.original_nation_input)
 
         # Production fields (as comma-separated values)
-        production_str = f"{territory.ore_production},{territory.lumber_production},{territory.coal_production},{territory.rations_production},{territory.cloth_production}"
+        production_str = f"{territory.ore_production},{territory.lumber_production},{territory.coal_production},{territory.rations_production},{territory.cloth_production},{territory.platinum_production}"
         self.production_input = discord.ui.TextInput(
-            label="Production (ore,lumber,coal,rations,cloth)",
-            placeholder="e.g., 5,3,2,8,4",
+            label="Production (ore,lum,coal,rat,cloth,plat)",
+            placeholder="e.g., 5,3,2,8,4,0",
             default=production_str,
             required=True,
             max_length=50
@@ -56,14 +56,14 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
         # Parse production values
         try:
             production_parts = [int(x.strip()) for x in self.production_input.value.split(',')]
-            if len(production_parts) != 5:
+            if len(production_parts) != 6:
                 await interaction.response.send_message(
-                    emotive_message("Production must have exactly 5 values (ore, lumber, coal, rations, cloth)."),
+                    emotive_message("Production must have exactly 6 values (ore, lumber, coal, rations, cloth, platinum)."),
                     ephemeral=True
                 )
                 return
 
-            ore, lumber, coal, rations, cloth = production_parts
+            ore, lumber, coal, rations, cloth, platinum = production_parts
 
             if any(x < 0 for x in production_parts):
                 await interaction.response.send_message(
@@ -87,6 +87,7 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
         self.territory.coal_production = coal
         self.territory.rations_production = rations
         self.territory.cloth_production = cloth
+        self.territory.platinum_production = platinum
 
         # Save to database
         async with self.db_pool.acquire() as conn:
