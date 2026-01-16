@@ -104,13 +104,27 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
 class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
     """Modal for editing unit type properties."""
 
-    def __init__(self, unit_type: Optional[UnitType] = None, type_id: str = None, name: str = None, nation: str = None, db_pool = None):
+    def __init__(self, unit_type: Optional[UnitType] = None, type_id: str = None, name: str = None, db_pool = None):
         super().__init__()
         self.unit_type = unit_type
         self.type_id = type_id
         self.name_value = name
-        self.nation = nation
         self.db_pool = db_pool
+
+        # Nation field (optional)
+        if unit_type:
+            nation_str = unit_type.nation or ""
+        else:
+            nation_str = ""
+
+        self.nation_input = discord.ui.TextInput(
+            label="Nation (leave empty for any nation)",
+            placeholder="e.g., fire_nation",
+            default=nation_str,
+            required=False,
+            max_length=50
+        )
+        self.add_item(self.nation_input)
 
         # Stats field (movement,org,atk,def,siege_atk,siege_def,size,capacity)
         if unit_type:
@@ -127,30 +141,30 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
         )
         self.add_item(self.stats_input)
 
-        # Cost field (ore,lumber,coal,rations,cloth)
+        # Cost field (ore,lumber,coal,rations,cloth,platinum)
         if unit_type:
-            cost_str = f"{unit_type.cost_ore},{unit_type.cost_lumber},{unit_type.cost_coal},{unit_type.cost_rations},{unit_type.cost_cloth}"
+            cost_str = f"{unit_type.cost_ore},{unit_type.cost_lumber},{unit_type.cost_coal},{unit_type.cost_rations},{unit_type.cost_cloth},{unit_type.cost_platinum}"
         else:
-            cost_str = "5,2,0,10,5"
+            cost_str = "5,2,0,10,5,0"
 
         self.cost_input = discord.ui.TextInput(
-            label="Cost (ore,lumber,coal,rations,cloth)",
-            placeholder="e.g., 5,2,0,10,5",
+            label="Cost (ore,lum,coal,rat,cloth,plat)",
+            placeholder="e.g., 5,2,0,10,5,0",
             default=cost_str,
             required=True,
             max_length=50
         )
         self.add_item(self.cost_input)
 
-        # Upkeep field (ore,lumber,coal,rations,cloth)
+        # Upkeep field (ore,lumber,coal,rations,cloth,platinum)
         if unit_type:
-            upkeep_str = f"{unit_type.upkeep_ore},{unit_type.upkeep_lumber},{unit_type.upkeep_coal},{unit_type.upkeep_rations},{unit_type.upkeep_cloth}"
+            upkeep_str = f"{unit_type.upkeep_ore},{unit_type.upkeep_lumber},{unit_type.upkeep_coal},{unit_type.upkeep_rations},{unit_type.upkeep_cloth},{unit_type.upkeep_platinum}"
         else:
-            upkeep_str = "0,0,0,2,1"
+            upkeep_str = "0,0,0,2,1,0"
 
         self.upkeep_input = discord.ui.TextInput(
-            label="Upkeep (ore,lumber,coal,rations,cloth)",
-            placeholder="e.g., 0,0,0,2,1",
+            label="Upkeep (ore,lum,coal,rat,cloth,plat)",
+            placeholder="e.g., 0,0,0,2,1,0",
             default=upkeep_str,
             required=True,
             max_length=50
@@ -205,14 +219,14 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
         # Parse cost
         try:
             cost_parts = [int(x.strip()) for x in self.cost_input.value.split(',')]
-            if len(cost_parts) != 5:
+            if len(cost_parts) != 6:
                 await interaction.response.send_message(
-                    emotive_message("Cost must have exactly 5 values (ore, lumber, coal, rations, cloth)."),
+                    emotive_message("Cost must have exactly 6 values (ore, lumber, coal, rations, cloth, platinum)."),
                     ephemeral=True
                 )
                 return
 
-            cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth = cost_parts
+            cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum = cost_parts
 
             if any(x < 0 for x in cost_parts):
                 await interaction.response.send_message(
@@ -231,14 +245,14 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
         # Parse upkeep
         try:
             upkeep_parts = [int(x.strip()) for x in self.upkeep_input.value.split(',')]
-            if len(upkeep_parts) != 5:
+            if len(upkeep_parts) != 6:
                 await interaction.response.send_message(
-                    emotive_message("Upkeep must have exactly 5 values (ore, lumber, coal, rations, cloth)."),
+                    emotive_message("Upkeep must have exactly 6 values (ore, lumber, coal, rations, cloth, platinum)."),
                     ephemeral=True
                 )
                 return
 
-            upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth = upkeep_parts
+            upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum = upkeep_parts
 
             if any(x < 0 for x in upkeep_parts):
                 await interaction.response.send_message(
@@ -264,9 +278,13 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             return
         is_naval = naval_str == 'yes'
 
+        # Get nation from input (empty string becomes None)
+        nation = self.nation_input.value.strip() if self.nation_input.value.strip() else None
+
         # Update or create unit type
         if self.unit_type:
             # Update existing
+            self.unit_type.nation = nation
             self.unit_type.movement = movement
             self.unit_type.organization = organization
             self.unit_type.attack = attack
@@ -280,18 +298,20 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             self.unit_type.cost_coal = cost_coal
             self.unit_type.cost_rations = cost_rations
             self.unit_type.cost_cloth = cost_cloth
+            self.unit_type.cost_platinum = cost_platinum
             self.unit_type.upkeep_ore = upkeep_ore
             self.unit_type.upkeep_lumber = upkeep_lumber
             self.unit_type.upkeep_coal = upkeep_coal
             self.unit_type.upkeep_rations = upkeep_rations
             self.unit_type.upkeep_cloth = upkeep_cloth
+            self.unit_type.upkeep_platinum = upkeep_platinum
             self.unit_type.is_naval = is_naval
 
             # Save to database
             async with self.db_pool.acquire() as conn:
                 await self.unit_type.upsert(conn)
 
-            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit type '{self.unit_type.type_id}' (nation: {self.unit_type.nation}) via modal in guild {interaction.guild_id}")
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit type '{self.unit_type.type_id}' (nation: {nation}) via modal in guild {interaction.guild_id}")
 
             await interaction.response.send_message(
                 emotive_message(f"Unit type '{self.unit_type.name}' updated successfully."),
@@ -302,7 +322,7 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             unit_type = UnitType(
                 type_id=self.type_id,
                 name=self.name_value,
-                nation=self.nation,
+                nation=nation,
                 movement=movement,
                 organization=organization,
                 attack=attack,
@@ -316,11 +336,13 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
                 cost_coal=cost_coal,
                 cost_rations=cost_rations,
                 cost_cloth=cost_cloth,
+                cost_platinum=cost_platinum,
                 upkeep_ore=upkeep_ore,
                 upkeep_lumber=upkeep_lumber,
                 upkeep_coal=upkeep_coal,
                 upkeep_rations=upkeep_rations,
                 upkeep_cloth=upkeep_cloth,
+                upkeep_platinum=upkeep_platinum,
                 is_naval=is_naval,
                 keywords=[],
                 guild_id=interaction.guild_id
@@ -330,7 +352,7 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
             async with self.db_pool.acquire() as conn:
                 await unit_type.upsert(conn)
 
-            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created unit type '{self.type_id}' (name: {self.name_value}, nation: {self.nation}) via modal in guild {interaction.guild_id}")
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created unit type '{self.type_id}' (name: {self.name_value}, nation: {nation}) via modal in guild {interaction.guild_id}")
 
             await interaction.response.send_message(
                 emotive_message(f"Unit type '{self.name_value}' created successfully."),

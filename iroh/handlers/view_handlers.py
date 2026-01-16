@@ -122,7 +122,7 @@ async def view_unit(conn: asyncpg.Connection, unit_id: str, guild_id: int, show_
     }
 
 
-async def view_unit_type(conn: asyncpg.Connection, type_id: str, nation: Optional[str], guild_id: int) -> Tuple[bool, str, Optional[dict]]:
+async def view_unit_type(conn: asyncpg.Connection, type_id: str, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
     """
     Fetch unit type information for display.
 

@@ -153,14 +153,13 @@ async def view_unit_cmd(interaction: discord.Interaction, unit_id: str):
     description="View detailed information about a unit type"
 )
 @app_commands.describe(
-    type_id="The unit type ID to view",
-    nation="Optional: The nation (leave empty for nation-agnostic types)"
+    type_id="The unit type ID to view"
 )
-async def view_unit_type_cmd(interaction: discord.Interaction, type_id: str, nation: str = None):
+async def view_unit_type_cmd(interaction: discord.Interaction, type_id: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
-        success, message, data = await handlers.view_unit_type(conn, type_id, nation, interaction.guild_id)
+        success, message, data = await handlers.view_unit_type(conn, type_id, interaction.guild_id)
 
         if not success:
             await interaction.followup.send(emotive_message(message), ephemeral=True)
@@ -1035,13 +1034,12 @@ async def remove_adjacency_cmd(interaction: discord.Interaction, territory_id_1:
 )
 @app_commands.describe(
     type_id="Unique identifier for the unit type (e.g., 'infantry')",
-    name="Display name for the unit type",
-    nation="Optional: Nation that can build this (leave empty for nation-agnostic)"
+    name="Display name for the unit type"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def create_unit_type_cmd(interaction: discord.Interaction, type_id: str, name: str, nation: str = None):
+async def create_unit_type_cmd(interaction: discord.Interaction, type_id: str, name: str):
     async with db_pool.acquire() as conn:
-        success, message, data = await handlers.create_unit_type(conn, type_id, name, interaction.guild_id, nation)
+        success, message, data = await handlers.create_unit_type(conn, type_id, name, interaction.guild_id)
 
         if not success:
             await interaction.response.send_message(
@@ -1050,8 +1048,8 @@ async def create_unit_type_cmd(interaction: discord.Interaction, type_id: str, n
             )
             return
 
-        # Show modal for stats/costs
-        modal = EditUnitTypeModal(unit_type=None, type_id=data['type_id'], name=data['name'], nation=data['nation'], db_pool=db_pool)
+        # Show modal for stats/costs (nation can be set in the modal)
+        modal = EditUnitTypeModal(unit_type=None, type_id=data['type_id'], name=data['name'], db_pool=db_pool)
         await interaction.response.send_modal(modal)
 
 
@@ -1060,13 +1058,12 @@ async def create_unit_type_cmd(interaction: discord.Interaction, type_id: str, n
     description="[Admin] Edit unit type properties"
 )
 @app_commands.describe(
-    type_id="The unit type ID to edit",
-    nation="Optional: Nation (leave empty for nation-agnostic types)"
+    type_id="The unit type ID to edit"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def edit_unit_type_cmd(interaction: discord.Interaction, type_id: str, nation: str = None):
+async def edit_unit_type_cmd(interaction: discord.Interaction, type_id: str):
     async with db_pool.acquire() as conn:
-        success, message, unit_type = await handlers.edit_unit_type(conn, type_id, interaction.guild_id, nation)
+        success, message, unit_type = await handlers.edit_unit_type(conn, type_id, interaction.guild_id)
 
         if not success:
             await interaction.response.send_message(
@@ -1085,18 +1082,17 @@ async def edit_unit_type_cmd(interaction: discord.Interaction, type_id: str, nat
     description="[Admin] Delete a unit type"
 )
 @app_commands.describe(
-    type_id="The unit type ID to delete",
-    nation="Optional: Nation (leave empty for nation-agnostic types)"
+    type_id="The unit type ID to delete"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def delete_unit_type_cmd(interaction: discord.Interaction, type_id: str, nation: str = None):
+async def delete_unit_type_cmd(interaction: discord.Interaction, type_id: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
-        success, message = await handlers.delete_unit_type(conn, type_id, interaction.guild_id, nation)
+        success, message = await handlers.delete_unit_type(conn, type_id, interaction.guild_id)
 
         if success:
-            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted unit type '{type_id}' (nation: {nation}) in guild {interaction.guild_id}")
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted unit type '{type_id}' in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete unit type '{type_id}' in guild {interaction.guild_id}: {message}")
 

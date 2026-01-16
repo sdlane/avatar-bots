@@ -14,35 +14,19 @@ from tests.conftest import TEST_GUILD_ID, TEST_GUILD_ID_2
 async def test_create_unit_type_success(db_conn, test_server):
     """Test creating a unit type with valid parameters."""
     success, message, data = await create_unit_type(
-        db_conn, "infantry", "Infantry Division", TEST_GUILD_ID, nation="fire-nation"
+        db_conn, "infantry", "Infantry Division", TEST_GUILD_ID
     )
 
-    # Verify
+    # Verify - nation is now set via modal, not handler
     assert success is True
     assert data is not None
     assert data['type_id'] == "infantry"
     assert data['name'] == "Infantry Division"
-    assert data['nation'] == "fire-nation"
-
-
-@pytest.mark.asyncio
-async def test_create_unit_type_without_nation(db_conn, test_server):
-    """Test creating a unit type without specifying a nation."""
-    success, message, data = await create_unit_type(
-        db_conn, "generic-unit", "Generic Unit", TEST_GUILD_ID, nation=None
-    )
-
-    # Verify
-    assert success is True
-    assert data is not None
-    assert data['type_id'] == "generic-unit"
-    assert data['name'] == "Generic Unit"
-    assert data['nation'] is None
 
 
 @pytest.mark.asyncio
 async def test_create_unit_type_duplicate(db_conn, test_server):
-    """Test creating a unit type with duplicate type_id and nation."""
+    """Test creating a unit type with duplicate type_id."""
     # Create first unit type
     unit_type = UnitType(
         type_id="infantry", name="Infantry Division",
@@ -56,35 +40,7 @@ async def test_create_unit_type_duplicate(db_conn, test_server):
 
     # Try to create duplicate
     success, message, data = await create_unit_type(
-        db_conn, "infantry", "Another Infantry", TEST_GUILD_ID, nation="fire-nation"
-    )
-
-    # Verify failure
-    assert success is False
-    assert "already exists" in message.lower()
-    assert data is None
-
-    # Cleanup
-    await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
-
-
-@pytest.mark.asyncio
-async def test_create_unit_type_different_nations(db_conn, test_server):
-    """Test creating unit types with same type_id but different nations fails (type_id is unique per guild)."""
-    # Create infantry for fire-nation
-    unit_type1 = UnitType(
-        type_id="infantry", name="Fire Nation Infantry",
-        nation="fire-nation", guild_id=TEST_GUILD_ID,
-        movement=2, organization=10, attack=5, defense=5,
-        siege_attack=2, siege_defense=3,
-        cost_ore=5, cost_lumber=2, cost_coal=0, cost_rations=10, cost_cloth=5,
-        upkeep_rations=2, upkeep_cloth=1
-    )
-    await unit_type1.upsert(db_conn)
-
-    # Try to create infantry for earth-kingdom (should fail - type_id must be unique per guild)
-    success, message, data = await create_unit_type(
-        db_conn, "infantry", "Earth Kingdom Infantry", TEST_GUILD_ID, nation="earth-kingdom"
+        db_conn, "infantry", "Another Infantry", TEST_GUILD_ID
     )
 
     # Verify failure
