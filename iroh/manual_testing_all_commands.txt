@@ -1071,6 +1071,8 @@ STEPS:
 8.8.4 Rseolve turn again
    /resolve-turn
 
+   EXPECTED: Note in the GM turn report that test-member was kicked from faction
+
 
 --------------------------------------------------------------------------------
 TEST 8.9: /order-leave-faction
@@ -1079,7 +1081,7 @@ PURPOSE: Leave your current faction
 
 Setup:
 - Switch your character to test-member
-- 
+- /add-faction-member faction_id:fire-nation character:test-member
 
 STEPS:
 8.9.1 Submit leave order:
@@ -1087,7 +1089,12 @@ STEPS:
 
     EXPECTED: Success message
 
-Cleanip - Switch your character to test-leader
+8.9.2 Resolve turn:
+    /resolve-turn
+
+    EXPECTED: Note in the turn report about test-member leaving the faction
+
+Cleanup - Switch your character to test-leader
 
 
 --------------------------------------------------------------------------------
@@ -1107,11 +1114,43 @@ TEST 8.11: /order-make-alliance
 --------------------------------------------------------------------------------
 PURPOSE: Propose alliance (faction leader only)
 
+SETUP: /create-faction faction_id:earth-kingdom name:Earth Kingdom
+       /add-faction-member faction_id:earth-kingdom character:test-member
+     
+
 STEPS:
 8.11.1 Submit alliance order:
     /order-make-alliance target_faction_id:earth-kingdom
 
     EXPECTED: Success message
+
+8.11.2 Resolve turn
+   /resolve-turn
+
+   EXPECTED: Note in the Beginning phase of the turn log that there is a pending alliance
+
+8.11.3 Switch to test-member, then submit another alliance order
+   /order-make-alliance target_faction_id:fire-nation
+
+   EXPECTED: Error that only the faction leader can propose alliances
+
+8.11.4 Make test-member the leader of the earth kingdom, then submit another alliance order
+   /set-faction-leader faction_id:earth-kingdom leader:test-member
+   /order-make-alliance target_faction_id:fire-nation
+
+   EXPECTED: Success message
+
+8.11.5 Resolve Turn
+   /resolve-turn
+
+   EXPECTED: Message in the logs that the alliance has been processed
+
+CLEANUP
+   /set-faction-leader faction_id:earth-kingdom leader:none
+   /remove-faction-member character:test-member
+
+   Set character to test-leader
+   
 
 
 --------------------------------------------------------------------------------
@@ -1255,53 +1294,65 @@ STEPS:
     - Participating factions
     - Status (ACTIVE or PENDING)
 
+--------------------------------------------------------------------------------
+TEST 10.2: /edit-alliance (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Edit alliance status
+
+STEPS:
+10.2.1 Edit status:
+    /edit-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom status:PENDING_FACTION_A
+
+    EXPECTED: Success message
+
+10.4.2 Verify:
+    /view-alliances
+
+    EXPECTED: Alliance should have pending status
+
 
 --------------------------------------------------------------------------------
-TEST 10.2: /add-alliance (Admin)
+TEST 10.3: /delete-alliance (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Delete an alliance
+
+STEPS:
+10.3.1 Delete:
+    /delete-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom
+
+    EXPECTED: Success message
+
+10.3.2 Verify:
+    /view-alliances
+
+    EXPECTED: Alliance should not show
+
+
+--------------------------------------------------------------------------------
+TEST 10.4: /add-alliance (Admin)
 --------------------------------------------------------------------------------
 PURPOSE: Create an active alliance
 
-PREREQUISITE: Two factions exist
-
 STEPS:
-10.2.1 Create alliance:
+10.4.1 Create alliance:
     /add-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom
 
     EXPECTED: Success message
 
-10.2.2 Verify:
+10.4.2 Verify:
     /view-alliances
 
     EXPECTED: New alliance should appear
 
 
---------------------------------------------------------------------------------
-TEST 10.3: /edit-alliance (Admin)
---------------------------------------------------------------------------------
-PURPOSE: Edit alliance status
-
-STEPS:
-10.3.1 Edit status:
-    /edit-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom status:PENDING_FACTION_A
-
-    EXPECTED: Success message
-
-
---------------------------------------------------------------------------------
-TEST 10.4: /delete-alliance (Admin)
---------------------------------------------------------------------------------
-PURPOSE: Delete an alliance
-
-STEPS:
-10.4.1 Delete:
-    /delete-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom
-
-    EXPECTED: Success message
-
-
 ================================================================================
 SECTION 11: WAR MANAGEMENT
 ================================================================================
+
+SETUP: Create factions,
+/create-faction faction_id:north-water name:Northern Water Tribe
+/create-faction faction_id:south-water name:Southern Water Tribe
+
 
 --------------------------------------------------------------------------------
 TEST 11.1: /view-wars
@@ -1332,6 +1383,11 @@ STEPS:
 
     EXPECTED: Success message
 
+11.2.2 Verify:
+   /view-wars
+
+   EXPECTED: Updated objective text
+
 
 --------------------------------------------------------------------------------
 TEST 11.3: /add-war-participant (Admin)
@@ -1340,14 +1396,30 @@ PURPOSE: Add faction to a war
 
 STEPS:
 11.3.1 Add to Side A:
-    /add-war-participant war_id:WAR-0001 faction_id:earth-kingdom side:SIDE_A
+    /add-war-participant war_id:WAR-0001 faction_id:north-water side:Side A
 
     EXPECTED: Success message
 
 11.3.2 Add to Side B:
-    /add-war-participant war_id:WAR-0001 faction_id:water-tribe side:SIDE_B
+    /add-war-participant war_id:WAR-0001 faction_id:south-water side:Side B
 
     EXPECTED: Success message
+
+11.3.3 Verify:
+   /view-wars
+
+   EXPECTED: New participants on the relevant sides
+
+11.3.4 Try to add to Side A:
+    /add-war-participant war_id:WAR-0001 faction_id:north-water side:Side A
+
+    EXPECTED: Error that they are already in the war
+
+11.3.5 Try to add to Side B:
+    /add-war-participant war_id:WAR-0001 faction_id:north-water side:Side B
+
+    EXPECTED: Error that they are already in the war
+
 
 
 --------------------------------------------------------------------------------
@@ -1361,6 +1433,11 @@ STEPS:
 
     EXPECTED: Success message
 
+11.4.2 Verify:
+   /view-wars
+
+   EXPECTED: Updated participants list
+
 
 --------------------------------------------------------------------------------
 TEST 11.5: /delete-war (Admin)
@@ -1372,6 +1449,11 @@ STEPS:
     /delete-war war_id:WAR-0001
 
     EXPECTED: Success message
+
+11.5.2 Verify:
+   /view-wars
+
+   EXPECTED: No active wars message
 
 
 ================================================================================
