@@ -527,22 +527,25 @@ async def _collect_territory_production(
 async def _apply_first_war_production_bonus(
     conn: asyncpg.Connection,
     guild_id: int,
-    turn_number: int
-) -> List[TurnLog]:
+    turn_number: int,
+    character_resources: dict
+) -> Dict[int, dict]:
     """
     Apply the first-war production bonus to factions that declared their first war this turn.
 
-    Doubles all production for all members of the faction.
+    Doubles all production for all members of the faction. Updates the database and
+    accumulates bonus resources into the character_resources dict for consolidated reporting.
 
     Args:
         conn: Database connection
         guild_id: Guild ID
         turn_number: Current turn number
+        character_resources: Dict to accumulate {character_id: {'name': str, 'resources': dict}}
 
     Returns:
-        List of TurnLog events for bonuses applied
+        Dict mapping character_id to bonus info: {char_id: {'faction_name': str, 'bonus': dict}}
     """
-    events = []
+    bonus_info = {}
     logger.info(f"First-war bonus: checking for bonuses for guild {guild_id}, turn {turn_number}")
 
     # Find all DECLARE_WAR orders from this turn that have first_war_bonus=True
@@ -560,7 +563,7 @@ async def _apply_first_war_production_bonus(
 
     if not bonus_faction_ids:
         logger.info(f"First-war bonus: no bonuses to apply for guild {guild_id}, turn {turn_number}")
-        return events
+        return bonus_info
 
     # For each faction with bonus, double all faction members' production
     for faction_id in bonus_faction_ids:
@@ -580,7 +583,7 @@ async def _apply_first_war_production_bonus(
             if not player_resources:
                 continue
 
-            # Calculate bonus (equal to their production values - effectively doubling)
+            # Calculate bonus from personal production values
             bonus = {
                 'ore': character.ore_production,
                 'lumber': character.lumber_production,
@@ -590,7 +593,17 @@ async def _apply_first_war_production_bonus(
                 'platinum': character.platinum_production
             }
 
-            # Add bonus resources
+            # Also include territory production for territories this character controls directly
+            territories = await Territory.fetch_by_controller(conn, character.id, guild_id)
+            for territory in territories:
+                bonus['ore'] += territory.ore_production
+                bonus['lumber'] += territory.lumber_production
+                bonus['coal'] += territory.coal_production
+                bonus['rations'] += territory.rations_production
+                bonus['cloth'] += territory.cloth_production
+                bonus['platinum'] += territory.platinum_production
+
+            # Add bonus resources to database
             player_resources.ore += bonus['ore']
             player_resources.lumber += bonus['lumber']
             player_resources.coal += bonus['coal']
@@ -603,9 +616,32 @@ async def _apply_first_war_production_bonus(
             if total_bonus > 0:
                 logger.info(f"First-war bonus: Doubled production for {character.name}: {bonus}")
 
+                # Accumulate bonus into character_resources for consolidated event creation
+                if character.id not in character_resources:
+                    character_resources[character.id] = {
+                        'name': character.name,
+                        'resources': {
+                            'ore': 0, 'lumber': 0, 'coal': 0,
+                            'rations': 0, 'cloth': 0, 'platinum': 0
+                        }
+                    }
+
+                character_resources[character.id]['resources']['ore'] += bonus['ore']
+                character_resources[character.id]['resources']['lumber'] += bonus['lumber']
+                character_resources[character.id]['resources']['coal'] += bonus['coal']
+                character_resources[character.id]['resources']['rations'] += bonus['rations']
+                character_resources[character.id]['resources']['cloth'] += bonus['cloth']
+                character_resources[character.id]['resources']['platinum'] += bonus['platinum']
+
+                # Track bonus info for this character
+                bonus_info[character.id] = {
+                    'faction_name': faction.name,
+                    'bonus': bonus
+                }
+
         logger.info(f"First-war bonus: Applied double production to faction {faction.name}")
 
-    return events
+    return bonus_info
 
 
 async def execute_resource_collection_phase(
@@ -641,11 +677,25 @@ async def execute_resource_collection_phase(
     # Territory production - accumulates character resources into shared dict, returns faction events
     faction_events = await _collect_territory_production(conn, guild_id, turn_number, character_resources)
 
+    # Apply first-war production bonus (doubles production for those who qualify)
+    # This also accumulates bonus into character_resources and returns bonus info per character
+    war_bonus_info = await _apply_first_war_production_bonus(conn, guild_id, turn_number, character_resources)
+
     # Create combined events for each character (one event per character with all resources)
     for char_id, data in character_resources.items():
         total = sum(data['resources'].values())
         if total == 0:
             continue
+
+        event_data = {
+            'affected_character_ids': [char_id],
+            'character_name': data['name'],
+            'resources': data['resources']
+        }
+
+        # Include war bonus info if this character received the bonus
+        if char_id in war_bonus_info:
+            event_data['war_bonus'] = war_bonus_info[char_id]
 
         events.append(TurnLog(
             turn_number=turn_number,
@@ -653,20 +703,12 @@ async def execute_resource_collection_phase(
             event_type='CHARACTER_PRODUCTION',
             entity_type='character',
             entity_id=char_id,
-            event_data={
-                'affected_character_ids': [char_id],
-                'character_name': data['name'],
-                'resources': data['resources']
-            },
+            event_data=event_data,
             guild_id=guild_id
         ))
 
     # Add faction territory production events
     events.extend(faction_events)
-
-    # Apply first-war production bonus (doubles production for those who qualify)
-    bonus_events = await _apply_first_war_production_bonus(conn, guild_id, turn_number)
-    events.extend(bonus_events)
 
     logger.info(f"Resource collection phase: finished for guild {guild_id}, turn {turn_number}")
     return events

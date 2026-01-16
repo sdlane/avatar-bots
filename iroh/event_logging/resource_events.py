@@ -7,6 +7,7 @@ from typing import Dict, Any, Optional
 def resource_collection_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for RESOURCE_COLLECTION event."""
     resources = event_data.get('resources', {})
+    war_bonus = event_data.get('war_bonus')
     resource_strs = []
 
     if resources.get('ore', 0) > 0:
@@ -23,7 +24,10 @@ def resource_collection_character_line(event_data: Dict[str, Any], character_id:
         resource_strs.append(f"🪙{resources['platinum']}")
 
     if resource_strs:
-        return f"💰 Collected resources: {' '.join(resource_strs)}"
+        base_msg = f"💰 Collected resources: {' '.join(resource_strs)}"
+        if war_bonus:
+            return f"{base_msg} ⚔️ (includes first-war bonus)"
+        return base_msg
     return ""
 
 
@@ -31,6 +35,7 @@ def resource_collection_gm_line(event_data: Dict[str, Any]) -> str:
     """Generate GM report line for RESOURCE_COLLECTION event."""
     character_name = event_data.get('character_name', 'Unknown')
     resources = event_data.get('resources', {})
+    war_bonus = event_data.get('war_bonus')
     resource_strs = []
 
     if resources.get('ore', 0) > 0:
@@ -47,6 +52,9 @@ def resource_collection_gm_line(event_data: Dict[str, Any]) -> str:
         resource_strs.append(f"🪙{resources['platinum']}")
 
     if resource_strs:
+        if war_bonus:
+            faction_name = war_bonus.get('faction_name', 'Unknown')
+            return f"💰 {character_name}: {' '.join(resource_strs)} ⚔️ ({faction_name} war bonus)"
         return f"💰 {character_name}: {' '.join(resource_strs)}"
     return f"💰 {character_name}"
 
@@ -182,3 +190,20 @@ def faction_territory_production_gm_line(event_data: Dict[str, Any]) -> str:
     resources = event_data.get('resources', {})
     resources_str = _format_resources(resources)
     return f"🏰 {faction_name} territory: {resources_str}"
+
+
+def war_bonus_production_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for WAR_BONUS_PRODUCTION event."""
+    resources = event_data.get('resources', {})
+    resources_str = _format_resources(resources)
+    return f"⚔️ First-war bonus production: {resources_str}"
+
+
+def war_bonus_production_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for WAR_BONUS_PRODUCTION event."""
+    character_name = event_data.get('character_name', 'Unknown')
+    faction_name = event_data.get('faction_name', 'Unknown')
+    # Use total_resources (after doubling) for GM report
+    total_resources = event_data.get('total_resources', event_data.get('resources', {}))
+    resources_str = _format_resources(total_resources)
+    return f"⚔️ {character_name} ({faction_name} war bonus): {resources_str}"

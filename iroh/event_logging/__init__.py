@@ -60,6 +60,8 @@ from .resource_events import (
     transfer_cancelled_gm_line,
     faction_territory_production_character_line,
     faction_territory_production_gm_line,
+    war_bonus_production_character_line,
+    war_bonus_production_gm_line,
 )
 
 from .upkeep_events import (
@@ -205,6 +207,10 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'TRANSFER_CANCELLED': EventHandler(
         get_character_line=transfer_cancelled_character_line,
         get_gm_line=transfer_cancelled_gm_line
+    ),
+    'WAR_BONUS_PRODUCTION': EventHandler(
+        get_character_line=war_bonus_production_character_line,
+        get_gm_line=war_bonus_production_gm_line
     ),
 
     # Upkeep events
