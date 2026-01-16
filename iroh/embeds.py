@@ -4,7 +4,7 @@ Helper functions for creating rich Discord embeds for wargame data display.
 import discord
 from typing import List, Optional, Tuple
 from db import (
-    Territory, Faction, Unit, UnitType, PlayerResources,
+    Territory, Faction, Unit, UnitType, BuildingType, PlayerResources,
     WargameConfig, Character, FactionMember
 )
 
@@ -398,6 +398,67 @@ def create_unit_type_embed(unit_type: UnitType) -> discord.Embed:
             value=", ".join(unit_type.keywords),
             inline=False
         )
+
+    return embed
+
+
+def create_building_type_embed(building_type: BuildingType) -> discord.Embed:
+    """Create a rich embed displaying building type information."""
+    embed = discord.Embed(
+        title=f"🏛️ {building_type.name}",
+        description=f"Type ID: `{building_type.type_id}`",
+        color=discord.Color.dark_teal()
+    )
+
+    # Description
+    if building_type.description:
+        embed.add_field(
+            name="Description",
+            value=building_type.description,
+            inline=False
+        )
+
+    # Construction cost
+    cost_lines = []
+    if building_type.cost_ore > 0:
+        cost_lines.append(f"⛏️ {building_type.cost_ore}")
+    if building_type.cost_lumber > 0:
+        cost_lines.append(f"🪵 {building_type.cost_lumber}")
+    if building_type.cost_coal > 0:
+        cost_lines.append(f"⚫ {building_type.cost_coal}")
+    if building_type.cost_rations > 0:
+        cost_lines.append(f"🍖 {building_type.cost_rations}")
+    if building_type.cost_cloth > 0:
+        cost_lines.append(f"🧵 {building_type.cost_cloth}")
+    if building_type.cost_platinum > 0:
+        cost_lines.append(f"🪙 {building_type.cost_platinum}")
+
+    embed.add_field(
+        name="Construction Cost",
+        value=" | ".join(cost_lines) if cost_lines else "Free",
+        inline=False
+    )
+
+    # Upkeep
+    upkeep_lines = []
+    if building_type.upkeep_ore > 0:
+        upkeep_lines.append(f"⛏️ {building_type.upkeep_ore}")
+    if building_type.upkeep_lumber > 0:
+        upkeep_lines.append(f"🪵 {building_type.upkeep_lumber}")
+    if building_type.upkeep_coal > 0:
+        upkeep_lines.append(f"⚫ {building_type.upkeep_coal}")
+    if building_type.upkeep_rations > 0:
+        upkeep_lines.append(f"🍖 {building_type.upkeep_rations}")
+    if building_type.upkeep_cloth > 0:
+        upkeep_lines.append(f"🧵 {building_type.upkeep_cloth}")
+    if building_type.upkeep_platinum > 0:
+        upkeep_lines.append(f"🪙 {building_type.upkeep_platinum}")
+
+    embed.add_field(
+        name="Upkeep (per turn)",
+        value=" | ".join(upkeep_lines) if upkeep_lines else "None",
+        inline=False
+    )
 
     return embed
 

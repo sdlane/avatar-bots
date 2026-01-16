@@ -3,7 +3,7 @@ List command handlers for viewing all entities.
 """
 import asyncpg
 from typing import Tuple, List, Optional
-from db import Faction, FactionMember, Territory, UnitType, Unit, Character
+from db import Faction, FactionMember, Territory, UnitType, BuildingType, Unit, Character
 
 
 async def list_factions(conn: asyncpg.Connection, guild_id: int) -> Tuple[bool, str, Optional[List[dict]]]:
@@ -76,6 +76,21 @@ async def list_unit_types(conn: asyncpg.Connection, guild_id: int) -> Tuple[bool
         return False, "No unit types found. Use `/create-test-config` to set up a test configuration.", None
 
     return True, "", unit_types
+
+
+async def list_building_types(conn: asyncpg.Connection, guild_id: int) -> Tuple[bool, str, Optional[List[BuildingType]]]:
+    """
+    List all building types.
+
+    Returns:
+        (success, message, building_types)
+    """
+    building_types = await BuildingType.fetch_all(conn, guild_id)
+
+    if not building_types:
+        return False, "No building types found. Use `/create-building-type` to create one.", None
+
+    return True, "", building_types
 
 
 async def list_units(conn: asyncpg.Connection, guild_id: int) -> Tuple[bool, str, Optional[List[dict]]]:

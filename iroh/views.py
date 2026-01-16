@@ -3,7 +3,7 @@ Discord UI components (modals, views, buttons) for Iroh wargame bot.
 """
 import discord
 from typing import Optional
-from db import Territory, UnitType, PlayerResources, Character, WargameConfig
+from db import Territory, UnitType, BuildingType, PlayerResources, Character, WargameConfig
 import logging
 
 logger = logging.getLogger(__name__)
@@ -356,6 +356,176 @@ class EditUnitTypeModal(discord.ui.Modal, title="Edit Unit Type"):
 
             await interaction.response.send_message(
                 emotive_message(f"Unit type '{self.name_value}' created successfully."),
+                ephemeral=False
+            )
+
+
+class EditBuildingTypeModal(discord.ui.Modal, title="Edit Building Type"):
+    """Modal for editing building type properties."""
+
+    def __init__(self, building_type: Optional[BuildingType] = None, type_id: str = None, name: str = None, db_pool = None):
+        super().__init__()
+        self.building_type = building_type
+        self.type_id = type_id
+        self.name_value = name
+        self.db_pool = db_pool
+
+        # Description field (optional)
+        self.description_input = discord.ui.TextInput(
+            label="Description (optional)",
+            placeholder="A brief description of the building",
+            default=building_type.description or "" if building_type else "",
+            required=False,
+            max_length=500,
+            style=discord.TextStyle.paragraph
+        )
+        self.add_item(self.description_input)
+
+        # Cost field (ore,lumber,coal,rations,cloth,platinum)
+        if building_type:
+            cost_str = f"{building_type.cost_ore},{building_type.cost_lumber},{building_type.cost_coal},{building_type.cost_rations},{building_type.cost_cloth},{building_type.cost_platinum}"
+        else:
+            cost_str = "10,10,0,0,0,0"
+
+        self.cost_input = discord.ui.TextInput(
+            label="Cost (ore,lum,coal,rat,cloth,plat)",
+            placeholder="e.g., 10,10,0,0,0,0",
+            default=cost_str,
+            required=True,
+            max_length=50
+        )
+        self.add_item(self.cost_input)
+
+        # Upkeep field (ore,lumber,coal,rations,cloth,platinum)
+        if building_type:
+            upkeep_str = f"{building_type.upkeep_ore},{building_type.upkeep_lumber},{building_type.upkeep_coal},{building_type.upkeep_rations},{building_type.upkeep_cloth},{building_type.upkeep_platinum}"
+        else:
+            upkeep_str = "0,1,0,0,0,0"
+
+        self.upkeep_input = discord.ui.TextInput(
+            label="Upkeep (ore,lum,coal,rat,cloth,plat)",
+            placeholder="e.g., 0,1,0,0,0,0",
+            default=upkeep_str,
+            required=True,
+            max_length=50
+        )
+        self.add_item(self.upkeep_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        """Handle form submission."""
+        from helpers import emotive_message
+
+        # Parse cost
+        try:
+            cost_parts = [int(x.strip()) for x in self.cost_input.value.split(',')]
+            if len(cost_parts) != 6:
+                await interaction.response.send_message(
+                    emotive_message("Cost must have exactly 6 values (ore, lumber, coal, rations, cloth, platinum)."),
+                    ephemeral=True
+                )
+                return
+
+            cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum = cost_parts
+
+            if any(x < 0 for x in cost_parts):
+                await interaction.response.send_message(
+                    emotive_message("Cost values cannot be negative."),
+                    ephemeral=True
+                )
+                return
+
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid cost values. Use integers separated by commas."),
+                ephemeral=True
+            )
+            return
+
+        # Parse upkeep
+        try:
+            upkeep_parts = [int(x.strip()) for x in self.upkeep_input.value.split(',')]
+            if len(upkeep_parts) != 6:
+                await interaction.response.send_message(
+                    emotive_message("Upkeep must have exactly 6 values (ore, lumber, coal, rations, cloth, platinum)."),
+                    ephemeral=True
+                )
+                return
+
+            upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum = upkeep_parts
+
+            if any(x < 0 for x in upkeep_parts):
+                await interaction.response.send_message(
+                    emotive_message("Upkeep values cannot be negative."),
+                    ephemeral=True
+                )
+                return
+
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid upkeep values. Use integers separated by commas."),
+                ephemeral=True
+            )
+            return
+
+        # Get description from input (empty string becomes None)
+        description = self.description_input.value.strip() if self.description_input.value.strip() else None
+
+        # Update or create building type
+        if self.building_type:
+            # Update existing
+            self.building_type.description = description
+            self.building_type.cost_ore = cost_ore
+            self.building_type.cost_lumber = cost_lumber
+            self.building_type.cost_coal = cost_coal
+            self.building_type.cost_rations = cost_rations
+            self.building_type.cost_cloth = cost_cloth
+            self.building_type.cost_platinum = cost_platinum
+            self.building_type.upkeep_ore = upkeep_ore
+            self.building_type.upkeep_lumber = upkeep_lumber
+            self.building_type.upkeep_coal = upkeep_coal
+            self.building_type.upkeep_rations = upkeep_rations
+            self.building_type.upkeep_cloth = upkeep_cloth
+            self.building_type.upkeep_platinum = upkeep_platinum
+
+            # Save to database
+            async with self.db_pool.acquire() as conn:
+                await self.building_type.upsert(conn)
+
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited building type '{self.building_type.type_id}' via modal in guild {interaction.guild_id}")
+
+            await interaction.response.send_message(
+                emotive_message(f"Building type '{self.building_type.name}' updated successfully."),
+                ephemeral=False
+            )
+        else:
+            # Create new
+            building_type = BuildingType(
+                type_id=self.type_id,
+                name=self.name_value,
+                description=description,
+                cost_ore=cost_ore,
+                cost_lumber=cost_lumber,
+                cost_coal=cost_coal,
+                cost_rations=cost_rations,
+                cost_cloth=cost_cloth,
+                cost_platinum=cost_platinum,
+                upkeep_ore=upkeep_ore,
+                upkeep_lumber=upkeep_lumber,
+                upkeep_coal=upkeep_coal,
+                upkeep_rations=upkeep_rations,
+                upkeep_cloth=upkeep_cloth,
+                upkeep_platinum=upkeep_platinum,
+                guild_id=interaction.guild_id
+            )
+
+            # Save to database
+            async with self.db_pool.acquire() as conn:
+                await building_type.upsert(conn)
+
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created building type '{self.type_id}' (name: {self.name_value}) via modal in guild {interaction.guild_id}")
+
+            await interaction.response.send_message(
+                emotive_message(f"Building type '{self.name_value}' created successfully."),
                 ephemeral=False
             )
 

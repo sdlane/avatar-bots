@@ -4,7 +4,7 @@ View command handlers for displaying wargame information.
 import asyncpg
 from typing import Optional, Tuple, List, Any
 from db import (
-    Territory, Faction, FactionMember, Unit, UnitType,
+    Territory, Faction, FactionMember, Unit, UnitType, BuildingType,
     PlayerResources, Character, TerritoryAdjacency, Order
 )
 from order_types import OrderType, OrderStatus
@@ -136,6 +136,22 @@ async def view_unit_type(conn: asyncpg.Connection, type_id: str, guild_id: int) 
         return False, f"Unit type '{type_id}' not found.", None
 
     return True, "", {'unit_type': unit_type}
+
+
+async def view_building_type(conn: asyncpg.Connection, type_id: str, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
+    """
+    Fetch building type information for display.
+
+    Returns:
+        (success, message, data) where data contains:
+        - building_type: BuildingType object
+    """
+    building_type = await BuildingType.fetch_by_type_id(conn, type_id, guild_id)
+
+    if not building_type:
+        return False, f"Building type '{type_id}' not found.", None
+
+    return True, "", {'building_type': building_type}
 
 
 async def view_resources(conn: asyncpg.Connection, user_id: int, guild_id: int) -> Tuple[bool, str, Optional[dict]]:

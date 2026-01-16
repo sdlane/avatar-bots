@@ -599,6 +599,158 @@ STEPS:
 
 
 ================================================================================
+SECTION 4A: BUILDING TYPE MANAGEMENT (Admin)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 4A.1: /create-building-type
+--------------------------------------------------------------------------------
+PURPOSE: Create building types via modal
+
+STEPS:
+4A.1.1 Create a basic building type:
+    /create-building-type type_id:barracks name:Military Barracks
+
+    EXPECTED: Modal appears for entering description and costs
+
+4A.1.2 In the modal:
+    - Set description: "A training facility for soldiers"
+    - Set cost: 10,10,0,5,0,0 (ore=10, lumber=10, rations=5)
+    - Set upkeep: 0,1,0,2,0,0 (lumber=1, rations=2)
+    - Submit
+
+    EXPECTED: Success message
+
+4A.1.3 Create another building type:
+    /create-building-type type_id:workshop name:Craftsman Workshop
+
+    EXPECTED: Modal appears
+
+4A.1.4 Try creating duplicate:
+    /create-building-type type_id:barracks name:Duplicate
+
+    EXPECTED: Error about building type already existing
+
+
+--------------------------------------------------------------------------------
+TEST 4A.2: /view-building-type
+--------------------------------------------------------------------------------
+PURPOSE: View building type details (Player accessible)
+
+STEPS:
+4A.2.1 View existing building type:
+    /view-building-type type_id:barracks
+
+    EXPECTED: Embed showing:
+    - Building name and type_id
+    - Description
+    - Construction cost (with resource emojis)
+    - Upkeep per turn (with resource emojis)
+
+4A.2.2 View nonexistent:
+    /view-building-type type_id:nonexistent
+
+    EXPECTED: Error about building type not found
+
+
+--------------------------------------------------------------------------------
+TEST 4A.3: /list-building-types
+--------------------------------------------------------------------------------
+PURPOSE: List all building types
+
+STEPS:
+4A.3.1 List building types:
+    /list-building-types
+
+    EXPECTED: Embed showing all building types with:
+    - Type ID
+    - Name
+    - Description (truncated if long)
+
+
+--------------------------------------------------------------------------------
+TEST 4A.4: /edit-building-type
+--------------------------------------------------------------------------------
+PURPOSE: Edit building type properties
+
+STEPS:
+4A.4.1 Edit a building type:
+    /edit-building-type type_id:barracks
+
+    EXPECTED: Modal with current values pre-populated
+
+4A.4.2 Make changes:
+    - Change description to "An upgraded training facility"
+    - Change cost to 15,15,0,5,0,0
+    - Submit
+
+    EXPECTED: Success message
+
+4A.4.3 Verify:
+    /view-building-type type_id:barracks
+
+    EXPECTED: Updated values shown
+
+4A.4.4 Try editing nonexistent:
+    /edit-building-type type_id:nonexistent
+
+    EXPECTED: Error about building type not found
+
+
+--------------------------------------------------------------------------------
+TEST 4A.5: /delete-building-type
+--------------------------------------------------------------------------------
+PURPOSE: Delete a building type
+
+STEPS:
+4A.5.1 Delete:
+    /delete-building-type type_id:workshop
+
+    EXPECTED: Success message
+
+4A.5.2 Verify:
+    /view-building-type type_id:workshop
+
+    EXPECTED: Error about building type not found
+
+4A.5.3 Try deleting nonexistent:
+    /delete-building-type type_id:nonexistent
+
+    EXPECTED: Error message
+
+
+--------------------------------------------------------------------------------
+TEST 4A.6: Building Type Validation
+--------------------------------------------------------------------------------
+PURPOSE: Test input validation in modal
+
+STEPS:
+4A.6.1 Create with invalid cost format:
+    /create-building-type type_id:test-invalid name:Test Invalid
+    - In modal, set cost to "abc,def,ghi,jkl,mno,pqr"
+    - Submit
+
+    EXPECTED: Error about invalid cost values
+
+4A.6.2 Create with wrong number of cost values:
+    /create-building-type type_id:test-invalid2 name:Test Invalid 2
+    - In modal, set cost to "10,10,10"
+    - Submit
+
+    EXPECTED: Error about cost must have exactly 6 values
+
+4A.6.3 Create with negative values:
+    /create-building-type type_id:test-invalid3 name:Test Invalid 3
+    - In modal, set cost to "-5,10,0,0,0,0"
+    - Submit
+
+    EXPECTED: Error about cost values cannot be negative
+
+CLEANUP:
+    /delete-building-type type_id:barracks
+
+
+================================================================================
 SECTION 5: UNIT MANAGEMENT (Admin)
 ================================================================================
 

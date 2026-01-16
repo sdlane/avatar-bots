@@ -17,6 +17,7 @@ from .war import *
 from .war_participant import *
 from .unit import *
 from .unit_type import *
+from .building_type import *
 from .player_resources import *
 from .territory_adjacency import *
 from .wargame_config import *

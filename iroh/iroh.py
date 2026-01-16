@@ -195,6 +195,28 @@ async def view_unit_type_cmd(interaction: discord.Interaction, type_id: str):
 
 
 @tree.command(
+    name="view-building-type",
+    description="View detailed information about a building type"
+)
+@app_commands.describe(
+    type_id="The building type ID to view"
+)
+async def view_building_type_cmd(interaction: discord.Interaction, type_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.view_building_type(conn, type_id, interaction.guild_id)
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        # Create and send embed
+        embed = create_building_type_embed(data['building_type'])
+        await interaction.followup.send(embed=embed)
+
+
+@tree.command(
     name="my-resources",
     description="View your character's resource inventory"
 )
@@ -541,6 +563,36 @@ async def list_unit_types_cmd(interaction: discord.Interaction):
             color=discord.Color.purple()
         )
         embed.set_footer(text=f"Total: {len(data)} unit types")
+
+        await interaction.followup.send(embed=embed)
+
+
+@tree.command(
+    name="list-building-types",
+    description="[Admin] List all building type IDs in this server"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def list_building_types_cmd(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.list_building_types(conn, interaction.guild_id)
+
+        if not success:
+            await interaction.followup.send(emotive_message(message))
+            return
+
+        building_type_list = []
+        for building_type in data:
+            desc_str = f" - {building_type.description[:50]}..." if building_type.description and len(building_type.description) > 50 else (f" - {building_type.description}" if building_type.description else "")
+            building_type_list.append(f"`{building_type.type_id}`: {building_type.name}{desc_str}")
+
+        embed = discord.Embed(
+            title="🏛️ All Building Types",
+            description="\n".join(building_type_list),
+            color=discord.Color.dark_teal()
+        )
+        embed.set_footer(text=f"Total: {len(data)} building types")
 
         await interaction.followup.send(embed=embed)
 
@@ -1131,6 +1183,81 @@ async def delete_unit_type_cmd(interaction: discord.Interaction, type_id: str):
             logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted unit type '{type_id}' in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete unit type '{type_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+# Building Type Management Commands
+@tree.command(
+    name="create-building-type",
+    description="[Admin] Create a new building type"
+)
+@app_commands.describe(
+    type_id="Unique identifier for the building type (e.g., 'barracks')",
+    name="Display name for the building type"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def create_building_type_cmd(interaction: discord.Interaction, type_id: str, name: str):
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.create_building_type(conn, type_id, name, interaction.guild_id)
+
+        if not success:
+            await interaction.response.send_message(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Show modal for description/costs
+        modal = EditBuildingTypeModal(building_type=None, type_id=data['type_id'], name=data['name'], db_pool=db_pool)
+        await interaction.response.send_modal(modal)
+
+
+@tree.command(
+    name="edit-building-type",
+    description="[Admin] Edit building type properties"
+)
+@app_commands.describe(
+    type_id="The building type ID to edit"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_building_type_cmd(interaction: discord.Interaction, type_id: str):
+    async with db_pool.acquire() as conn:
+        success, message, building_type = await handlers.edit_building_type(conn, type_id, interaction.guild_id)
+
+        if not success:
+            await interaction.response.send_message(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        # Show modal
+        modal = EditBuildingTypeModal(building_type=building_type, db_pool=db_pool)
+        await interaction.response.send_modal(modal)
+
+
+@tree.command(
+    name="delete-building-type",
+    description="[Admin] Delete a building type"
+)
+@app_commands.describe(
+    type_id="The building type ID to delete"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def delete_building_type_cmd(interaction: discord.Interaction, type_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.delete_building_type(conn, type_id, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted building type '{type_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete building type '{type_id}' in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
