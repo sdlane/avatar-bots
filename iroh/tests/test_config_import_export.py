@@ -143,7 +143,7 @@ factions:
       - "test-char-2"
 
 territories:
-  - territory_id: 1
+  - territory_id: "1"
     name: "Test Territory"
     terrain_type: "plains"
     original_nation: "test-faction-1"
@@ -155,9 +155,9 @@ territories:
       rations: 8
       cloth: 4
       platinum: 0
-    adjacent_to: [2]
+    adjacent_to: ["2"]
 
-  - territory_id: 2
+  - territory_id: "2"
     name: "Adjacent Territory"
     terrain_type: "mountain"
     production:
@@ -167,7 +167,7 @@ territories:
       rations: 2
       cloth: 0
       platinum: 0
-    adjacent_to: [1]
+    adjacent_to: ["1"]
 
 unit_types:
   - type_id: "test-infantry"
@@ -220,8 +220,8 @@ player_resources:
     assert len(unit_types) == 1
 
     # Check adjacency
-    adjacent_ids = await TerritoryAdjacency.fetch_adjacent(db_conn, 1, TEST_GUILD_ID)
-    assert 2 in adjacent_ids
+    adjacent_ids = await TerritoryAdjacency.fetch_adjacent(db_conn, "1", TEST_GUILD_ID)
+    assert "2" in adjacent_ids
 
     # Check faction members
     faction = await Faction.fetch_by_faction_id(db_conn, "test-faction-1", TEST_GUILD_ID)
@@ -245,7 +245,7 @@ factions:
       - "test-char-2"
 
 territories:
-  - territory_id: 1
+  - territory_id: "1"
     terrain_type: "plains"
     original_nation: "test-faction-1"
     controller_character_identifier: "test-char-1"
@@ -257,7 +257,7 @@ territories:
       cloth: 0
       platinum: 0
 
-  - territory_id: 2
+  - territory_id: "2"
     terrain_type: "plains"
     controller_character_identifier: "test-char-2"
     production:
@@ -302,13 +302,13 @@ units:
     owner: "test-char-1"
     commander: "test-char-1"
     faction_id: "test-faction-1"
-    current_territory_id: 1
+    current_territory_id: "1"
 
   - unit_id: "TEST-INF-002"
     type: "test-infantry"
     owner: "test-char-2"
     faction_id: "test-faction-1"
-    current_territory_id: 2
+    current_territory_id: "2"
 """
 
     success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, config_with_units)
@@ -344,7 +344,7 @@ factions:
       - "test-char-2"
 
 territories:
-  - territory_id: 101
+  - territory_id: "101"
     terrain_type: "plains"
     original_nation: "export-faction"
     controller_character_identifier: "test-char-1"
@@ -355,9 +355,9 @@ territories:
       rations: 8
       cloth: 4
       platinum: 0
-    adjacent_to: [102]
+    adjacent_to: ["102"]
 
-  - territory_id: 102
+  - territory_id: "102"
     terrain_type: "mountain"
     production:
       ore: 10
@@ -366,7 +366,7 @@ territories:
       rations: 2
       cloth: 0
       platinum: 0
-    adjacent_to: [101]
+    adjacent_to: ["101"]
 
 unit_types:
   - type_id: "export-infantry"
@@ -395,13 +395,13 @@ units:
     type: "export-infantry"
     owner: "test-char-1"
     faction_id: "export-faction"
-    current_territory_id: 101
+    current_territory_id: "101"
 
   - unit_id: "EXPORT-002"
     type: "export-infantry"
     owner: "test-char-2"
     faction_id: "export-faction"
-    current_territory_id: 102
+    current_territory_id: "102"
 """
     success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, full_config)
     assert success, f"Import failed: {message}"
@@ -456,7 +456,7 @@ factions:
       - "test-char-1"
 
 territories:
-  - territory_id: 99
+  - territory_id: "99"
     terrain_type: "plains"
     controller_character_identifier: "test-char-1"
     production:
@@ -544,7 +544,7 @@ factions:
       - "test-char-1"
 
 territories:
-  - territory_id: 1
+  - territory_id: "1"
     terrain_type: "plains"
     controller_character_identifier: "test-char-1"
     production:
@@ -560,7 +560,7 @@ units:
     type: "nonexistent-unit-type"
     owner: "test-char-1"
     faction_id: "test-faction"
-    current_territory_id: 1
+    current_territory_id: "1"
 """
 
     success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, config_with_bad_unit)
@@ -593,7 +593,7 @@ factions:
     # Now add territories
     territories_only = """
 territories:
-  - territory_id: 10
+  - territory_id: "10"
     terrain_type: "plains"
     production:
       ore: 1

@@ -105,13 +105,13 @@ async def test_list_territories_success(db_conn, test_server):
 
     # Create territories
     territory1 = Territory(
-        territory_id=1, terrain_type="plains", name="Territory 1",
+        territory_id="1", terrain_type="plains", name="Territory 1",
         controller_character_id=character.id, guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
-        territory_id=2, terrain_type="mountain", name="Territory 2",
+        territory_id="2", terrain_type="mountain", name="Territory 2",
         controller_character_id=None, guild_id=TEST_GUILD_ID
     )
     await territory2.upsert(db_conn)
@@ -126,10 +126,10 @@ async def test_list_territories_success(db_conn, test_server):
     assert all('territory' in item and 'controller_name' in item for item in data)
 
     # Verify controller names
-    terr1_data = next(item for item in data if item['territory'].territory_id == 1)
+    terr1_data = next(item for item in data if item['territory'].territory_id == "1")
     assert terr1_data['controller_name'] == "Territory Controller"
 
-    terr2_data = next(item for item in data if item['territory'].territory_id == 2)
+    terr2_data = next(item for item in data if item['territory'].territory_id == "2")
     assert terr2_data['controller_name'] == "Uncontrolled"
 
     # Cleanup
@@ -234,7 +234,7 @@ async def test_list_units_success(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=10, terrain_type="plains",
+        territory_id="10", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -244,7 +244,7 @@ async def test_list_units_success(db_conn, test_server):
         unit_id="TEST-001", name="Test Unit 1",
         unit_type="test-unit",
         owner_character_id=char.id, faction_id=faction.id,
-        current_territory_id=10, guild_id=TEST_GUILD_ID,
+        current_territory_id="10", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -302,14 +302,14 @@ async def test_list_handlers_guild_isolation(db_conn, test_server_multi_guild):
 
     # Guild A - Territory
     territory_a = Territory(
-        territory_id=1, terrain_type="plains", name="Guild A Territory",
+        territory_id="1", terrain_type="plains", name="Guild A Territory",
         guild_id=TEST_GUILD_ID
     )
     await territory_a.upsert(db_conn)
 
     # Guild B - Territory
     territory_b = Territory(
-        territory_id=1, terrain_type="mountain", name="Guild B Territory",
+        territory_id="1", terrain_type="mountain", name="Guild B Territory",
         guild_id=TEST_GUILD_ID_2
     )
     await territory_b.upsert(db_conn)
@@ -373,7 +373,7 @@ async def test_list_handlers_guild_isolation(db_conn, test_server_multi_guild):
 
     # Verify same identifiers exist independently in both guilds
     assert factions_a[0]['faction'].faction_id == factions_b[0]['faction'].faction_id == "shared-faction"
-    assert territories_a[0]['territory'].territory_id == territories_b[0]['territory'].territory_id == 1
+    assert territories_a[0]['territory'].territory_id == territories_b[0]['territory'].territory_id == "1"
     assert unit_types_a[0].type_id == unit_types_b[0].type_id == "infantry"
 
     # But they are different entities

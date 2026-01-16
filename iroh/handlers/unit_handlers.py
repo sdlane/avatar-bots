@@ -10,7 +10,7 @@ async def create_unit(
     conn: asyncpg.Connection,
     unit_id: str,
     unit_type: str,
-    territory_id: int,
+    territory_id: str,
     guild_id: int,
     owner_character: Optional[str] = None,
     owner_faction: Optional[str] = None

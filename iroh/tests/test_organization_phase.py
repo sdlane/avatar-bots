@@ -195,7 +195,7 @@ async def test_org_recovery_in_friendly_territory(db_conn, test_server):
 
         # Create territory controlled by owner
         territory = Territory(
-            territory_id=100, name="Friendly Land", terrain_type="plains",
+            territory_id="100", name="Friendly Land", terrain_type="plains",
             controller_character_id=owner.id,
             guild_id=TEST_GUILD_ID
         )
@@ -206,7 +206,7 @@ async def test_org_recovery_in_friendly_territory(db_conn, test_server):
             unit_id="recover-unit", name="Recovering Unit", unit_type="infantry",
             owner_character_id=owner.id,
             faction_id=faction.id,
-            current_territory_id=100,
+            current_territory_id="100",
             organization=5, max_organization=10,
             status='ACTIVE',
             guild_id=TEST_GUILD_ID
@@ -257,7 +257,7 @@ async def test_no_recovery_at_max_organization(db_conn, test_server):
 
         # Create territory controlled by owner
         territory = Territory(
-            territory_id=101, name="Friendly Land 2", terrain_type="plains",
+            territory_id="101", name="Friendly Land 2", terrain_type="plains",
             controller_character_id=owner.id,
             guild_id=TEST_GUILD_ID
         )
@@ -268,7 +268,7 @@ async def test_no_recovery_at_max_organization(db_conn, test_server):
             unit_id="max-org-unit", name="Max Org Unit", unit_type="infantry",
             owner_character_id=owner.id,
             faction_id=faction.id,
-            current_territory_id=101,
+            current_territory_id="101",
             organization=10, max_organization=10,
             status='ACTIVE',
             guild_id=TEST_GUILD_ID
@@ -337,7 +337,7 @@ async def test_no_recovery_in_enemy_territory(db_conn, test_server):
 
         # Create territory controlled by enemy
         territory = Territory(
-            territory_id=102, name="Enemy Land", terrain_type="plains",
+            territory_id="102", name="Enemy Land", terrain_type="plains",
             controller_character_id=enemy.id,
             guild_id=TEST_GUILD_ID
         )
@@ -348,7 +348,7 @@ async def test_no_recovery_in_enemy_territory(db_conn, test_server):
             unit_id="enemy-terr-unit", name="Unit in Enemy Territory", unit_type="infantry",
             owner_character_id=owner.id,
             faction_id=faction1.id,
-            current_territory_id=102,
+            current_territory_id="102",
             organization=5, max_organization=10,
             status='ACTIVE',
             guild_id=TEST_GUILD_ID

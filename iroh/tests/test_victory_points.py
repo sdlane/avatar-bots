@@ -50,7 +50,7 @@ async def setup_vp_test_data(db_conn):
 
     # Create territories with VP
     territory1 = Territory(
-        territory_id=1, name="High VP Territory",
+        territory_id="1", name="High VP Territory",
         terrain_type="plains", victory_points=5,
         controller_character_id=char1.id,
         guild_id=TEST_GUILD_ID
@@ -58,7 +58,7 @@ async def setup_vp_test_data(db_conn):
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
-        territory_id=2, name="Medium VP Territory",
+        territory_id="2", name="Medium VP Territory",
         terrain_type="mountain", victory_points=3,
         controller_character_id=char1.id,
         guild_id=TEST_GUILD_ID
@@ -66,7 +66,7 @@ async def setup_vp_test_data(db_conn):
     await territory2.upsert(db_conn)
 
     territory3 = Territory(
-        territory_id=3, name="Faction Territory",
+        territory_id="3", name="Faction Territory",
         terrain_type="plains", victory_points=2,
         controller_character_id=char2.id,
         guild_id=TEST_GUILD_ID
@@ -99,19 +99,19 @@ async def cleanup_vp_test_data(db_conn):
 async def test_territory_vp_persists(db_conn, test_server):
     """Test that territory victory_points field persists correctly."""
     territory = Territory(
-        territory_id=100, name="VP Test Territory",
+        territory_id="100", name="VP Test Territory",
         terrain_type="plains", victory_points=10,
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
 
     # Fetch and verify
-    fetched = await Territory.fetch_by_territory_id(db_conn, 100, TEST_GUILD_ID)
+    fetched = await Territory.fetch_by_territory_id(db_conn, "100", TEST_GUILD_ID)
     assert fetched is not None
     assert fetched.victory_points == 10
 
     # Cleanup
-    await db_conn.execute("DELETE FROM Territory WHERE territory_id = $1 AND guild_id = $2;", 100, TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Territory WHERE territory_id = $1 AND guild_id = $2;", "100", TEST_GUILD_ID)
 
 
 @pytest.mark.asyncio

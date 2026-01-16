@@ -70,7 +70,7 @@ def is_admin(interaction: discord.Interaction) -> bool:
     description="View detailed information about a territory"
 )
 @app_commands.describe(territory_id="The territory ID to view")
-async def view_territory_cmd(interaction: discord.Interaction, territory_id: int):
+async def view_territory_cmd(interaction: discord.Interaction, territory_id: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
@@ -855,7 +855,7 @@ async def view_faction_permissions_cmd(interaction: discord.Interaction, faction
     name="Optional display name for the territory"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def create_territory_cmd(interaction: discord.Interaction, territory_id: int, terrain_type: str, name: str = None):
+async def create_territory_cmd(interaction: discord.Interaction, territory_id: str, terrain_type: str, name: str = None):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
@@ -878,7 +878,7 @@ async def create_territory_cmd(interaction: discord.Interaction, territory_id: i
 )
 @app_commands.describe(territory_id="The territory ID to edit")
 @app_commands.checks.has_permissions(manage_guild=True)
-async def edit_territory_cmd(interaction: discord.Interaction, territory_id: int):
+async def edit_territory_cmd(interaction: discord.Interaction, territory_id: str):
     async with db_pool.acquire() as conn:
         # Fetch territory for modal (don't edit it yet)
         territory = await Territory.fetch_by_territory_id(conn, territory_id, interaction.guild_id)
@@ -901,7 +901,7 @@ async def edit_territory_cmd(interaction: discord.Interaction, territory_id: int
 )
 @app_commands.describe(territory_id="The territory ID to delete")
 @app_commands.checks.has_permissions(manage_guild=True)
-async def delete_territory_cmd(interaction: discord.Interaction, territory_id: int):
+async def delete_territory_cmd(interaction: discord.Interaction, territory_id: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
@@ -930,7 +930,7 @@ async def delete_territory_cmd(interaction: discord.Interaction, territory_id: i
 @app_commands.checks.has_permissions(manage_guild=True)
 async def set_territory_controller_cmd(
     interaction: discord.Interaction,
-    territory_id: int,
+    territory_id: str,
     character: str = None,
     faction: str = None
 ):
@@ -984,7 +984,7 @@ async def set_territory_controller_cmd(
     territory_id_2="Second territory ID"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def add_adjacency_cmd(interaction: discord.Interaction, territory_id_1: int, territory_id_2: int):
+async def add_adjacency_cmd(interaction: discord.Interaction, territory_id_1: str, territory_id_2: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
@@ -1010,7 +1010,7 @@ async def add_adjacency_cmd(interaction: discord.Interaction, territory_id_1: in
     territory_id_2="Second territory ID"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def remove_adjacency_cmd(interaction: discord.Interaction, territory_id_1: int, territory_id_2: int):
+async def remove_adjacency_cmd(interaction: discord.Interaction, territory_id_1: str, territory_id_2: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
@@ -1119,7 +1119,7 @@ async def create_unit_cmd(
     interaction: discord.Interaction,
     unit_id: str,
     unit_type: str,
-    territory_id: int,
+    territory_id: str,
     owner: str = None,
     owner_faction: str = None
 ):

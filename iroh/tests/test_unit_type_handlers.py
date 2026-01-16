@@ -158,7 +158,7 @@ async def test_delete_unit_type_with_units(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -168,7 +168,7 @@ async def test_delete_unit_type_with_units(db_conn, test_server):
         unit_id="TANK-001", name="First Tank",
         unit_type="tank",
         owner_character_id=char.id, faction_id=faction.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=3, organization=12, attack=9, defense=8,
         siege_attack=5, siege_defense=7
     )

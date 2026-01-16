@@ -165,7 +165,7 @@ async def test_character_production_before_territory(db_conn, test_server):
 
     # Create territory controlled by same character
     territory = Territory(
-        territory_id=200, name="Test Territory", terrain_type="plains",
+        territory_id="200", name="Test Territory", terrain_type="plains",
         ore_production=5,  # Territory produces 5 ore
         controller_character_id=character.id,
         guild_id=TEST_GUILD_ID

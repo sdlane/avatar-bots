@@ -30,25 +30,25 @@ async def test_view_territory_success(db_conn, test_server):
 
     # Create territories
     territory1 = Territory(
-        territory_id=1, terrain_type="plains", name="Territory 1",
+        territory_id="1", terrain_type="plains", name="Territory 1",
         controller_character_id=character.id, guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
-        territory_id=2, terrain_type="mountain", name="Territory 2",
+        territory_id="2", terrain_type="mountain", name="Territory 2",
         guild_id=TEST_GUILD_ID
     )
     await territory2.upsert(db_conn)
 
     # Create adjacency
     adjacency = TerritoryAdjacency(
-        territory_a_id=1, territory_b_id=2, guild_id=TEST_GUILD_ID
+        territory_a_id="1", territory_b_id="2", guild_id=TEST_GUILD_ID
     )
     await adjacency.upsert(db_conn)
 
     # View territory
-    success, message, data = await view_territory(db_conn, 1, TEST_GUILD_ID)
+    success, message, data = await view_territory(db_conn, "1", TEST_GUILD_ID)
 
     # Verify
     assert success is True
@@ -56,8 +56,8 @@ async def test_view_territory_success(db_conn, test_server):
     assert 'territory' in data
     assert 'adjacent_ids' in data
     assert 'controller_name' in data
-    assert data['territory'].territory_id == 1
-    assert 2 in data['adjacent_ids']
+    assert data['territory'].territory_id == "1"
+    assert "2" in data['adjacent_ids']
     assert data['controller_name'] == "Territory Owner"
 
     # Cleanup
@@ -71,13 +71,13 @@ async def test_view_territory_no_controller(db_conn, test_server):
     """Test viewing a territory without a controller."""
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains", name="Uncontrolled Territory",
+        territory_id="1", terrain_type="plains", name="Uncontrolled Territory",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
 
     # View territory
-    success, message, data = await view_territory(db_conn, 1, TEST_GUILD_ID)
+    success, message, data = await view_territory(db_conn, "1", TEST_GUILD_ID)
 
     # Verify
     assert success is True
@@ -90,7 +90,7 @@ async def test_view_territory_no_controller(db_conn, test_server):
 @pytest.mark.asyncio
 async def test_view_territory_nonexistent(db_conn, test_server):
     """Test viewing a non-existent territory."""
-    success, message, data = await view_territory(db_conn, 999, TEST_GUILD_ID)
+    success, message, data = await view_territory(db_conn, "999", TEST_GUILD_ID)
 
     # Verify failure
     assert success is False
@@ -254,7 +254,7 @@ async def test_view_unit_full_details(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -265,7 +265,7 @@ async def test_view_unit_full_details(db_conn, test_server):
         unit_type="infantry",
         owner_character_id=char.id, faction_id=faction.id,
         commander_character_id=commander_char.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -328,7 +328,7 @@ async def test_view_unit_minimal(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -338,7 +338,7 @@ async def test_view_unit_minimal(db_conn, test_server):
         unit_id="UNIT-001", name="Test Unit",
         unit_type="infantry",
         owner_character_id=char.id, faction_id=faction.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -392,7 +392,7 @@ async def test_view_unit_no_commander(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -402,7 +402,7 @@ async def test_view_unit_no_commander(db_conn, test_server):
         unit_id="UNIT-001", name="Test Unit",
         unit_type="infantry",
         owner_character_id=char.id, faction_id=faction.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -650,7 +650,7 @@ async def test_view_units_for_character_owner(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -660,7 +660,7 @@ async def test_view_units_for_character_owner(db_conn, test_server):
         unit_id="UNIT-001", name="Test Unit",
         unit_type="infantry",
         owner_character_id=char.id, faction_id=faction.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -726,7 +726,7 @@ async def test_view_units_for_character_commander(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -737,7 +737,7 @@ async def test_view_units_for_character_commander(db_conn, test_server):
         unit_type="infantry",
         owner_character_id=owner_char.id, faction_id=faction.id,
         commander_character_id=commander_char.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -792,7 +792,7 @@ async def test_view_units_for_character_both(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -802,7 +802,7 @@ async def test_view_units_for_character_both(db_conn, test_server):
         unit_id="UNIT-001", name="Owned Unit",
         unit_type="infantry",
         owner_character_id=char.id, faction_id=faction.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -822,7 +822,7 @@ async def test_view_units_for_character_both(db_conn, test_server):
         unit_type="infantry",
         owner_character_id=other_char.id, faction_id=faction.id,
         commander_character_id=char.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -894,20 +894,20 @@ async def test_view_territories_for_character_success(db_conn, test_server):
 
     # Create territories controlled by the character
     territory1 = Territory(
-        territory_id=1, terrain_type="plains", name="Territory 1",
+        territory_id="1", terrain_type="plains", name="Territory 1",
         controller_character_id=char.id, guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
-        territory_id=2, terrain_type="mountain", name="Territory 2",
+        territory_id="2", terrain_type="mountain", name="Territory 2",
         controller_character_id=char.id, guild_id=TEST_GUILD_ID
     )
     await territory2.upsert(db_conn)
 
     # Create adjacency
     adjacency = TerritoryAdjacency(
-        territory_a_id=1, territory_b_id=2, guild_id=TEST_GUILD_ID
+        territory_a_id="1", territory_b_id="2", guild_id=TEST_GUILD_ID
     )
     await adjacency.upsert(db_conn)
 
@@ -922,8 +922,8 @@ async def test_view_territories_for_character_success(db_conn, test_server):
     assert 'territories' in data
     assert 'adjacencies' in data
     assert len(data['territories']) == 2
-    assert 1 in data['adjacencies']
-    assert 2 in data['adjacencies'][1]
+    assert "1" in data['adjacencies']
+    assert "2" in data['adjacencies']["1"]
 
     # Cleanup
     await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -999,14 +999,14 @@ async def test_view_handlers_guild_isolation(db_conn, test_server_multi_guild):
 
     # Guild A - Territory
     territory_a = Territory(
-        territory_id=1, terrain_type="plains", name="Guild A Territory",
+        territory_id="1", terrain_type="plains", name="Guild A Territory",
         guild_id=TEST_GUILD_ID
     )
     await territory_a.upsert(db_conn)
 
     # Guild B - Territory
     territory_b = Territory(
-        territory_id=1, terrain_type="mountain", name="Guild B Territory",
+        territory_id="1", terrain_type="mountain", name="Guild B Territory",
         guild_id=TEST_GUILD_ID_2
     )
     await territory_b.upsert(db_conn)
@@ -1080,13 +1080,13 @@ async def test_view_handlers_guild_isolation(db_conn, test_server_multi_guild):
     await resources_b.upsert(db_conn)
 
     # View entities for guild A
-    territory_a_success, _, territory_a_data = await view_territory(db_conn, 1, TEST_GUILD_ID)
+    territory_a_success, _, territory_a_data = await view_territory(db_conn, "1", TEST_GUILD_ID)
     faction_a_success, _, faction_a_data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID)
     unit_type_a_success, _, unit_type_a_data = await view_unit_type(db_conn, "infantry", TEST_GUILD_ID)
     resources_a_success, _, resources_a_data = await view_resources(db_conn, 100000000000000001, TEST_GUILD_ID)
 
     # View entities for guild B
-    territory_b_success, _, territory_b_data = await view_territory(db_conn, 1, TEST_GUILD_ID_2)
+    territory_b_success, _, territory_b_data = await view_territory(db_conn, "1", TEST_GUILD_ID_2)
     faction_b_success, _, faction_b_data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID_2)
     unit_type_b_success, _, unit_type_b_data = await view_unit_type(db_conn, "infantry", TEST_GUILD_ID_2)
     resources_b_success, _, resources_b_data = await view_resources(db_conn, 100000000000000002, TEST_GUILD_ID_2)
@@ -1104,7 +1104,7 @@ async def test_view_handlers_guild_isolation(db_conn, test_server_multi_guild):
     assert resources_b_success and resources_b_data['resources'].ore == 200
 
     # Verify same identifiers exist independently
-    assert territory_a_data['territory'].territory_id == territory_b_data['territory'].territory_id == 1
+    assert territory_a_data['territory'].territory_id == territory_b_data['territory'].territory_id == "1"
     assert faction_a_data['faction'].faction_id == faction_b_data['faction'].faction_id == "test-faction"
     assert unit_type_a_data['unit_type'].type_id == unit_type_b_data['unit_type'].type_id == "infantry"
 

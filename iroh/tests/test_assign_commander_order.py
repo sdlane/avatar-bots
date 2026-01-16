@@ -67,7 +67,7 @@ async def setup_basic_test_data(db_conn):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -77,7 +77,7 @@ async def setup_basic_test_data(db_conn):
         unit_id="UNIT-001", name="Test Unit",
         unit_type="infantry",
         owner_character_id=owner.id, faction_id=faction.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )

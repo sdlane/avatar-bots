@@ -423,20 +423,20 @@ async def test_submit_transit_order_single_unit(db_conn, test_server):
 
     # Create territories
     territory1 = Territory(
-        territory_id=101, name="Territory 101", terrain_type="plains",
+        territory_id="101", name="Territory 101", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
-        territory_id=102, name="Territory 102", terrain_type="plains",
+        territory_id="102", name="Territory 102", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory2.upsert(db_conn)
 
     # Create adjacency
     adjacency = TerritoryAdjacency(
-        territory_a_id=101, territory_b_id=102, guild_id=TEST_GUILD_ID
+        territory_a_id="101", territory_b_id="102", guild_id=TEST_GUILD_ID
     )
     await adjacency.upsert(db_conn)
 
@@ -453,7 +453,7 @@ async def test_submit_transit_order_single_unit(db_conn, test_server):
         unit_id="TEST-001", unit_type="infantry",
         owner_character_id=char.id, movement=2,
         organization=100, max_organization=100,
-        current_territory_id=101, is_naval=False,
+        current_territory_id="101", is_naval=False,
         guild_id=TEST_GUILD_ID
     )
     await unit.upsert(db_conn)
@@ -464,7 +464,7 @@ async def test_submit_transit_order_single_unit(db_conn, test_server):
 
     # Submit transit order
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001"], [101, 102], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001"], ["101", "102"], TEST_GUILD_ID, char.id
     )
 
     # Verify
@@ -504,7 +504,7 @@ async def test_submit_transit_order_unit_group(db_conn, test_server):
     # Create territories
     for i in range(101, 105):
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
@@ -512,7 +512,7 @@ async def test_submit_transit_order_unit_group(db_conn, test_server):
     # Create adjacencies (101-102-103-104)
     for i in range(101, 104):
         adjacency = TerritoryAdjacency(
-            territory_a_id=i, territory_b_id=i+1, guild_id=TEST_GUILD_ID
+            territory_a_id=str(i), territory_b_id=str(i+1), guild_id=TEST_GUILD_ID
         )
         await adjacency.upsert(db_conn)
 
@@ -530,7 +530,7 @@ async def test_submit_transit_order_unit_group(db_conn, test_server):
             unit_id=f"TEST-{i:03d}", unit_type="infantry",
             owner_character_id=char.id, movement=2,
             organization=100, max_organization=100,
-            current_territory_id=101, is_naval=False,
+            current_territory_id="101", is_naval=False,
             guild_id=TEST_GUILD_ID
         )
         await unit.upsert(db_conn)
@@ -541,7 +541,7 @@ async def test_submit_transit_order_unit_group(db_conn, test_server):
 
     # Submit transit order for group
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001", "TEST-002", "TEST-003"], [101, 102, 103], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001", "TEST-002", "TEST-003"], ["101", "102", "103"], TEST_GUILD_ID, char.id
     )
 
     # Verify
@@ -579,20 +579,20 @@ async def test_submit_transit_order_naval_unit_rejected(db_conn, test_server):
 
     # Create territories
     territory1 = Territory(
-        territory_id=101, name="Territory 101", terrain_type="coast",
+        territory_id="101", name="Territory 101", terrain_type="coast",
         guild_id=TEST_GUILD_ID
     )
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
-        territory_id=102, name="Territory 102", terrain_type="coast",
+        territory_id="102", name="Territory 102", terrain_type="coast",
         guild_id=TEST_GUILD_ID
     )
     await territory2.upsert(db_conn)
 
     # Create adjacency
     adjacency = TerritoryAdjacency(
-        territory_a_id=101, territory_b_id=102, guild_id=TEST_GUILD_ID
+        territory_a_id="101", territory_b_id="102", guild_id=TEST_GUILD_ID
     )
     await adjacency.upsert(db_conn)
 
@@ -610,7 +610,7 @@ async def test_submit_transit_order_naval_unit_rejected(db_conn, test_server):
         unit_id="SHIP-001", unit_type="ship",
         owner_character_id=char.id, movement=3,
         organization=100, max_organization=100,
-        current_territory_id=101, is_naval=True,
+        current_territory_id="101", is_naval=True,
         guild_id=TEST_GUILD_ID
     )
     await unit.upsert(db_conn)
@@ -621,7 +621,7 @@ async def test_submit_transit_order_naval_unit_rejected(db_conn, test_server):
 
     # Try to submit transit order
     success, message = await submit_transit_order(
-        db_conn, ["SHIP-001"], [101, 102], TEST_GUILD_ID, char.id
+        db_conn, ["SHIP-001"], ["101", "102"], TEST_GUILD_ID, char.id
     )
 
     # Verify failure
@@ -642,7 +642,7 @@ async def test_validate_path_success(db_conn, test_server):
     # Create territories
     for i in range(101, 104):
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
@@ -650,12 +650,12 @@ async def test_validate_path_success(db_conn, test_server):
     # Create adjacencies (101-102-103)
     for i in range(101, 103):
         adjacency = TerritoryAdjacency(
-            territory_a_id=i, territory_b_id=i+1, guild_id=TEST_GUILD_ID
+            territory_a_id=str(i), territory_b_id=str(i+1), guild_id=TEST_GUILD_ID
         )
         await adjacency.upsert(db_conn)
 
     # Validate path
-    valid, error = await validate_path(db_conn, [101, 102, 103], TEST_GUILD_ID)
+    valid, error = await validate_path(db_conn, ["101", "102", "103"], TEST_GUILD_ID)
 
     # Verify
     assert valid is True
@@ -672,19 +672,19 @@ async def test_validate_path_non_adjacent(db_conn, test_server):
     # Create territories
     for i in [101, 102, 104]:  # Note: 103 is missing
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
 
     # Create adjacency only for 101-102 (not 102-104)
     adjacency = TerritoryAdjacency(
-        territory_a_id=101, territory_b_id=102, guild_id=TEST_GUILD_ID
+        territory_a_id="101", territory_b_id="102", guild_id=TEST_GUILD_ID
     )
     await adjacency.upsert(db_conn)
 
     # Try to validate path with non-adjacent territories
-    valid, error = await validate_path(db_conn, [101, 102, 104], TEST_GUILD_ID)
+    valid, error = await validate_path(db_conn, ["101", "102", "104"], TEST_GUILD_ID)
 
     # Verify failure
     assert valid is False
@@ -824,7 +824,7 @@ async def test_submit_transit_order_units_different_territories(db_conn, test_se
     # Create territories
     for i in range(101, 104):
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
@@ -832,7 +832,7 @@ async def test_submit_transit_order_units_different_territories(db_conn, test_se
     # Create adjacencies
     for i in range(101, 103):
         adjacency = TerritoryAdjacency(
-            territory_a_id=i, territory_b_id=i+1, guild_id=TEST_GUILD_ID
+            territory_a_id=str(i), territory_b_id=str(i+1), guild_id=TEST_GUILD_ID
         )
         await adjacency.upsert(db_conn)
 
@@ -849,7 +849,7 @@ async def test_submit_transit_order_units_different_territories(db_conn, test_se
         unit_id="TEST-001", unit_type="infantry",
         owner_character_id=char.id, movement=2,
         organization=100, max_organization=100,
-        current_territory_id=101, is_naval=False,
+        current_territory_id="101", is_naval=False,
         guild_id=TEST_GUILD_ID
     )
     await unit1.upsert(db_conn)
@@ -858,7 +858,7 @@ async def test_submit_transit_order_units_different_territories(db_conn, test_se
         unit_id="TEST-002", unit_type="infantry",
         owner_character_id=char.id, movement=2,
         organization=100, max_organization=100,
-        current_territory_id=102, is_naval=False,
+        current_territory_id="102", is_naval=False,
         guild_id=TEST_GUILD_ID
     )
     await unit2.upsert(db_conn)
@@ -869,7 +869,7 @@ async def test_submit_transit_order_units_different_territories(db_conn, test_se
 
     # Try to submit transit order
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001", "TEST-002"], [101, 102, 103], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001", "TEST-002"], ["101", "102", "103"], TEST_GUILD_ID, char.id
     )
 
     # Verify failure
@@ -899,7 +899,7 @@ async def test_submit_transit_order_path_wrong_start(db_conn, test_server):
     # Create territories
     for i in range(101, 104):
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
@@ -907,7 +907,7 @@ async def test_submit_transit_order_path_wrong_start(db_conn, test_server):
     # Create adjacencies
     for i in range(101, 103):
         adjacency = TerritoryAdjacency(
-            territory_a_id=i, territory_b_id=i+1, guild_id=TEST_GUILD_ID
+            territory_a_id=str(i), territory_b_id=str(i+1), guild_id=TEST_GUILD_ID
         )
         await adjacency.upsert(db_conn)
 
@@ -924,7 +924,7 @@ async def test_submit_transit_order_path_wrong_start(db_conn, test_server):
         unit_id="TEST-001", unit_type="infantry",
         owner_character_id=char.id, movement=2,
         organization=100, max_organization=100,
-        current_territory_id=101, is_naval=False,
+        current_territory_id="101", is_naval=False,
         guild_id=TEST_GUILD_ID
     )
     await unit.upsert(db_conn)
@@ -935,7 +935,7 @@ async def test_submit_transit_order_path_wrong_start(db_conn, test_server):
 
     # Try to submit transit order with wrong starting territory
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001"], [102, 103], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001"], ["102", "103"], TEST_GUILD_ID, char.id
     )
 
     # Verify failure
@@ -973,14 +973,14 @@ async def test_submit_transit_order_unauthorized_character(db_conn, test_server)
     # Create territories
     for i in range(101, 103):
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
 
     # Create adjacency
     adjacency = TerritoryAdjacency(
-        territory_a_id=101, territory_b_id=102, guild_id=TEST_GUILD_ID
+        territory_a_id="101", territory_b_id="102", guild_id=TEST_GUILD_ID
     )
     await adjacency.upsert(db_conn)
 
@@ -997,7 +997,7 @@ async def test_submit_transit_order_unauthorized_character(db_conn, test_server)
         unit_id="TEST-001", unit_type="infantry",
         owner_character_id=owner.id, movement=2,
         organization=100, max_organization=100,
-        current_territory_id=101, is_naval=False,
+        current_territory_id="101", is_naval=False,
         guild_id=TEST_GUILD_ID
     )
     await unit.upsert(db_conn)
@@ -1008,7 +1008,7 @@ async def test_submit_transit_order_unauthorized_character(db_conn, test_server)
 
     # Try to submit transit order as other character
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001"], [101, 102], TEST_GUILD_ID, other.id
+        db_conn, ["TEST-001"], ["101", "102"], TEST_GUILD_ID, other.id
     )
 
     # Verify failure
@@ -1038,7 +1038,7 @@ async def test_submit_transit_order_with_existing_order(db_conn, test_server):
     # Create territories
     for i in range(101, 104):
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
@@ -1046,7 +1046,7 @@ async def test_submit_transit_order_with_existing_order(db_conn, test_server):
     # Create adjacencies
     for i in range(101, 103):
         adjacency = TerritoryAdjacency(
-            territory_a_id=i, territory_b_id=i+1, guild_id=TEST_GUILD_ID
+            territory_a_id=str(i), territory_b_id=str(i+1), guild_id=TEST_GUILD_ID
         )
         await adjacency.upsert(db_conn)
 
@@ -1063,7 +1063,7 @@ async def test_submit_transit_order_with_existing_order(db_conn, test_server):
         unit_id="TEST-001", unit_type="infantry",
         owner_character_id=char.id, movement=2,
         organization=100, max_organization=100,
-        current_territory_id=101, is_naval=False,
+        current_territory_id="101", is_naval=False,
         guild_id=TEST_GUILD_ID
     )
     await unit.upsert(db_conn)
@@ -1074,13 +1074,13 @@ async def test_submit_transit_order_with_existing_order(db_conn, test_server):
 
     # Submit first transit order
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001"], [101, 102], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001"], ["101", "102"], TEST_GUILD_ID, char.id
     )
     assert success is True
 
     # Try to submit second transit order for same unit
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001"], [101, 102, 103], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001"], ["101", "102", "103"], TEST_GUILD_ID, char.id
     )
 
     # Verify failure
@@ -1109,13 +1109,13 @@ async def test_validate_path_nonexistent_territory(db_conn, test_server):
     """Test that path with non-existent territory is invalid."""
     # Create one territory
     territory = Territory(
-        territory_id=101, name="Territory 101", terrain_type="plains",
+        territory_id="101", name="Territory 101", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
 
     # Try to validate path with non-existent territory
-    valid, error = await validate_path(db_conn, [101, 999], TEST_GUILD_ID)
+    valid, error = await validate_path(db_conn, ["101", "999"], TEST_GUILD_ID)
 
     # Verify failure
     assert valid is False
@@ -1131,7 +1131,7 @@ async def test_validate_path_long(db_conn, test_server):
     # Create territories
     for i in range(101, 106):
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
@@ -1139,12 +1139,12 @@ async def test_validate_path_long(db_conn, test_server):
     # Create adjacencies (101-102-103-104-105)
     for i in range(101, 105):
         adjacency = TerritoryAdjacency(
-            territory_a_id=i, territory_b_id=i+1, guild_id=TEST_GUILD_ID
+            territory_a_id=str(i), territory_b_id=str(i+1), guild_id=TEST_GUILD_ID
         )
         await adjacency.upsert(db_conn)
 
     # Validate path
-    valid, error = await validate_path(db_conn, [101, 102, 103, 104, 105], TEST_GUILD_ID)
+    valid, error = await validate_path(db_conn, ["101", "102", "103", "104", "105"], TEST_GUILD_ID)
 
     # Verify success
     assert valid is True
@@ -1321,13 +1321,13 @@ async def test_view_pending_orders_multiple_types(db_conn, test_server):
     # Create territories for transit order
     for i in range(101, 103):
         territory = Territory(
-            territory_id=i, name=f"Territory {i}", terrain_type="plains",
+            territory_id=str(i), name=f"Territory {i}", terrain_type="plains",
             guild_id=TEST_GUILD_ID
         )
         await territory.upsert(db_conn)
 
     adjacency = TerritoryAdjacency(
-        territory_a_id=101, territory_b_id=102, guild_id=TEST_GUILD_ID
+        territory_a_id="101", territory_b_id="102", guild_id=TEST_GUILD_ID
     )
     await adjacency.upsert(db_conn)
 
@@ -1343,7 +1343,7 @@ async def test_view_pending_orders_multiple_types(db_conn, test_server):
         unit_id="TEST-001", unit_type="infantry",
         owner_character_id=char.id, movement=2,
         organization=100, max_organization=100,
-        current_territory_id=101, is_naval=False,
+        current_territory_id="101", is_naval=False,
         guild_id=TEST_GUILD_ID
     )
     await unit.upsert(db_conn)
@@ -1360,7 +1360,7 @@ async def test_view_pending_orders_multiple_types(db_conn, test_server):
 
     # Submit transit order
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001"], [101, 102], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001"], ["101", "102"], TEST_GUILD_ID, char.id
     )
     assert success is True
 
@@ -1422,7 +1422,7 @@ async def test_submit_transit_order_path_too_short(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=101, name="Territory 101", terrain_type="plains",
+        territory_id="101", name="Territory 101", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -1440,7 +1440,7 @@ async def test_submit_transit_order_path_too_short(db_conn, test_server):
         unit_id="TEST-001", unit_type="infantry",
         owner_character_id=char.id, movement=2,
         organization=100, max_organization=100,
-        current_territory_id=101, is_naval=False,
+        current_territory_id="101", is_naval=False,
         guild_id=TEST_GUILD_ID
     )
     await unit.upsert(db_conn)
@@ -1451,7 +1451,7 @@ async def test_submit_transit_order_path_too_short(db_conn, test_server):
 
     # Try to submit transit order with path of length 1
     success, message = await submit_transit_order(
-        db_conn, ["TEST-001"], [101], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001"], ["101"], TEST_GUILD_ID, char.id
     )
 
     # Verify failure

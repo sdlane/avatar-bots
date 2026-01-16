@@ -30,7 +30,7 @@ class Unit:
     siege_defense: int = 0
     size: int = 1
     capacity: int = 0
-    current_territory_id: Optional[int] = None
+    current_territory_id: Optional[str] = None
     is_naval: bool = False
     upkeep_ore: int = 0
     upkeep_lumber: int = 0

@@ -9,8 +9,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class TerritoryAdjacency:
     id: Optional[int] = None
-    territory_a_id: int = 0
-    territory_b_id: int = 0
+    territory_a_id: str = ""
+    territory_b_id: str = ""
     guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
@@ -42,7 +42,7 @@ class TerritoryAdjacency:
         await self.upsert(conn)
 
     @classmethod
-    async def fetch_adjacent(cls, conn: asyncpg.Connection, territory_id: int, guild_id: int) -> List[int]:
+    async def fetch_adjacent(cls, conn: asyncpg.Connection, territory_id: str, guild_id: int) -> List[str]:
         """
         Fetch all territory IDs adjacent to the given territory.
         Returns a list of adjacent territory IDs.
@@ -59,7 +59,7 @@ class TerritoryAdjacency:
         return [row['adjacent_id'] for row in rows]
 
     @classmethod
-    async def are_adjacent(cls, conn: asyncpg.Connection, territory_1: int, territory_2: int, guild_id: int) -> bool:
+    async def are_adjacent(cls, conn: asyncpg.Connection, territory_1: str, territory_2: str, guild_id: int) -> bool:
         """
         Check if two territories are adjacent.
         """
@@ -71,7 +71,7 @@ class TerritoryAdjacency:
         return row is not None
 
     @classmethod
-    async def delete(cls, conn: asyncpg.Connection, territory_1: int, territory_2: int, guild_id: int) -> bool:
+    async def delete(cls, conn: asyncpg.Connection, territory_1: str, territory_2: str, guild_id: int) -> bool:
         """
         Delete an adjacency relationship between two territories.
         """
@@ -96,8 +96,11 @@ class TerritoryAdjacency:
         """
         Verify that the TerritoryAdjacency has valid data.
         """
-        if self.territory_a_id < 0 or self.territory_b_id < 0:
-            return False, "Territory IDs must be >= 0"
+        if not self.territory_a_id or len(self.territory_a_id.strip()) == 0:
+            return False, "Territory A ID must not be empty"
+
+        if not self.territory_b_id or len(self.territory_b_id.strip()) == 0:
+            return False, "Territory B ID must not be empty"
 
         if self.territory_a_id == self.territory_b_id:
             return False, "A territory cannot be adjacent to itself"

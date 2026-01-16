@@ -10,7 +10,7 @@ from db import (
 from order_types import OrderType, OrderStatus
 
 
-async def view_territory(conn: asyncpg.Connection, territory_id: int, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
+async def view_territory(conn: asyncpg.Connection, territory_id: str, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
     """
     Fetch territory information for display.
 

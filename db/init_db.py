@@ -169,7 +169,7 @@ async def ensure_tables():
     await conn.execute("""
     CREATE TABLE IF NOT EXISTS Territory (
         id SERIAL PRIMARY KEY,
-        territory_id INTEGER NOT NULL,
+        territory_id VARCHAR(50) NOT NULL,
         name VARCHAR(255),
         terrain_type VARCHAR(50) NOT NULL,
         ore_production INTEGER DEFAULT 0,
@@ -185,7 +185,7 @@ async def ensure_tables():
     );
     """)
 
-    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS territory_id INTEGER;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS territory_id VARCHAR(50);")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS name VARCHAR(255);")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS terrain_type VARCHAR(50);")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS ore_production INTEGER DEFAULT 0;")
@@ -201,6 +201,19 @@ async def ensure_tables():
 
     # Add controller_faction_id for faction ownership of territories
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS controller_faction_id INTEGER;")
+
+    # Migration: Change territory_id from INTEGER to VARCHAR(50) for existing databases
+    await conn.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'territory' AND column_name = 'territory_id' AND data_type = 'integer'
+            ) THEN
+                ALTER TABLE Territory ALTER COLUMN territory_id TYPE VARCHAR(50) USING territory_id::VARCHAR;
+            END IF;
+        END $$;
+    """)
 
     # Add index for controller_character_id
     await conn.execute("""
@@ -318,7 +331,7 @@ async def ensure_tables():
         siege_defense INTEGER NOT NULL DEFAULT 0,
         size INTEGER DEFAULT 1,
         capacity INTEGER DEFAULT 0,
-        current_territory_id INTEGER,
+        current_territory_id VARCHAR(50),
         is_naval BOOLEAN DEFAULT FALSE,
         upkeep_ore INTEGER DEFAULT 0,
         upkeep_lumber INTEGER DEFAULT 0,
@@ -348,7 +361,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS siege_defense INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS size INTEGER DEFAULT 1;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS capacity INTEGER DEFAULT 0;")
-    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS current_territory_id INTEGER;")
+    await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS current_territory_id VARCHAR(50);")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS is_naval BOOLEAN DEFAULT FALSE;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_ore INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Unit ADD COLUMN IF NOT EXISTS upkeep_lumber INTEGER DEFAULT 0;")
@@ -365,6 +378,19 @@ async def ensure_tables():
 
     # Make owner_character_id nullable (units can now be owned by factions instead)
     await conn.execute("ALTER TABLE Unit ALTER COLUMN owner_character_id DROP NOT NULL;")
+
+    # Migration: Change current_territory_id from INTEGER to VARCHAR(50) for existing databases
+    await conn.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'unit' AND column_name = 'current_territory_id' AND data_type = 'integer'
+            ) THEN
+                ALTER TABLE Unit ALTER COLUMN current_territory_id TYPE VARCHAR(50) USING current_territory_id::VARCHAR;
+            END IF;
+        END $$;
+    """)
 
     # Create index for faction-owned units
     await conn.execute("""
@@ -487,17 +513,37 @@ async def ensure_tables():
     await conn.execute("""
     CREATE TABLE IF NOT EXISTS TerritoryAdjacency (
         id SERIAL PRIMARY KEY,
-        territory_a_id INTEGER NOT NULL,
-        territory_b_id INTEGER NOT NULL,
+        territory_a_id VARCHAR(50) NOT NULL,
+        territory_b_id VARCHAR(50) NOT NULL,
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(territory_a_id, territory_b_id, guild_id),
         CHECK (territory_a_id < territory_b_id)
     );
     """)
 
-    await conn.execute("ALTER TABLE TerritoryAdjacency ADD COLUMN IF NOT EXISTS territory_a_id INTEGER;")
-    await conn.execute("ALTER TABLE TerritoryAdjacency ADD COLUMN IF NOT EXISTS territory_b_id INTEGER;")
+    await conn.execute("ALTER TABLE TerritoryAdjacency ADD COLUMN IF NOT EXISTS territory_a_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE TerritoryAdjacency ADD COLUMN IF NOT EXISTS territory_b_id VARCHAR(50);")
     await conn.execute("ALTER TABLE TerritoryAdjacency ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Migration: Change territory_a_id and territory_b_id from INTEGER to VARCHAR(50) for existing databases
+    await conn.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'territoryadjacency' AND column_name = 'territory_a_id' AND data_type = 'integer'
+            ) THEN
+                -- Drop the CHECK constraint first
+                ALTER TABLE TerritoryAdjacency DROP CONSTRAINT IF EXISTS territoryadjacency_check;
+                ALTER TABLE TerritoryAdjacency DROP CONSTRAINT IF EXISTS territoryadjacency_territory_a_id_check;
+                -- Alter column types
+                ALTER TABLE TerritoryAdjacency ALTER COLUMN territory_a_id TYPE VARCHAR(50) USING territory_a_id::VARCHAR;
+                ALTER TABLE TerritoryAdjacency ALTER COLUMN territory_b_id TYPE VARCHAR(50) USING territory_b_id::VARCHAR;
+                -- Recreate the CHECK constraint for string comparison
+                ALTER TABLE TerritoryAdjacency ADD CONSTRAINT territoryadjacency_check CHECK (territory_a_id < territory_b_id);
+            END IF;
+        END $$;
+    """)
 
     # --- WargameConfig table ---
     await conn.execute("""

@@ -6,7 +6,7 @@ from typing import Optional, Tuple
 from db import Territory, Character, TerritoryAdjacency, Faction
 
 
-async def create_territory(conn: asyncpg.Connection, territory_id: int, terrain_type: str, guild_id: int, name: Optional[str] = None) -> Tuple[bool, str]:
+async def create_territory(conn: asyncpg.Connection, territory_id: str, terrain_type: str, guild_id: int, name: Optional[str] = None) -> Tuple[bool, str]:
     """Create a new territory."""
     # Validate terrain type
     valid_terrains = ["plains", "mountain", "desert", "ocean", "lake"]
@@ -40,7 +40,7 @@ async def create_territory(conn: asyncpg.Connection, territory_id: int, terrain_
     else:
         return True, f"Territory {territory_id} created successfully."
 
-async def delete_territory(conn: asyncpg.Connection, territory_id: int, guild_id: int) -> Tuple[bool, str]:
+async def delete_territory(conn: asyncpg.Connection, territory_id: str, guild_id: int) -> Tuple[bool, str]:
     """Delete a territory."""
     territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
     if not territory:
@@ -63,7 +63,7 @@ async def delete_territory(conn: asyncpg.Connection, territory_id: int, guild_id
 
 async def set_territory_controller(
     conn: asyncpg.Connection,
-    territory_id: int,
+    territory_id: str,
     controller_identifier: str,
     guild_id: int,
     controller_type: str = 'character'
@@ -122,7 +122,7 @@ async def set_territory_controller(
         return False, f"Invalid controller_type '{controller_type}'. Must be 'character' or 'faction'."
 
 
-async def add_adjacency(conn: asyncpg.Connection, territory_id_1: int, territory_id_2: int, guild_id: int) -> Tuple[bool, str]:
+async def add_adjacency(conn: asyncpg.Connection, territory_id_1: str, territory_id_2: str, guild_id: int) -> Tuple[bool, str]:
     """Mark two territories as adjacent."""
     if territory_id_1 == territory_id_2:
         return False, "A territory cannot be adjacent to itself."
@@ -153,7 +153,7 @@ async def add_adjacency(conn: asyncpg.Connection, territory_id_1: int, territory
     return True, f"Territories {territory_id_1} and {territory_id_2} are now adjacent."
 
 
-async def remove_adjacency(conn: asyncpg.Connection, territory_id_1: int, territory_id_2: int, guild_id: int) -> Tuple[bool, str]:
+async def remove_adjacency(conn: asyncpg.Connection, territory_id_1: str, territory_id_2: str, guild_id: int) -> Tuple[bool, str]:
     """Remove adjacency between two territories."""
     # Delete the adjacency
     result = await conn.execute(

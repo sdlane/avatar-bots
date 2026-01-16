@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class Territory:
     id: Optional[int] = None
-    territory_id: int = 0
+    territory_id: str = ""
     name: Optional[str] = None
     terrain_type: str = ""
     ore_production: int = 0
@@ -87,7 +87,7 @@ class Territory:
         return cls(**row) if row else None
 
     @classmethod
-    async def fetch_by_territory_id(cls, conn: asyncpg.Connection, territory_id: int, guild_id: int) -> Optional["Territory"]:
+    async def fetch_by_territory_id(cls, conn: asyncpg.Connection, territory_id: str, guild_id: int) -> Optional["Territory"]:
         """
         Fetch a Territory by its (territory_id, guild_id) pair.
         """
@@ -146,7 +146,7 @@ class Territory:
         return [cls(**row) for row in rows]
 
     @classmethod
-    async def delete(cls, conn: asyncpg.Connection, territory_id: int, guild_id: int) -> bool:
+    async def delete(cls, conn: asyncpg.Connection, territory_id: str, guild_id: int) -> bool:
         """
         Delete a Territory by territory_id and guild_id.
         """
@@ -173,8 +173,8 @@ class Territory:
           - (False, "<field> invalid") if any value is invalid.
           - (True, "") if all checks pass.
         """
-        if self.territory_id < 0:
-            return False, "Territory ID must be >= 0"
+        if not self.territory_id or len(self.territory_id.strip()) == 0:
+            return False, "Territory ID must not be empty"
 
         if not self.terrain_type or len(self.terrain_type) == 0:
             return False, "Terrain type must not be empty"

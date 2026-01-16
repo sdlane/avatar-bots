@@ -23,7 +23,7 @@ async def test_resource_collection_basic(db_conn, test_server):
 
     # Create territory with production
     territory = Territory(
-        territory_id=100, name="Resource Territory", terrain_type="plains",
+        territory_id="100", name="Resource Territory", terrain_type="plains",
         ore_production=10, lumber_production=5, coal_production=3,
         rations_production=15, cloth_production=7,
         controller_character_id=character.id,
@@ -80,7 +80,7 @@ async def test_resource_collection_multiple_territories(db_conn, test_server):
 
     # Create three territories with different production
     territory1 = Territory(
-        territory_id=101, name="Territory 1", terrain_type="plains",
+        territory_id="101", name="Territory 1", terrain_type="plains",
         ore_production=10, lumber_production=5, coal_production=2,
         rations_production=8, cloth_production=3,
         controller_character_id=character.id,
@@ -89,7 +89,7 @@ async def test_resource_collection_multiple_territories(db_conn, test_server):
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
-        territory_id=102, name="Territory 2", terrain_type="mountain",
+        territory_id="102", name="Territory 2", terrain_type="mountain",
         ore_production=15, lumber_production=2, coal_production=8,
         rations_production=4, cloth_production=1,
         controller_character_id=character.id,
@@ -98,7 +98,7 @@ async def test_resource_collection_multiple_territories(db_conn, test_server):
     await territory2.upsert(db_conn)
 
     territory3 = Territory(
-        territory_id=103, name="Territory 3", terrain_type="plains",
+        territory_id="103", name="Territory 3", terrain_type="plains",
         ore_production=5, lumber_production=10, coal_production=3,
         rations_production=12, cloth_production=6,
         controller_character_id=character.id,
@@ -144,7 +144,7 @@ async def test_resource_collection_no_controller(db_conn, test_server):
     """Test that uncontrolled territories produce nothing."""
     # Create territory with NO controller
     territory = Territory(
-        territory_id=104, name="Uncontrolled Territory", terrain_type="plains",
+        territory_id="104", name="Uncontrolled Territory", terrain_type="plains",
         ore_production=20, lumber_production=15, coal_production=10,
         rations_production=25, cloth_production=12,
         controller_character_id=None,  # No controller
@@ -182,7 +182,7 @@ async def test_resource_collection_zero_production(db_conn, test_server):
 
     # Create territory with ZERO production
     territory = Territory(
-        territory_id=105, name="Barren Territory", terrain_type="desert",
+        territory_id="105", name="Barren Territory", terrain_type="desert",
         ore_production=0, lumber_production=0, coal_production=0,
         rations_production=0, cloth_production=0,
         controller_character_id=character.id,
@@ -221,7 +221,7 @@ async def test_resource_collection_new_player(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=106, name="First Territory", terrain_type="plains",
+        territory_id="106", name="First Territory", terrain_type="plains",
         ore_production=5, lumber_production=3, coal_production=2,
         rations_production=10, cloth_production=4,
         controller_character_id=character.id,
@@ -274,7 +274,7 @@ async def test_resource_collection_accumulation(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=107, name="Productive Territory", terrain_type="plains",
+        territory_id="107", name="Productive Territory", terrain_type="plains",
         ore_production=10, lumber_production=5, coal_production=8,
         rations_production=20, cloth_production=12,
         controller_character_id=character.id,
@@ -326,7 +326,7 @@ async def test_resource_collection_multiple_characters(db_conn, test_server):
 
     # Create territories for each character
     territory1 = Territory(
-        territory_id=108, terrain_type="plains",
+        territory_id="108", terrain_type="plains",
         ore_production=10, lumber_production=5,
         controller_character_id=char1.id,
         guild_id=TEST_GUILD_ID
@@ -334,7 +334,7 @@ async def test_resource_collection_multiple_characters(db_conn, test_server):
     await territory1.upsert(db_conn)
 
     territory2 = Territory(
-        territory_id=109, terrain_type="mountain",
+        territory_id="109", terrain_type="mountain",
         ore_production=15, coal_production=8,
         controller_character_id=char2.id,
         guild_id=TEST_GUILD_ID

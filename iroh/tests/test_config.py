@@ -49,7 +49,7 @@ player_resources:
       cloth: 100
 
 territories:
-  - territory_id: 1
+  - territory_id: "1"
     name: "Fire Nation Capital"
     terrain_type: "plains"
     original_nation: "fire-nation"
@@ -60,9 +60,9 @@ territories:
       coal: 2
       rations: 8
       cloth: 4
-    adjacent_to: [2]
+    adjacent_to: ["2"]
 
-  - territory_id: 2
+  - territory_id: "2"
     name: "Earth Kingdom Territory"
     terrain_type: "mountain"
     original_nation: "earth-kingdom"
@@ -73,7 +73,7 @@ territories:
       coal: 5
       rations: 2
       cloth: 0
-    adjacent_to: [1]
+    adjacent_to: ["1"]
 
 unit_types:
   - type_id: "infantry"
@@ -123,7 +123,7 @@ units:
     owner: "taiso"
     commander: "taiso"
     faction_id: "fire-nation"
-    current_territory_id: 1
+    current_territory_id: "1"
 
   - unit_id: "EK-CAV-001"
     name: "Earth Kingdom Cavalry"
@@ -131,7 +131,7 @@ units:
     owner: "jialun"
     commander: "jialun"
     faction_id: "earth-kingdom"
-    current_territory_id: 2
+    current_territory_id: "2"
 """
 
 

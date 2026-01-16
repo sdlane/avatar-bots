@@ -52,7 +52,7 @@ async def test_create_unit_success(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -62,7 +62,7 @@ async def test_create_unit_success(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -129,7 +129,7 @@ async def test_create_unit_duplicate(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -139,7 +139,7 @@ async def test_create_unit_duplicate(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -150,7 +150,7 @@ async def test_create_unit_duplicate(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -183,7 +183,7 @@ async def test_create_unit_nonexistent_owner(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -193,7 +193,7 @@ async def test_create_unit_nonexistent_owner(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_character="nonexistent-owner"
     )
@@ -231,7 +231,7 @@ async def test_create_unit_owner_not_in_faction(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -241,7 +241,7 @@ async def test_create_unit_owner_not_in_faction(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_character="solo-char"
     )
@@ -286,7 +286,7 @@ async def test_create_unit_nonexistent_territory(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=999,
+        territory_id="999",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -312,7 +312,7 @@ async def test_create_unit_nonexistent_unit_type(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -322,7 +322,7 @@ async def test_create_unit_nonexistent_unit_type(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="nonexistent-type",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -359,7 +359,7 @@ async def test_create_unit_stats_copied_from_type(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -369,7 +369,7 @@ async def test_create_unit_stats_copied_from_type(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="custom-unit",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -420,7 +420,7 @@ async def test_create_faction_owned_unit(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -430,7 +430,7 @@ async def test_create_faction_owned_unit(db_conn, test_server):
         conn=db_conn,
         unit_id="FACTION-UNIT-001",
         unit_type="infantry",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_faction="test-faction"
     )
@@ -485,7 +485,7 @@ async def test_create_unit_both_owners_fails(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -495,7 +495,7 @@ async def test_create_unit_both_owners_fails(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner",
         owner_faction="test-faction"
@@ -527,7 +527,7 @@ async def test_create_unit_no_owner_fails(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -537,7 +537,7 @@ async def test_create_unit_no_owner_fails(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=1,
+        territory_id="1",
         guild_id=TEST_GUILD_ID
         # No owner_character or owner_faction
     )
@@ -576,7 +576,7 @@ async def test_delete_unit_success(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -586,7 +586,7 @@ async def test_delete_unit_success(db_conn, test_server):
         unit_id="UNIT-001", name="Test Unit",
         unit_type="infantry",
         owner_character_id=char.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -678,7 +678,7 @@ async def test_set_unit_commander_success(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -688,7 +688,7 @@ async def test_set_unit_commander_success(db_conn, test_server):
         unit_id="UNIT-001", name="Test Unit",
         unit_type="infantry",
         owner_character_id=owner_char.id, faction_id=faction.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -777,7 +777,7 @@ async def test_set_unit_commander_not_in_faction(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -787,7 +787,7 @@ async def test_set_unit_commander_not_in_faction(db_conn, test_server):
         unit_id="UNIT-001", name="Test Unit",
         unit_type="infantry",
         owner_character_id=owner_char.id, faction_id=faction1.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -852,7 +852,7 @@ async def test_set_unit_commander_nonexistent_character(db_conn, test_server):
 
     # Create territory
     territory = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory.upsert(db_conn)
@@ -862,7 +862,7 @@ async def test_set_unit_commander_nonexistent_character(db_conn, test_server):
         unit_id="UNIT-001", name="Test Unit",
         unit_type="infantry",
         owner_character_id=owner_char.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -927,13 +927,13 @@ async def test_unit_guild_isolation(db_conn, test_server_multi_guild):
 
     # Create territories in both guilds
     territory_a = Territory(
-        territory_id=1, terrain_type="plains",
+        territory_id="1", terrain_type="plains",
         guild_id=TEST_GUILD_ID
     )
     await territory_a.upsert(db_conn)
 
     territory_b = Territory(
-        territory_id=1, terrain_type="mountain",
+        territory_id="1", terrain_type="mountain",
         guild_id=TEST_GUILD_ID_2
     )
     await territory_b.upsert(db_conn)
@@ -943,7 +943,7 @@ async def test_unit_guild_isolation(db_conn, test_server_multi_guild):
         unit_id="UNIT-001", name="Guild A Unit",
         unit_type="infantry",
         owner_character_id=char_a.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID,
+        current_territory_id="1", guild_id=TEST_GUILD_ID,
         movement=2, organization=10, attack=5, defense=5,
         siege_attack=2, siege_defense=3
     )
@@ -953,7 +953,7 @@ async def test_unit_guild_isolation(db_conn, test_server_multi_guild):
         unit_id="UNIT-001", name="Guild B Unit",
         unit_type="infantry",
         owner_character_id=char_b.id,
-        current_territory_id=1, guild_id=TEST_GUILD_ID_2,
+        current_territory_id="1", guild_id=TEST_GUILD_ID_2,
         movement=3, organization=12, attack=6, defense=6,
         siege_attack=3, siege_defense=4
     )
@@ -1015,7 +1015,7 @@ async def test_create_unit_rollback_on_error(db_conn, test_server):
         conn=db_conn,
         unit_id="UNIT-001",
         unit_type="infantry",
-        territory_id=999,
+        territory_id="999",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
