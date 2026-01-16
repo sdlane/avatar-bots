@@ -101,9 +101,33 @@ async def view_faction_cmd(interaction: discord.Interaction, faction_id: str):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
+        # Determine if user can see spending info
+        # (admin, faction leader, or has FINANCIAL permission)
+        show_spending = False
+        if admin:
+            show_spending = True
+        else:
+            # Check if user's character is leader or has FINANCIAL permission
+            character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+            if character:
+                faction = data['faction']
+                # Check if they are the leader
+                if faction.leader_character_id == character.id:
+                    show_spending = True
+                else:
+                    # Check for FINANCIAL permission
+                    has_financial = await FactionPermission.has_permission(
+                        conn, faction.id, character.id, 'FINANCIAL', interaction.guild_id
+                    )
+                    if has_financial:
+                        show_spending = True
+
         # Create and send embed
         if admin:
-            embed = create_faction_embed(data['faction'], data['members'], data['leader'])
+            embed = create_faction_embed(
+                data['faction'], data['members'], data['leader'],
+                show_spending=show_spending
+            )
         else:
             # Limited info for non-admins
             embed = discord.Embed(

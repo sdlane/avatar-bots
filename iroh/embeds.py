@@ -88,7 +88,8 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
     return embed
 
 
-def create_faction_embed(faction: Faction, members: List[Character], leader: Optional[Character] = None) -> discord.Embed:
+def create_faction_embed(faction: Faction, members: List[Character], leader: Optional[Character] = None,
+                         show_spending: bool = False) -> discord.Embed:
     """Create a rich embed displaying faction information."""
     embed = discord.Embed(
         title=f"⚔️ {faction.name}",
@@ -132,6 +133,35 @@ def create_faction_embed(faction: Faction, members: List[Character], leader: Opt
             embed.add_field(
                 name="Member List (first 10)",
                 value="\n".join(member_list[:10]) + f"\n... and {len(member_list) - 10} more",
+                inline=False
+            )
+
+    # Spending (if authorized to view)
+    if show_spending:
+        spending_parts = []
+        if faction.ore_spending > 0:
+            spending_parts.append(f"Ore: {faction.ore_spending}")
+        if faction.lumber_spending > 0:
+            spending_parts.append(f"Lumber: {faction.lumber_spending}")
+        if faction.coal_spending > 0:
+            spending_parts.append(f"Coal: {faction.coal_spending}")
+        if faction.rations_spending > 0:
+            spending_parts.append(f"Rations: {faction.rations_spending}")
+        if faction.cloth_spending > 0:
+            spending_parts.append(f"Cloth: {faction.cloth_spending}")
+        if faction.platinum_spending > 0:
+            spending_parts.append(f"Platinum: {faction.platinum_spending}")
+
+        if spending_parts:
+            embed.add_field(
+                name="Per-Turn Spending",
+                value="\n".join(spending_parts),
+                inline=False
+            )
+        else:
+            embed.add_field(
+                name="Per-Turn Spending",
+                value="None configured",
                 inline=False
             )
 
