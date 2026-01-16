@@ -271,6 +271,40 @@ STEPS:
 
     EXPECTED: Error message
 
+--------------------------------------------------------------------------------
+TEST 2.8: /set-territory-controller (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Assign territory control to character or faction
+
+STEPS:
+2.8.1 Assign to character:
+    /set-territory-controller territory_id:1 character:test-leader
+
+    EXPECTED: Success message
+
+2.8.2 Verify:
+    /view-territory territory_id:1
+
+    EXPECTED: Controller should show test-leader
+
+2.8.3 Assign to faction:
+    /set-territory-controller territory_id:1 faction:fire-nation
+
+    EXPECTED: Success message
+
+2.8.4 Remove controller:
+    /set-territory-controller territory_id:1 character:none
+
+    EXPECTED: Success message
+
+2.8.5 Try both character and faction:
+    /set-territory-controller territory_id:1 character:test-leader faction:fire-nation
+
+    EXPECTED: Error about mutual exclusivity
+
+2.8.6 Leave with test-leader owning territory for later tests
+   /set-territory-controller territory_id:1 character:test-leader
+
 
 ================================================================================
 SECTION 3: FACTION MANAGEMENT (Admin)
@@ -652,14 +686,14 @@ PURPOSE: Assign commanders to units
 
 STEPS:
 5.4.1 Assign commander:
-    /set-unit-commander unit_id:FN-001 commander:test-leader
+    /set-unit-commander unit_id:FN-001 commander:test-member
 
     EXPECTED: Success message
 
 5.4.2 Verify:
     /view-unit unit_id:FN-001
 
-    EXPECTED: Commander field shows test-leader
+    EXPECTED: Commander field shows test-memver
 
 5.4.3 Remove commander:
     /set-unit-commander unit_id:FN-001 commander:none
@@ -667,7 +701,7 @@ STEPS:
     EXPECTED: Success message
 
 5.4.4 Try nonexistent unit:
-    /set-unit-commander unit_id:NONEXISTENT commander:test-leader
+    /set-unit-commander unit_id:NONEXISTENT commander:test-member
 
     EXPECTED: Error message
 
@@ -769,125 +803,115 @@ STEPS:
 
 
 ================================================================================
-SECTION 7: PLAYER VIEW COMMANDS
+SECTION 7: TURN MANAGEMENT (Admin)
 ================================================================================
 
-Note: These require a character linked to your Discord account
-You can assign one via right clicking on your username, clicking App Commands
-Then clicking assign character. Recommend you assign test-leader
-
 --------------------------------------------------------------------------------
-TEST 7.1: /my-resources
+TEST 7.1: /edit-wargame-config
 --------------------------------------------------------------------------------
-PURPOSE: View your character's resources
+PURPOSE: Edit wargame configuration
 
 STEPS:
-7.1.1 View resources:
-    /my-resources
+7.1.1 Open modal:
+    /edit-wargame-config
 
-    EXPECTED: Ephemeral embed showing your resource inventory
+    EXPECTED: Modal with current config values
 
-7.1.2 If no character:
-    EXPECTED: Error about not having a character
+7.1.2 Modify and submit
+
+    EXPECTED: Success message
 
 
 --------------------------------------------------------------------------------
-TEST 7.2: /my-faction
+TEST 7.2 /turn-status
 --------------------------------------------------------------------------------
-PURPOSE: View your faction membership
+PURPOSE: View current turn status
 
 STEPS:
-7.2.1 If in a faction:
-    /my-faction
+7.2.1 View status:
+    /turn-status
 
-    EXPECTED: Embed showing your faction details
-
-7.2.2 If not in a faction:
-    EXPECTED: Error message
+    EXPECTED: Embed showing:
+    - Current turn number
+    - Pending orders summary
+    - Other turn state
 
 
 --------------------------------------------------------------------------------
-TEST 7.3: /my-units
+TEST 7.3: /set-gm-reports-channel
 --------------------------------------------------------------------------------
-PURPOSE: View units you own or command
+PURPOSE: Set channel for GM reports
 
 STEPS:
-7.3.1 View units:
-    /my-units
+7.3.1 Set channel:
+    /set-gm-reports-channel channel:#bot-testing
 
-    EXPECTED: Embed with:
-    - Owned units section
-    - Commanded units section
-    - Disbanded units section
+    EXPECTED: Success message
 
 
 --------------------------------------------------------------------------------
-TEST 7.4: /my-units-list
+TEST 7.4: /resolve-turn
 --------------------------------------------------------------------------------
-PURPOSE: Get simple list of unit IDs
+PURPOSE: Execute turn resolution
 
 STEPS:
-7.4.1 Get list:
-    /my-units-list
+7.4.1 Resolve turn:
+    /resolve-turn
 
-    EXPECTED: Simple text message with comma-separated unit IDs
+    EXPECTED:
+    - Success message
+    - GM report sent to configured channel
+    - Character reports sent to their channels
+
+7.4.2 Verify turn number incremented:
+    /turn-status
+
+    EXPECTED: Turn number should be +1
 
 
 --------------------------------------------------------------------------------
-TEST 7.5: /my-territories
+TEST 7.5: /turn-report (Player)
 --------------------------------------------------------------------------------
-PURPOSE: View territories you control
+PURPOSE: View your character's turn report
 
 STEPS:
-7.5.1 View territories:
-    /my-territories
+7.5.1 View latest:
+    /turn-report
 
-    EXPECTED: Embed with controlled territories
+    EXPECTED: Embed with events from latest turn
+
+7.5.2 View specific turn:
+    /turn-report turn_number:1
+
+    EXPECTED: Embed with events from turn 1
 
 
 --------------------------------------------------------------------------------
-TEST 7.6: /my-territories-list
+TEST 7.6: /gm-turn-report (Admin)
 --------------------------------------------------------------------------------
-PURPOSE: Get simple list of territory IDs
+PURPOSE: View GM turn report
 
 STEPS:
-7.6.1 Get list:
-    /my-territories-list
+7.6.1 View latest:
+    /gm-turn-report
 
-    EXPECTED: Simple text with territory IDs
+    EXPECTED: Embed with all events from latest turn
 
+7.6.2 View specific turn:
+    /gm-turn-report turn_number:1
 
---------------------------------------------------------------------------------
-TEST 7.7: /my-victory-points
---------------------------------------------------------------------------------
-PURPOSE: View your victory points
-
-STEPS:
-7.7.1 View VPs:
-    /my-victory-points
-
-    EXPECTED: Embed showing personal and faction VP totals
-
-
---------------------------------------------------------------------------------
-TEST 7.8: /my-orders
---------------------------------------------------------------------------------
-PURPOSE: View your pending and ongoing orders
-
-STEPS:
-7.8.1 View orders:
-    /my-orders
-
-    EXPECTED: Embed showing pending and ongoing orders
+    EXPECTED: Embed with events from turn 1
 
 
 ================================================================================
 SECTION 8: ORDER COMMANDS (Player)
 ================================================================================
 
---------------------------------------------------------------------------------
-TEST 8.1: /order-transit
---------------------------------------------------------------------------------
+Not transit is not implemented yet so it's "commented out"
+
+#--------------------------------------------------------------------------------
+#TEST 8.1: /order-transit
+#--------------------------------------------------------------------------------
 # PURPOSE: Submit unit movement orders
 
 # PREREQUISITES:
@@ -995,7 +1019,7 @@ STEPS:
 
     EXPECTED: Success message
 
-8.6.3 Try cancelling ongoing order:
+7.6.3 Try cancelling ongoing order:
     EXPECTED: Error (use /order-cancel-transfer for ongoing transfers)
 
 
@@ -1004,7 +1028,7 @@ TEST 8.7: /order-join-faction
 --------------------------------------------------------------------------------
 PURPOSE: Request to join a faction
 
-PREREQUISITE: Character not in a faction
+SETUP - Switch your character to test-member
 
 STEPS:
 8.7.1 Submit join request:
@@ -1012,33 +1036,58 @@ STEPS:
 
     EXPECTED: Success message about order submitted
 
+8.7.2 Switch your character to test-leader
+    EXPECTED: Confirmation message
+
+8.7.3 Confirm the joining
+    /order-join-faction faction_id:fire-nation character_identifier:test-member
+    EXPECTED: Success message about order submitted
+
+8.7.4 Resolve the turn
+    /resolve-turn
 
 --------------------------------------------------------------------------------
-TEST 8.8: /order-leave-faction
---------------------------------------------------------------------------------
-PURPOSE: Leave your current faction
-
-PREREQUISITE: Character is in a faction (not leader)
-
-STEPS:
-8.8.1 Submit leave order:
-    /order-leave-faction
-
-    EXPECTED: Success message
-
-
---------------------------------------------------------------------------------
-TEST 8.9: /order-kick-from-faction
+TEST 8.8: /order-kick-from-faction
 --------------------------------------------------------------------------------
 PURPOSE: Kick a member from faction (faction leader only)
 
 PREREQUISITE: You are faction leader
 
 STEPS:
-8.9.1 Submit kick order:
+8.8.1 Submit kick order:
     /order-kick-from-faction target_character:test-member
 
+    EXPECTED: Error message about it being too early
+
+8.8.2 Resolve a few turns:
+    /resolve-turn
+    /resolve-turn
+
+8.8.3 Try again:
+    /order-kick-from-faction target_character:test-member
+
+    EXPECTED: Success
+
+8.8.4 Rseolve turn again
+   /resolve-turn
+
+
+--------------------------------------------------------------------------------
+TEST 8.9: /order-leave-faction
+--------------------------------------------------------------------------------
+PURPOSE: Leave your current faction
+
+Setup:
+- Switch your character to test-member
+- 
+
+STEPS:
+8.9.1 Submit leave order:
+    /order-leave-faction
+
     EXPECTED: Success message
+
+Cleanip - Switch your character to test-leader
 
 
 --------------------------------------------------------------------------------
@@ -1078,105 +1127,116 @@ STEPS:
 
 
 ================================================================================
-SECTION 9: TURN MANAGEMENT (Admin)
+SECTION 9: PLAYER VIEW COMMANDS
 ================================================================================
 
+Note: These require a character linked to your Discord account
+You can assign one via right clicking on your username, clicking App Commands
+Then clicking assign character. Recommend you assign test-leader
+
 --------------------------------------------------------------------------------
-TEST 9.1: /turn-status
+TEST 9.1: /my-resources
 --------------------------------------------------------------------------------
-PURPOSE: View current turn status
+PURPOSE: View your character's resources
 
 STEPS:
-9.1.1 View status:
-    /turn-status
+9.1.1 View resources:
+    /my-resources
 
-    EXPECTED: Embed showing:
-    - Current turn number
-    - Pending orders summary
-    - Other turn state
+    EXPECTED: Ephemeral embed showing your resource inventory
+
+9.1.2 If no character:
+    EXPECTED: Error about not having a character
 
 
 --------------------------------------------------------------------------------
-TEST 9.2: /set-gm-reports-channel
+TEST 9.2: /my-faction
 --------------------------------------------------------------------------------
-PURPOSE: Set channel for GM reports
+PURPOSE: View your faction membership
 
 STEPS:
-9.2.1 Set channel:
-    /set-gm-reports-channel channel:#gm-reports
+9.2.1 If in a faction:
+    /my-faction
 
-    EXPECTED: Success message
+    EXPECTED: Embed showing your faction details
+
+9.2.2 If not in a faction:
+    EXPECTED: Error message
 
 
 --------------------------------------------------------------------------------
-TEST 9.3: /resolve-turn
+TEST 9.3: /my-units
 --------------------------------------------------------------------------------
-PURPOSE: Execute turn resolution
+PURPOSE: View units you own or command
 
 STEPS:
-9.3.1 Resolve turn:
-    /resolve-turn
+9.3.1 View units:
+    /my-units
 
-    EXPECTED:
-    - Success message
-    - GM report sent to configured channel
-    - Character reports sent to their channels
-
-9.3.2 Verify turn number incremented:
-    /turn-status
-
-    EXPECTED: Turn number should be +1
+    EXPECTED: Embed with:
+    - Owned units section
+    - Commanded units section
+    - Disbanded units section
 
 
 --------------------------------------------------------------------------------
-TEST 9.4: /turn-report (Player)
+TEST 9.4: /my-units-list
 --------------------------------------------------------------------------------
-PURPOSE: View your character's turn report
+PURPOSE: Get simple list of unit IDs
 
 STEPS:
-9.4.1 View latest:
-    /turn-report
+9.4.1 Get list:
+    /my-units-list
 
-    EXPECTED: Embed with events from latest turn
-
-9.4.2 View specific turn:
-    /turn-report turn_number:0
-
-    EXPECTED: Embed with events from turn 0
+    EXPECTED: Simple text message with comma-separated unit IDs
 
 
 --------------------------------------------------------------------------------
-TEST 9.5: /gm-turn-report (Admin)
+TEST 9.5: /my-territories
 --------------------------------------------------------------------------------
-PURPOSE: View GM turn report
+PURPOSE: View territories you control
 
 STEPS:
-9.5.1 View latest:
-    /gm-turn-report
+9.5.1 View territories:
+    /my-territories
 
-    EXPECTED: Embed with all events from latest turn
-
-9.5.2 View specific turn:
-    /gm-turn-report turn_number:0
-
-    EXPECTED: Embed with events from turn 0
+    EXPECTED: Embed with controlled territories
 
 
 --------------------------------------------------------------------------------
-TEST 9.6: /edit-wargame-config
+TEST 9.6: /my-territories-list
 --------------------------------------------------------------------------------
-PURPOSE: Edit wargame configuration
+PURPOSE: Get simple list of territory IDs
 
 STEPS:
-9.6.1 Open modal:
-    /edit-wargame-config
+9.6.1 Get list:
+    /my-territories-list
 
-    EXPECTED: Modal with current config values
+    EXPECTED: Simple text with territory IDs
 
-9.6.2 Modify and submit
 
-    EXPECTED: Success message
+--------------------------------------------------------------------------------
+TEST 9.7: /my-victory-points
+--------------------------------------------------------------------------------
+PURPOSE: View your victory points
 
+STEPS:
+9.7.1 View VPs:
+    /my-victory-points
+
+    EXPECTED: Embed showing personal and faction VP totals
+
+
+--------------------------------------------------------------------------------
+TEST 9.8: /my-orders
+--------------------------------------------------------------------------------
+PURPOSE: View your pending and ongoing orders
+
+STEPS:
+9.8.1 View orders:
+    /my-orders
+
+    EXPECTED: Embed showing pending and ongoing orders
 
 ================================================================================
 SECTION 10: ALLIANCE MANAGEMENT
@@ -1332,43 +1392,6 @@ STEPS:
     - Individual member VPs
     - Assigned VPs
 
-
-================================================================================
-SECTION 13: SET TERRITORY CONTROLLER
-================================================================================
-
---------------------------------------------------------------------------------
-TEST 13.1: /set-territory-controller (Admin)
---------------------------------------------------------------------------------
-PURPOSE: Assign territory control to character or faction
-
-STEPS:
-13.1.1 Assign to character:
-    /set-territory-controller territory_id:1 character:test-leader
-
-    EXPECTED: Success message
-
-13.1.2 Verify:
-    /view-territory territory_id:1
-
-    EXPECTED: Controller should show test-leader
-
-13.1.3 Assign to faction:
-    /set-territory-controller territory_id:1 faction:fire-nation
-
-    EXPECTED: Success message
-
-13.1.4 Remove controller:
-    /set-territory-controller territory_id:1 character:none
-
-    EXPECTED: Success message
-
-13.1.5 Try both character and faction:
-    /set-territory-controller territory_id:1 character:test-leader faction:fire-nation
-
-    EXPECTED: Error about mutual exclusivity
-
-
 ================================================================================
 CLEANUP
 ================================================================================
@@ -1384,113 +1407,6 @@ After testing, clean up all test data:
 /delete-faction faction_id:fire-nation
 /clear-wargame-config
 
-
-================================================================================
-TESTING CHECKLIST
-================================================================================
-
-Copy this checklist and mark items as you complete testing:
-
-[ ] Section 1: Initial Setup
-    [ ] /advice
-    [ ] /create-test-config
-    [ ] /clear-wargame-config
-
-[ ] Section 2: Territory Management
-    [ ] /create-territory
-    [ ] /view-territory
-    [ ] /add-adjacency
-    [ ] /remove-adjacency
-    [ ] /edit-territory
-    [ ] /list-territories
-    [ ] /delete-territory
-
-[ ] Section 3: Faction Management
-    [ ] /create-faction
-    [ ] /view-faction
-    [ ] /list-factions
-    [ ] /add-faction-member
-    [ ] /set-faction-leader
-    [ ] /remove-faction-member
-    [ ] /delete-faction
-
-[ ] Section 4: Unit Type Management
-    [ ] /create-unit-type
-    [ ] /view-unit-type
-    [ ] /list-unit-types
-    [ ] /edit-unit-type
-    [ ] /delete-unit-type
-
-[ ] Section 5: Unit Management
-    [ ] /create-unit (character owner)
-    [ ] /create-unit (faction owner)
-    [ ] /view-unit
-    [ ] /list-units
-    [ ] /set-unit-commander
-    [ ] /set-unit-status
-    [ ] /delete-unit
-
-[ ] Section 6: Resource Management
-    [ ] /modify-resources
-    [ ] /modify-character-production
-    [ ] /modify-character-vp
-    [ ] /view-faction-resources
-    [ ] /modify-faction-resources
-
-[ ] Section 7: Player View Commands
-    [ ] /my-resources
-    [ ] /my-faction
-    [ ] /my-units
-    [ ] /my-units-list
-    [ ] /my-territories
-    [ ] /my-territories-list
-    [ ] /my-victory-points
-    [ ] /my-orders
-
-[ ] Section 8: Order Commands
-    [ ] /order-transit
-    [ ] /order-assign-commander
-    [ ] /order-resource-transfer
-    [ ] /order-ongoing-transfer
-    [ ] /order-cancel-transfer
-    [ ] /cancel-order
-    [ ] /order-join-faction
-    [ ] /order-leave-faction
-    [ ] /order-kick-from-faction
-    [ ] /order-assign-vp
-    [ ] /order-make-alliance
-    [ ] /order-declare-war
-
-[ ] Section 9: Turn Management
-    [ ] /turn-status
-    [ ] /set-gm-reports-channel
-    [ ] /resolve-turn
-    [ ] /turn-report
-    [ ] /gm-turn-report
-    [ ] /edit-wargame-config
-
-[ ] Section 10: Alliance Management
-    [ ] /view-alliances
-    [ ] /add-alliance
-    [ ] /edit-alliance
-    [ ] /delete-alliance
-
-[ ] Section 11: War Management
-    [ ] /view-wars
-    [ ] /edit-war
-    [ ] /add-war-participant
-    [ ] /remove-war-participant
-    [ ] /delete-war
-
-[ ] Section 12: Victory Points
-    [ ] /view-victory-points (admin)
-
-[ ] Section 13: Territory Controller
-    [ ] /set-territory-controller (character)
-    [ ] /set-territory-controller (faction)
-
-[ ] Faction Ownership System (see manual_testing_faction_ownership.txt)
-    [ ] All faction ownership tests
 
 ================================================================================
 NOTES

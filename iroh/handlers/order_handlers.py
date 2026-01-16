@@ -321,7 +321,7 @@ async def submit_kick_from_faction_order(
         order_id=order_id,
         order_type=OrderType.KICK_FROM_FACTION.value,
         unit_ids=[],
-        character_id=leader_character.id,
+        character_id=submitting_character.id,
         turn_number=current_turn + 1,  # Execute next turn
         phase=ORDER_PHASE_MAP[OrderType.KICK_FROM_FACTION].value,
         priority=ORDER_PRIORITY_MAP[OrderType.KICK_FROM_FACTION],
