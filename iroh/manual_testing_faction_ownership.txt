@@ -21,20 +21,27 @@ TEST SETUP
 
 Create test data using existing commands:
 
-1. Create a test character (if not already done via Hawky):
-   - Use Hawky to create a character, e.g., "test-leader"
+1. Clear existing configuration
+   /clear-wargame-config
 
-2. Create a test faction:
+2. Intialize the configuration
+   /edit-wargame-config
+
+   Set reports channel to bot-testing
+
+3. Create test characters (if not already done via Hawky):
+   - Use Hawky to create two characters, "test-leader" and "test-member"
+
+4. Create a test faction:
    /create-faction faction_id:test-faction name:Test Faction leader:test-leader
 
-3. Create another character and add as member:
-   - Create "test-member" via Hawky
+5. Add member
    /add-faction-member faction_id:test-faction character:test-member
 
-4. Create a territory:
+6. Create a territory:
    /create-territory territory_id:100 terrain_type:plains name:Test Territory
 
-5. Create a unit type:
+7. Create a unit type:
    /create-unit-type type_id:test-infantry name:Test Infantry movement:2 organization:10 attack:5 defense:5 siege_attack:2 siege_defense:3
 
 ================================================================================
@@ -80,7 +87,7 @@ PURPOSE: Verify units can be created with faction ownership
 STEPS:
 
 2.1 Create a faction-owned unit:
-    /create-unit unit_id:FACTION-001 unit_type:test-infantry territory_id:100 nation:test-nation owner_faction:test-faction
+    /create-unit unit_id:FACTION-001 unit_type:test-infantry territory_id:100 owner_faction:test-faction
 
     EXPECTED: Success message mentioning faction ownership
 
@@ -90,17 +97,17 @@ STEPS:
     EXPECTED: Should show faction as owner (not a character)
 
 2.3 Create a character-owned unit (verify old behavior):
-    /create-unit unit_id:CHAR-001 unit_type:test-infantry territory_id:100 nation:test-nation owner:test-leader
+    /create-unit unit_id:CHAR-001 unit_type:test-infantry territory_id:100 owner:test-leader
 
     EXPECTED: Success message for character-owned unit
 
 2.4 Test mutual exclusivity - both owner and owner_faction (should fail):
-    /create-unit unit_id:FAIL-001 unit_type:test-infantry territory_id:100 nation:test-nation owner:test-leader owner_faction:test-faction
+    /create-unit unit_id:FAIL-001 unit_type:test-infantry territory_id:100 owner:test-leader owner_faction:test-faction
 
     EXPECTED: Error about cannot specify both
 
 2.5 Test no owner specified (should fail):
-    /create-unit unit_id:FAIL-002 unit_type:test-infantry territory_id:100 nation:test-nation
+    /create-unit unit_id:FAIL-002 unit_type:test-infantry territory_id:100
 
     EXPECTED: Error about must specify owner
 
@@ -273,8 +280,7 @@ PURPOSE: Verify permissions are revoked when member leaves faction
 
 STEPS:
 
-9.1 Grant permission to a member:
-    /add-faction-member faction_id:test-faction character:test-leader
+9.1 Grant permission to a member
     /grant-faction-permission faction_id:test-faction character:test-leader permission_type:COMMAND
 
 9.2 Verify permission exists:
@@ -300,7 +306,9 @@ STEPS:
 
 10.1 Set up faction-controlled territory with production:
     /set-territory-controller territory_id:100 faction:test-faction
-    /edit-territory territory_id:100 ore:10 lumber:5
+    /edit-territory territory_id:100
+
+   Use the modal to set ore to 10 and lumber to 5.
 
 10.2 Check faction resources before turn:
     /view-faction-resources faction_id:test-faction
@@ -345,11 +353,7 @@ CLEANUP
 
 After testing, clean up test data:
 
-/delete-unit unit_id:FACTION-001
-/delete-unit unit_id:CHAR-001
-/delete-territory territory_id:100
-/delete-faction faction_id:test-faction
-/delete-unit-type type_id:test-infantry
+/clear-wargame-config
 
 ================================================================================
 NOTES
