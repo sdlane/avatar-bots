@@ -448,7 +448,7 @@ async def test_view_unit_type_success(db_conn, test_server):
     await unit_type.upsert(db_conn)
 
     # View unit type
-    success, message, data = await view_unit_type(db_conn, "infantry", "fire-nation", TEST_GUILD_ID)
+    success, message, data = await view_unit_type(db_conn, "infantry", TEST_GUILD_ID)
 
     # Verify
     assert success is True
@@ -464,7 +464,7 @@ async def test_view_unit_type_success(db_conn, test_server):
 @pytest.mark.asyncio
 async def test_view_unit_type_nonexistent(db_conn, test_server):
     """Test viewing a non-existent unit type."""
-    success, message, data = await view_unit_type(db_conn, "nonexistent-type", "fire-nation", TEST_GUILD_ID)
+    success, message, data = await view_unit_type(db_conn, "nonexistent-type", TEST_GUILD_ID)
 
     # Verify failure
     assert success is False
@@ -1082,13 +1082,13 @@ async def test_view_handlers_guild_isolation(db_conn, test_server_multi_guild):
     # View entities for guild A
     territory_a_success, _, territory_a_data = await view_territory(db_conn, 1, TEST_GUILD_ID)
     faction_a_success, _, faction_a_data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID)
-    unit_type_a_success, _, unit_type_a_data = await view_unit_type(db_conn, "infantry", "fire-nation", TEST_GUILD_ID)
+    unit_type_a_success, _, unit_type_a_data = await view_unit_type(db_conn, "infantry", TEST_GUILD_ID)
     resources_a_success, _, resources_a_data = await view_resources(db_conn, 100000000000000001, TEST_GUILD_ID)
 
     # View entities for guild B
     territory_b_success, _, territory_b_data = await view_territory(db_conn, 1, TEST_GUILD_ID_2)
     faction_b_success, _, faction_b_data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID_2)
-    unit_type_b_success, _, unit_type_b_data = await view_unit_type(db_conn, "infantry", "fire-nation", TEST_GUILD_ID_2)
+    unit_type_b_success, _, unit_type_b_data = await view_unit_type(db_conn, "infantry", TEST_GUILD_ID_2)
     resources_b_success, _, resources_b_data = await view_resources(db_conn, 100000000000000002, TEST_GUILD_ID_2)
 
     # Verify guild A entities
