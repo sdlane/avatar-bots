@@ -1111,7 +1111,6 @@ async def delete_unit_type_cmd(interaction: discord.Interaction, type_id: str):
     unit_id="Unique identifier for the unit (e.g., 'FN-INF-001')",
     unit_type="Unit type ID (e.g., 'infantry')",
     territory_id="Territory ID where the unit is located",
-    nation="Nation for the unit (e.g., 'fire_nation')",
     owner="Character identifier who will own the unit (mutually exclusive with owner_faction)",
     owner_faction="Faction ID that will own the unit (mutually exclusive with owner)"
 )
@@ -1121,7 +1120,6 @@ async def create_unit_cmd(
     unit_id: str,
     unit_type: str,
     territory_id: int,
-    nation: str,
     owner: str = None,
     owner_faction: str = None
 ):
@@ -1133,7 +1131,6 @@ async def create_unit_cmd(
             unit_id=unit_id,
             unit_type=unit_type,
             territory_id=territory_id,
-            nation=nation,
             guild_id=interaction.guild_id,
             owner_character=owner,
             owner_faction=owner_faction

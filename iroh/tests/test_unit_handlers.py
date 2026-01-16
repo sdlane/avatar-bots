@@ -63,7 +63,6 @@ async def test_create_unit_success(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -141,7 +140,6 @@ async def test_create_unit_duplicate(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -153,7 +151,6 @@ async def test_create_unit_duplicate(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -197,7 +194,6 @@ async def test_create_unit_nonexistent_owner(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="nonexistent-owner"
     )
@@ -246,7 +242,6 @@ async def test_create_unit_owner_not_in_faction(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="solo-char"
     )
@@ -292,7 +287,6 @@ async def test_create_unit_nonexistent_territory(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=999,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -329,7 +323,6 @@ async def test_create_unit_nonexistent_unit_type(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="nonexistent-type",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -377,7 +370,6 @@ async def test_create_unit_stats_copied_from_type(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="custom-unit",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )
@@ -439,7 +431,6 @@ async def test_create_faction_owned_unit(db_conn, test_server):
         unit_id="FACTION-UNIT-001",
         unit_type="infantry",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_faction="test-faction"
     )
@@ -505,7 +496,6 @@ async def test_create_unit_both_owners_fails(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner",
         owner_faction="test-faction"
@@ -548,7 +538,6 @@ async def test_create_unit_no_owner_fails(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=1,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID
         # No owner_character or owner_faction
     )
@@ -1027,7 +1016,6 @@ async def test_create_unit_rollback_on_error(db_conn, test_server):
         unit_id="UNIT-001",
         unit_type="infantry",
         territory_id=999,
-        nation="fire-nation",
         guild_id=TEST_GUILD_ID,
         owner_character="unit-owner"
     )

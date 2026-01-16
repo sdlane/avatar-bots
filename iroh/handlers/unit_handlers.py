@@ -11,7 +11,6 @@ async def create_unit(
     unit_id: str,
     unit_type: str,
     territory_id: int,
-    nation: str,
     guild_id: int,
     owner_character: Optional[str] = None,
     owner_faction: Optional[str] = None
@@ -24,7 +23,6 @@ async def create_unit(
         unit_id: Unique identifier for the unit
         unit_type: Type identifier for the unit type
         territory_id: Territory where unit is created
-        nation: Nation for the unit (required)
         guild_id: Guild ID
         owner_character: Character identifier for the owner (mutually exclusive with owner_faction)
         owner_faction: Faction ID for the owner (mutually exclusive with owner_character)
@@ -68,15 +66,11 @@ async def create_unit(
         owner_faction_id = faction.id
         faction_id = faction.id  # Faction-owned units belong to that faction
 
-    # Fetch unit type - must match the specified nation
+    # Fetch unit type
     unit_type_obj = await UnitType.fetch_by_type_id(conn, unit_type, guild_id)
 
     if not unit_type_obj:
         return False, f"Unit type '{unit_type}' not found."
-
-    # Validate that unit type matches the specified nation
-    if unit_type_obj.nation and unit_type_obj.nation != nation:
-        return False, f"Unit type '{unit_type}' belongs to nation '{unit_type_obj.nation}', but you specified nation '{nation}'."
 
     # Validate territory
     territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
