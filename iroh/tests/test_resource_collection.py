@@ -34,11 +34,11 @@ async def test_resource_collection_basic(db_conn, test_server):
     # Execute resource collection phase
     events = await execute_resource_collection_phase(db_conn, TEST_GUILD_ID, 1)
 
-    # Verify event generated
+    # Verify event generated (combined event for character)
     assert len(events) == 1
     event = events[0]
     assert event.phase == 'RESOURCE_COLLECTION'
-    assert event.event_type == 'TERRITORY_PRODUCTION'
+    assert event.event_type == 'CHARACTER_PRODUCTION'  # Now combined into single event type
     assert event.entity_type == 'character'
     assert event.entity_id == character.id
     assert 'affected_character_ids' in event.event_data

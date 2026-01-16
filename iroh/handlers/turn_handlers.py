@@ -219,24 +219,20 @@ async def execute_combat_phase(
 async def _collect_character_production(
     conn: asyncpg.Connection,
     guild_id: int,
-    turn_number: int
-) -> List[TurnLog]:
+    character_resources: dict
+) -> None:
     """
-    Collect resources from character production values.
+    Collect resources from character production values into the character_resources dict.
 
-    For each character with non-zero production, add resources to their inventory.
-    Generates ONE event per character with non-zero production.
+    For each character with non-zero production, add resources to their inventory
+    and accumulate in character_resources dict for later event creation.
 
     Args:
         conn: Database connection
         guild_id: Guild ID
-        turn_number: Current turn number
-
-    Returns:
-        List of TurnLog objects
+        character_resources: Dict to accumulate {character_id: {'name': str, 'resources': dict}}
     """
-    events = []
-    logger.info(f"Character production: starting for guild {guild_id}, turn {turn_number}")
+    logger.info(f"Character production: starting for guild {guild_id}")
 
     # Fetch all characters in the guild
     characters = await Character.fetch_all(conn, guild_id)
@@ -279,54 +275,50 @@ async def _collect_character_production(
         # Update database
         await player_resources.upsert(conn)
 
-        resources = {
-            'ore': character.ore_production,
-            'lumber': character.lumber_production,
-            'coal': character.coal_production,
-            'rations': character.rations_production,
-            'cloth': character.cloth_production,
-            'platinum': character.platinum_production
-        }
+        # Initialize character entry if not exists
+        if character.id not in character_resources:
+            character_resources[character.id] = {
+                'name': character.name,
+                'resources': {
+                    'ore': 0, 'lumber': 0, 'coal': 0,
+                    'rations': 0, 'cloth': 0, 'platinum': 0
+                }
+            }
 
-        logger.info(f"Character production: Awarded {resources} to character {character.name} (ID: {character.id})")
+        # Accumulate resources
+        character_resources[character.id]['resources']['ore'] += character.ore_production
+        character_resources[character.id]['resources']['lumber'] += character.lumber_production
+        character_resources[character.id]['resources']['coal'] += character.coal_production
+        character_resources[character.id]['resources']['rations'] += character.rations_production
+        character_resources[character.id]['resources']['cloth'] += character.cloth_production
+        character_resources[character.id]['resources']['platinum'] += character.platinum_production
 
-        # Create event for this character
-        events.append(TurnLog(
-            turn_number=turn_number,
-            phase='RESOURCE_COLLECTION',
-            event_type='CHARACTER_PRODUCTION',
-            entity_type='character',
-            entity_id=character.id,
-            event_data={
-                'affected_character_ids': [character.id],
-                'character_name': character.name,
-                'resources': resources
-            },
-            guild_id=guild_id
-        ))
+        logger.info(f"Character production: Added production for character {character.name} (ID: {character.id})")
 
-    logger.info(f"Character production: finished for guild {guild_id}, turn {turn_number}. Processed {len(events)} characters.")
-    return events
+    logger.info(f"Character production: finished for guild {guild_id}")
 
 
 async def _collect_territory_production(
     conn: asyncpg.Connection,
     guild_id: int,
-    turn_number: int
+    turn_number: int,
+    character_resources: dict
 ) -> List[TurnLog]:
     """
     Collect resources from territory production.
 
     For each territory, give production to the character or faction controlling it.
-    Aggregates resources per owner and generates ONE event per owner.
+    Character resources are accumulated into the shared character_resources dict.
+    Returns events only for faction territory production.
 
     Args:
         conn: Database connection
         guild_id: Guild ID
         turn_number: Current turn number
+        character_resources: Dict to accumulate {character_id: {'name': str, 'resources': dict}}
 
     Returns:
-        List of TurnLog objects
+        List of TurnLog objects (faction events only)
     """
     events = []
     logger.info(f"Territory production: starting for guild {guild_id}, turn {turn_number}")
@@ -334,9 +326,8 @@ async def _collect_territory_production(
     # Fetch all territories in the guild
     territories = await Territory.fetch_all(conn, guild_id)
 
-    # Dictionary to aggregate resources per character
-    # Structure: {character_id: {ore: amount, lumber: amount, ...}}
-    character_resources = {}
+    # Dictionary to aggregate territory resources per character (for DB update)
+    territory_char_resources = {}
 
     # Dictionary to aggregate resources per faction
     # Structure: {faction_id: {ore: amount, lumber: amount, ...}}
@@ -354,8 +345,8 @@ async def _collect_territory_production(
             char_id = territory.controller_character_id
 
             # Initialize character entry if not exists
-            if char_id not in character_resources:
-                character_resources[char_id] = {
+            if char_id not in territory_char_resources:
+                territory_char_resources[char_id] = {
                     'ore': 0,
                     'lumber': 0,
                     'coal': 0,
@@ -365,12 +356,12 @@ async def _collect_territory_production(
                 }
 
             # Aggregate resources
-            character_resources[char_id]['ore'] += territory.ore_production
-            character_resources[char_id]['lumber'] += territory.lumber_production
-            character_resources[char_id]['coal'] += territory.coal_production
-            character_resources[char_id]['rations'] += territory.rations_production
-            character_resources[char_id]['cloth'] += territory.cloth_production
-            character_resources[char_id]['platinum'] += territory.platinum_production
+            territory_char_resources[char_id]['ore'] += territory.ore_production
+            territory_char_resources[char_id]['lumber'] += territory.lumber_production
+            territory_char_resources[char_id]['coal'] += territory.coal_production
+            territory_char_resources[char_id]['rations'] += territory.rations_production
+            territory_char_resources[char_id]['cloth'] += territory.cloth_production
+            territory_char_resources[char_id]['platinum'] += territory.platinum_production
 
         elif owner_type == 'faction':
             faction_id = territory.controller_faction_id
@@ -394,8 +385,8 @@ async def _collect_territory_production(
             faction_resources[faction_id]['cloth'] += territory.cloth_production
             faction_resources[faction_id]['platinum'] += territory.platinum_production
 
-    # Process each character's aggregated resources
-    for char_id, resources in character_resources.items():
+    # Process each character's aggregated territory resources
+    for char_id, resources in territory_char_resources.items():
         # Fetch character
         character = await Character.fetch_by_id(conn, char_id)
         if not character:
@@ -437,27 +428,22 @@ async def _collect_territory_production(
 
         logger.info(f"Territory production: Awarded {resources} to character {character.name} (ID: {char_id})")
 
-        # Create single event for this character with aggregated resources
-        events.append(TurnLog(
-            turn_number=turn_number,
-            phase='RESOURCE_COLLECTION',
-            event_type='TERRITORY_PRODUCTION',
-            entity_type='character',
-            entity_id=char_id,
-            event_data={
-                'affected_character_ids': [char_id],
-                'character_name': character.name,
+        # Accumulate into shared character_resources dict for combined event creation
+        if char_id not in character_resources:
+            character_resources[char_id] = {
+                'name': character.name,
                 'resources': {
-                    'ore': resources['ore'],
-                    'lumber': resources['lumber'],
-                    'coal': resources['coal'],
-                    'rations': resources['rations'],
-                    'cloth': resources['cloth'],
-                    'platinum': resources['platinum']
+                    'ore': 0, 'lumber': 0, 'coal': 0,
+                    'rations': 0, 'cloth': 0, 'platinum': 0
                 }
-            },
-            guild_id=guild_id
-        ))
+            }
+
+        character_resources[char_id]['resources']['ore'] += resources['ore']
+        character_resources[char_id]['resources']['lumber'] += resources['lumber']
+        character_resources[char_id]['resources']['coal'] += resources['coal']
+        character_resources[char_id]['resources']['rations'] += resources['rations']
+        character_resources[char_id]['resources']['cloth'] += resources['cloth']
+        character_resources[char_id]['resources']['platinum'] += resources['platinum']
 
     # Process each faction's aggregated resources
     for faction_id, resources in faction_resources.items():
@@ -502,10 +488,13 @@ async def _collect_territory_production(
 
         logger.info(f"Territory production: Awarded {resources} to faction {faction.name} (ID: {faction_id})")
 
-        # Get affected character IDs - those with FINANCIAL permission see resource events
+        # Get affected character IDs - faction leader and those with FINANCIAL permission see resource events
         affected_char_ids = await FactionPermission.fetch_characters_with_permission(
             conn, faction_id, "FINANCIAL", guild_id
         )
+        # Also include faction leader
+        if faction.leader_character_id and faction.leader_character_id not in affected_char_ids:
+            affected_char_ids.append(faction.leader_character_id)
 
         # Create single event for this faction with aggregated resources
         events.append(TurnLog(
@@ -642,13 +631,38 @@ async def execute_resource_collection_phase(
     events = []
     logger.info(f"Resource collection phase: starting for guild {guild_id}, turn {turn_number}")
 
-    # Character production first
-    char_events = await _collect_character_production(conn, guild_id, turn_number)
-    events.extend(char_events)
+    # Shared dict to accumulate all character resources from both production sources
+    # Structure: {character_id: {'name': str, 'resources': {ore: int, ...}}}
+    character_resources = {}
 
-    # Territory production second
-    territory_events = await _collect_territory_production(conn, guild_id, turn_number)
-    events.extend(territory_events)
+    # Character production - accumulates into character_resources
+    await _collect_character_production(conn, guild_id, character_resources)
+
+    # Territory production - accumulates character resources into shared dict, returns faction events
+    faction_events = await _collect_territory_production(conn, guild_id, turn_number, character_resources)
+
+    # Create combined events for each character (one event per character with all resources)
+    for char_id, data in character_resources.items():
+        total = sum(data['resources'].values())
+        if total == 0:
+            continue
+
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase='RESOURCE_COLLECTION',
+            event_type='CHARACTER_PRODUCTION',
+            entity_type='character',
+            entity_id=char_id,
+            event_data={
+                'affected_character_ids': [char_id],
+                'character_name': data['name'],
+                'resources': data['resources']
+            },
+            guild_id=guild_id
+        ))
+
+    # Add faction territory production events
+    events.extend(faction_events)
 
     # Apply first-war production bonus (doubles production for those who qualify)
     bonus_events = await _apply_first_war_production_bonus(conn, guild_id, turn_number)

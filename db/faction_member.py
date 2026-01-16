@@ -32,6 +32,28 @@ class FactionMember:
             self.guild_id
         )
 
+    async def upsert(self, conn: asyncpg.Connection):
+        """
+        Insert or update this FactionMember entry.
+        If the character is already in a faction, update their faction membership.
+        """
+        query = """
+        INSERT INTO FactionMember (
+            faction_id, character_id, joined_turn, guild_id
+        )
+        VALUES ($1, $2, $3, $4)
+        ON CONFLICT (character_id, guild_id) DO UPDATE
+        SET faction_id = EXCLUDED.faction_id,
+            joined_turn = EXCLUDED.joined_turn;
+        """
+        await conn.execute(
+            query,
+            self.faction_id,
+            self.character_id,
+            self.joined_turn,
+            self.guild_id
+        )
+
     @classmethod
     async def fetch_by_character(cls, conn: asyncpg.Connection, character_id: int, guild_id: int) -> Optional["FactionMember"]:
         """

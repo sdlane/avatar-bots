@@ -22,20 +22,19 @@ async def test_character_production_basic(db_conn, test_server):
     await character.upsert(db_conn)
     character = await Character.fetch_by_identifier(db_conn, "prod-char", TEST_GUILD_ID)
 
-    # Execute character production
-    events = await _collect_character_production(db_conn, TEST_GUILD_ID, 1)
+    # Execute character production with new API (uses shared dict)
+    character_resources = {}
+    await _collect_character_production(db_conn, TEST_GUILD_ID, character_resources)
 
-    # Verify event generated
-    assert len(events) == 1
-    event = events[0]
-    assert event.phase == 'RESOURCE_COLLECTION'
-    assert event.event_type == 'CHARACTER_PRODUCTION'
-    assert event.entity_type == 'character'
-    assert event.entity_id == character.id
-    assert event.event_data['resources']['ore'] == 5
-    assert event.event_data['resources']['lumber'] == 3
-    assert event.event_data['resources']['rations'] == 10
-    assert event.event_data['resources']['platinum'] == 2
+    # Verify character resources accumulated
+    assert len(character_resources) == 1
+    assert character.id in character_resources
+    char_data = character_resources[character.id]
+    assert char_data['name'] == 'Producer'
+    assert char_data['resources']['ore'] == 5
+    assert char_data['resources']['lumber'] == 3
+    assert char_data['resources']['rations'] == 10
+    assert char_data['resources']['platinum'] == 2
 
     # Verify PlayerResources created
     resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
@@ -52,7 +51,7 @@ async def test_character_production_basic(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_character_production_zero(db_conn, test_server):
-    """Test that zero production generates no events."""
+    """Test that zero production generates no resources."""
     # Create character with NO production
     character = Character(
         identifier="zero-prod", name="No Production",
@@ -62,10 +61,11 @@ async def test_character_production_zero(db_conn, test_server):
     await character.upsert(db_conn)
 
     # Execute character production
-    events = await _collect_character_production(db_conn, TEST_GUILD_ID, 1)
+    character_resources = {}
+    await _collect_character_production(db_conn, TEST_GUILD_ID, character_resources)
 
-    # Verify no events generated
-    assert len(events) == 0
+    # Verify no resources accumulated
+    assert len(character_resources) == 0
 
     # Cleanup
     await db_conn.execute("DELETE FROM Character WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -90,9 +90,10 @@ async def test_character_production_accumulation(db_conn, test_server):
     await resources.upsert(db_conn)
 
     # Execute character production
-    events = await _collect_character_production(db_conn, TEST_GUILD_ID, 1)
+    character_resources = {}
+    await _collect_character_production(db_conn, TEST_GUILD_ID, character_resources)
 
-    # Verify resources accumulated
+    # Verify resources accumulated in DB
     resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
     assert resources.ore == 60  # 50 + 10
 
@@ -129,10 +130,11 @@ async def test_character_production_multiple_characters(db_conn, test_server):
     await char3.upsert(db_conn)
 
     # Execute character production
-    events = await _collect_character_production(db_conn, TEST_GUILD_ID, 1)
+    character_resources = {}
+    await _collect_character_production(db_conn, TEST_GUILD_ID, character_resources)
 
-    # Verify two events generated (not three)
-    assert len(events) == 2
+    # Verify two characters have accumulated resources (not three)
+    assert len(character_resources) == 2
 
     # Verify each character got their production
     res1 = await PlayerResources.fetch_by_character(db_conn, char1.id, TEST_GUILD_ID)
@@ -150,8 +152,8 @@ async def test_character_production_multiple_characters(db_conn, test_server):
 
 
 @pytest.mark.asyncio
-async def test_character_production_before_territory(db_conn, test_server):
-    """Test that character production runs before territory production in resource collection phase."""
+async def test_character_production_combined_with_territory(db_conn, test_server):
+    """Test that character and territory production are combined into one event per character."""
     from db import Territory
 
     # Create character with production
@@ -175,12 +177,12 @@ async def test_character_production_before_territory(db_conn, test_server):
     # Execute full resource collection phase
     events = await execute_resource_collection_phase(db_conn, TEST_GUILD_ID, 1)
 
-    # Verify two events generated (one for character production, one for territory)
-    assert len(events) == 2
+    # Verify ONE combined event generated (character + territory production combined)
+    assert len(events) == 1
 
-    # Verify character production event came first
+    # Verify combined event has total resources
     assert events[0].event_type == 'CHARACTER_PRODUCTION'
-    assert events[1].event_type == 'TERRITORY_PRODUCTION'
+    assert events[0].event_data['resources']['ore'] == 15  # 10 + 5 combined
 
     # Verify total resources = character production + territory production
     resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)

@@ -126,6 +126,20 @@ class War:
         return cls(**row) if row else None
 
     @classmethod
+    async def generate_next_war_id(
+        cls,
+        conn: asyncpg.Connection,
+        guild_id: int
+    ) -> str:
+        """
+        Generate the next sequential war ID for a guild (e.g., WAR-01, WAR-02).
+        """
+        count = await conn.fetchval("""
+            SELECT COUNT(*) FROM War WHERE guild_id = $1;
+        """, guild_id)
+        return f"WAR-{(count + 1):02d}"
+
+    @classmethod
     async def fetch_all(
         cls,
         conn: asyncpg.Connection,

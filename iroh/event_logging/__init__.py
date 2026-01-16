@@ -58,6 +58,8 @@ from .resource_events import (
     resource_transfer_failed_gm_line,
     transfer_cancelled_character_line,
     transfer_cancelled_gm_line,
+    faction_territory_production_character_line,
+    faction_territory_production_gm_line,
 )
 
 from .upkeep_events import (
@@ -183,6 +185,10 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'CHARACTER_PRODUCTION': EventHandler(
         get_character_line=resource_collection_character_line,
         get_gm_line=resource_collection_gm_line
+    ),
+    'FACTION_TERRITORY_PRODUCTION': EventHandler(
+        get_character_line=faction_territory_production_character_line,
+        get_gm_line=faction_territory_production_gm_line
     ),
     'RESOURCE_TRANSFER_SUCCESS': EventHandler(
         get_character_line=resource_transfer_success_character_line,

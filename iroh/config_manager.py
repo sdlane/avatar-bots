@@ -403,7 +403,7 @@ class ConfigManager:
                                 joined_turn=current_turn,
                                 guild_id=guild_id
                             )
-                            await faction_member.insert(conn)
+                            await faction_member.upsert(conn)
 
         # Collect all referenced faction IDs and validate they exist
         referenced_faction_ids = set()
@@ -528,7 +528,7 @@ class ConfigManager:
 
                 production = territory_data.get('production', {})
                 territory = Territory(
-                    territory_id=territory_data['territory_id'],
+                    territory_id=str(territory_data['territory_id']),
                     name=territory_data.get('name'),
                     terrain_type=territory_data['terrain_type'],
                     ore_production=production.get('ore', 0),
@@ -549,8 +549,8 @@ class ConfigManager:
                 if 'adjacent_to' in territory_data:
                     for adjacent_id in territory_data['adjacent_to']:
                         adjacency = TerritoryAdjacency(
-                            territory_a_id=territory_data['territory_id'],
-                            territory_b_id=adjacent_id,
+                            territory_a_id=str(territory_data['territory_id']),
+                            territory_b_id=str(adjacent_id),
                             guild_id=guild_id
                         )
                         await adjacency.insert(conn)
@@ -661,7 +661,7 @@ class ConfigManager:
                     siege_defense=unit_type.siege_defense,
                     size=unit_type.size,
                     capacity=unit_type.capacity,
-                    current_territory_id=unit_data.get('current_territory_id'),
+                    current_territory_id=str(unit_data['current_territory_id']) if unit_data.get('current_territory_id') is not None else None,
                     is_naval=unit_type.is_naval,
                     upkeep_ore=unit_type.upkeep_ore,
                     upkeep_lumber=unit_type.upkeep_lumber,

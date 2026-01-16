@@ -281,7 +281,7 @@ async def submit_kick_from_faction_order(
         "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
         guild_id
     )
-    current_turn = wargame_config['current_turn'] if wargame_config else 0
+    current_turn = wargame_config['current_turn'] + 1 if wargame_config else 1
 
     # Check not within first 3 turns of game
     if current_turn < 3:
@@ -295,13 +295,13 @@ async def submit_kick_from_faction_order(
     faction_created_turn = faction_row['created_turn'] if faction_row and faction_row['created_turn'] else 0
 
     # Check not within 3 turns of faction creation
-    if current_turn - faction_created_turn < 3:
-        turns_remaining = 3 - (current_turn - faction_created_turn)
+    if current_turn - faction_created_turn < 4:
+        turns_remaining = 4 - (current_turn - faction_created_turn)
         return False, f"Kick orders cannot be issued within 3 turns of faction creation. Wait {turns_remaining} more turn(s)."
 
     # Check not within 3 turns of member joining
-    if current_turn - target_membership.joined_turn < 3:
-        turns_remaining = 3 - (current_turn - target_membership.joined_turn)
+    if current_turn - target_membership.joined_turn <= 3:
+        turns_remaining = 4 - (current_turn - target_membership.joined_turn)
         return False, f"{target_character.name} joined the faction too recently. Wait {turns_remaining} more turn(s)."
 
     # Check no pending kick orders for this target
@@ -322,7 +322,7 @@ async def submit_kick_from_faction_order(
         order_type=OrderType.KICK_FROM_FACTION.value,
         unit_ids=[],
         character_id=submitting_character.id,
-        turn_number=current_turn + 1,  # Execute next turn
+        turn_number=current_turn,
         phase=ORDER_PHASE_MAP[OrderType.KICK_FROM_FACTION].value,
         priority=ORDER_PRIORITY_MAP[OrderType.KICK_FROM_FACTION],
         status=OrderStatus.PENDING.value,

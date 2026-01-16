@@ -166,3 +166,19 @@ def transfer_cancelled_gm_line(event_data: Dict[str, Any]) -> str:
     to_character_name = event_data.get('to_character_name', 'Unknown')
 
     return f"🚫 Transfer cancelled: {from_character_name} → {to_character_name}"
+
+
+def faction_territory_production_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for FACTION_TERRITORY_PRODUCTION event."""
+    faction_name = event_data.get('faction_name', 'Unknown')
+    resources = event_data.get('resources', {})
+    resources_str = _format_resources(resources)
+    return f"🏰 **{faction_name}** territory production: {resources_str}"
+
+
+def faction_territory_production_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for FACTION_TERRITORY_PRODUCTION event."""
+    faction_name = event_data.get('faction_name', 'Unknown')
+    resources = event_data.get('resources', {})
+    resources_str = _format_resources(resources)
+    return f"🏰 {faction_name} territory: {resources_str}"

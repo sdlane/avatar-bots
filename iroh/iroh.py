@@ -411,6 +411,18 @@ async def clear_wargame_config(interaction: discord.Interaction):
         await conn.execute("DELETE FROM Faction WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", interaction.guild_id)
 
+        # Zero out character production (characters are shared with Hawky, so don't delete them)
+        await conn.execute("""
+            UPDATE Character
+            SET ore_production = 0,
+                lumber_production = 0,
+                coal_production = 0,
+                rations_production = 0,
+                cloth_production = 0,
+                platinum_production = 0
+            WHERE guild_id = $1;
+        """, interaction.guild_id)
+
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) cleared all wargame data for guild {interaction.guild_id}")
 
         await interaction.followup.send(

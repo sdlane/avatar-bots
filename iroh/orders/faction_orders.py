@@ -3,7 +3,6 @@ from datetime import datetime
 from db import Character, Faction, FactionMember, FactionJoinRequest, Unit, TurnLog, War, WarParticipant, Alliance
 import asyncpg
 from typing import Optional, Dict, List, Union
-import uuid
 
 async def handle_leave_faction_order(
     conn: asyncpg.Connection,
@@ -700,7 +699,7 @@ async def _join_existing_war(
     if existing_participant:
         # Already in war - this is still valid, they're confirming their participation
         # But we won't add them again
-        pass
+        our_side = existing_participant.side
     else:
         # Determine which side to join based on targets
         # If any target is on SIDE_A, we join SIDE_B. If any target is on SIDE_B, we join SIDE_A.
@@ -761,8 +760,9 @@ async def _join_existing_war(
         event_data={
             'war_id': war.war_id,
             'objective': war.objective,
-            'faction_name': submitting_faction.name,
-            'faction_id': submitting_faction.faction_id,
+            'joining_faction_name': submitting_faction.name,
+            'joining_faction_id': submitting_faction.faction_id,
+            'side': our_side,
             'target_factions': [f.name for f in target_factions],
             'order_id': order.order_id,
             'affected_character_ids': affected_ids
@@ -792,7 +792,7 @@ async def _create_new_war(
     events = []
 
     # Generate war_id
-    war_id = f"war-{uuid.uuid4().hex[:8]}"
+    war_id = await War.generate_next_war_id(conn, guild_id)
 
     # Create war
     war = War(
@@ -841,7 +841,7 @@ async def _create_new_war(
             'objective': objective,
             'declaring_faction_name': submitting_faction.name,
             'declaring_faction_id': submitting_faction.faction_id,
-            'target_factions': [f.name for f in target_factions],
+            'target_faction_names': [f.name for f in target_factions],
             'target_faction_ids': [f.faction_id for f in target_factions],
             'order_id': order.order_id,
             'affected_character_ids': affected_ids
@@ -929,8 +929,8 @@ async def _handle_allied_drag_in(
                 event_data={
                     'war_id': war.war_id,
                     'objective': war.objective,
-                    'faction_name': dragged_faction.name,
-                    'faction_id': dragged_faction.faction_id,
+                    'dragged_faction_name': dragged_faction.name,
+                    'dragged_faction_id': dragged_faction.faction_id,
                     'side': 'SIDE_B',
                     'reason': 'Allied with both declaring and target factions',
                     'affected_character_ids': affected_ids
