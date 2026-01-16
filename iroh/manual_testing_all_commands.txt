@@ -1480,25 +1480,4 @@ CLEANUP
 
 After testing, clean up all test data:
 
-/delete-unit unit_id:FN-001
-/delete-unit-type type_id:infantry
-/delete-territory territory_id:1
-/delete-territory territory_id:2
-/delete-territory territory_id:3
-/delete-territory territory_id:4
-/delete-faction faction_id:fire-nation
 /clear-wargame-config
-
-
-================================================================================
-NOTES
-================================================================================
-
-1. Commands marked [Admin] require manage_guild permission
-2. Player commands require a character linked to your Discord account
-3. Some tests depend on data created in previous tests
-4. Modal-based commands require manual interaction with the Discord UI
-5. Order commands require turn resolution (/resolve-turn) to take effect
-6. Check the log output for additional debugging information
-
-================================================================================
