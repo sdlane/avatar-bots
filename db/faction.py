@@ -15,6 +15,13 @@ class Faction:
     created_turn: int = 0
     has_declared_war: bool = False  # True after first-ever war declaration
     guild_id: Optional[int] = None
+    # Resource spending per turn (deducted during upkeep phase)
+    ore_spending: int = 0
+    lumber_spending: int = 0
+    coal_spending: int = 0
+    rations_spending: int = 0
+    cloth_spending: int = 0
+    platinum_spending: int = 0
 
     async def upsert(self, conn: asyncpg.Connection):
         """
@@ -23,14 +30,21 @@ class Faction:
         """
         query = """
         INSERT INTO Faction (
-            faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id
+            faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id,
+            ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
         )
-        VALUES ($1, $2, $3, $4, $5, $6)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
         ON CONFLICT (faction_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             leader_character_id = EXCLUDED.leader_character_id,
             created_turn = EXCLUDED.created_turn,
-            has_declared_war = EXCLUDED.has_declared_war;
+            has_declared_war = EXCLUDED.has_declared_war,
+            ore_spending = EXCLUDED.ore_spending,
+            lumber_spending = EXCLUDED.lumber_spending,
+            coal_spending = EXCLUDED.coal_spending,
+            rations_spending = EXCLUDED.rations_spending,
+            cloth_spending = EXCLUDED.cloth_spending,
+            platinum_spending = EXCLUDED.platinum_spending;
         """
         await conn.execute(
             query,
@@ -39,7 +53,13 @@ class Faction:
             self.leader_character_id,
             self.created_turn,
             self.has_declared_war,
-            self.guild_id
+            self.guild_id,
+            self.ore_spending,
+            self.lumber_spending,
+            self.coal_spending,
+            self.rations_spending,
+            self.cloth_spending,
+            self.platinum_spending
         )
 
     @classmethod
@@ -48,7 +68,8 @@ class Faction:
         Fetch a Faction by its internal sequential ID.
         """
         row = await conn.fetchrow("""
-            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id,
+                   ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
             FROM Faction
             WHERE id = $1;
         """, faction_internal_id)
@@ -60,7 +81,8 @@ class Faction:
         Fetch a Faction by its (faction_id, guild_id) pair.
         """
         row = await conn.fetchrow("""
-            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id,
+                   ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
             FROM Faction
             WHERE faction_id = $1 AND guild_id = $2;
         """, faction_id, guild_id)
@@ -72,7 +94,8 @@ class Faction:
         Fetch all Factions in a guild.
         """
         rows = await conn.fetch("""
-            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id
+            SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id,
+                   ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
             FROM Faction
             WHERE guild_id = $1
             ORDER BY faction_id;
@@ -112,5 +135,18 @@ class Faction:
 
         if self.guild_id is None or self.guild_id < 0:
             return False, "guild_id must be valid"
+
+        # Validate spending values are non-negative
+        spending_fields = [
+            ("ore_spending", self.ore_spending),
+            ("lumber_spending", self.lumber_spending),
+            ("coal_spending", self.coal_spending),
+            ("rations_spending", self.rations_spending),
+            ("cloth_spending", self.cloth_spending),
+            ("platinum_spending", self.platinum_spending)
+        ]
+        for field_name, value in spending_fields:
+            if value < 0:
+                return False, f"{field_name} must be >= 0"
 
         return True, ""

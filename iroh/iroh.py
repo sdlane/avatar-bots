@@ -1388,6 +1388,99 @@ async def modify_faction_resources_cmd(
         )
 
 
+@tree.command(
+    name="edit-faction-spending",
+    description="[Admin] Edit a faction's per-turn resource spending"
+)
+@app_commands.describe(
+    faction_id="Faction ID to edit",
+    ore="Ore spent per turn (only updates if provided)",
+    lumber="Lumber spent per turn (only updates if provided)",
+    coal="Coal spent per turn (only updates if provided)",
+    rations="Rations spent per turn (only updates if provided)",
+    cloth="Cloth spent per turn (only updates if provided)",
+    platinum="Platinum spent per turn (only updates if provided)"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_faction_spending_cmd(
+    interaction: discord.Interaction,
+    faction_id: str,
+    ore: Optional[int] = None,
+    lumber: Optional[int] = None,
+    coal: Optional[int] = None,
+    rations: Optional[int] = None,
+    cloth: Optional[int] = None,
+    platinum: Optional[int] = None
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Only include values that were explicitly provided
+        spending = {}
+        if ore is not None:
+            spending['ore'] = ore
+        if lumber is not None:
+            spending['lumber'] = lumber
+        if coal is not None:
+            spending['coal'] = coal
+        if rations is not None:
+            spending['rations'] = rations
+        if cloth is not None:
+            spending['cloth'] = cloth
+        if platinum is not None:
+            spending['platinum'] = platinum
+
+        success, message = await handlers.edit_faction_spending(conn, faction_id, interaction.guild_id, spending)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited spending for faction '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to edit faction spending for '{faction_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="view-faction-spending",
+    description="View a faction's per-turn resource spending configuration"
+)
+@app_commands.describe(faction_id="Faction ID to view spending for")
+async def view_faction_spending_cmd(interaction: discord.Interaction, faction_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        admin = is_admin(interaction)
+
+        # Get user's character to check faction membership (if not admin)
+        character_id = None
+        if not admin:
+            character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+            if character:
+                character_id = character.id
+
+        success, message, data = await handlers.get_faction_spending(
+            conn, faction_id, interaction.guild_id, character_id if not admin else None
+        )
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        # Build response
+        response = f"**{data['faction_name']} Spending (per turn)**\n"
+        response += f"Ore: {data['ore']}\n"
+        response += f"Lumber: {data['lumber']}\n"
+        response += f"Coal: {data['coal']}\n"
+        response += f"Rations: {data['rations']}\n"
+        response += f"Cloth: {data['cloth']}\n"
+        response += f"Platinum: {data['platinum']}\n"
+
+        await interaction.followup.send(response)
+
+
 # Order Management Commands (Player)
 @tree.command(
     name="order-join-faction",

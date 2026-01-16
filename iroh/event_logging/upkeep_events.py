@@ -120,3 +120,38 @@ def unit_dissolved_gm_line(event_data: Dict[str, Any]) -> str:
     """Generate GM report line for UNIT_DISSOLVED event."""
     unit_id = event_data.get('unit_id', 'Unknown')
     return f"💀 {unit_id} dissolved"
+
+
+# ============== Faction Spending Events ==============
+
+
+def faction_spending_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for FACTION_SPENDING event."""
+    faction_name = event_data.get('faction_name', 'Unknown')
+    amounts_spent = event_data.get('amounts_spent', {})
+    amounts_str = _format_resources(amounts_spent)
+    return f"💸 {faction_name} spending: {amounts_str}"
+
+
+def faction_spending_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for FACTION_SPENDING event."""
+    faction_name = event_data.get('faction_name', 'Unknown')
+    amounts_spent = event_data.get('amounts_spent', {})
+    amounts_str = _format_resources(amounts_spent)
+    return f"💸 {faction_name}: {amounts_str}"
+
+
+def faction_spending_partial_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for FACTION_SPENDING_PARTIAL event."""
+    faction_name = event_data.get('faction_name', 'Unknown')
+    shortfall = event_data.get('shortfall', {})
+    shortfall_str = _format_deficit(shortfall)
+    return f"⚠️ {faction_name} spending incomplete: lacking {shortfall_str}"
+
+
+def faction_spending_partial_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for FACTION_SPENDING_PARTIAL event."""
+    faction_name = event_data.get('faction_name', 'Unknown')
+    shortfall = event_data.get('shortfall', {})
+    shortfall_str = _format_deficit(shortfall)
+    return f"⚠️ {faction_name} spending short: {shortfall_str}"

@@ -245,6 +245,13 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS created_turn INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS has_declared_war BOOLEAN DEFAULT FALSE;")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+    # Resource spending per turn (deducted during upkeep phase)
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS ore_spending INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS lumber_spending INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS coal_spending INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS rations_spending INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS cloth_spending INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS platinum_spending INTEGER DEFAULT 0;")
 
     # --- FactionMember table ---
     await conn.execute("""

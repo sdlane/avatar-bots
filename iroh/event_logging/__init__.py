@@ -77,6 +77,10 @@ from .upkeep_events import (
     upkeep_deficit_gm_line,
     unit_dissolved_character_line,
     unit_dissolved_gm_line,
+    faction_spending_character_line,
+    faction_spending_gm_line,
+    faction_spending_partial_character_line,
+    faction_spending_partial_gm_line,
 )
 
 from .unit_events import (
@@ -239,6 +243,14 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'UNIT_DISSOLVED': EventHandler(
         get_character_line=unit_dissolved_character_line,
         get_gm_line=unit_dissolved_gm_line
+    ),
+    'FACTION_SPENDING': EventHandler(
+        get_character_line=faction_spending_character_line,
+        get_gm_line=faction_spending_gm_line
+    ),
+    'FACTION_SPENDING_PARTIAL': EventHandler(
+        get_character_line=faction_spending_partial_character_line,
+        get_gm_line=faction_spending_partial_gm_line
     ),
 
     # Unit events

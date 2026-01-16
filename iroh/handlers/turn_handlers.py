@@ -797,6 +797,133 @@ async def execute_encirclement_phase(
     logger.info(f"Encirclement phase: finished encirclement phase for guild {guild_id}, turn {turn_number}")
     return events
 
+
+async def execute_faction_spending(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Execute faction spending deductions BEFORE unit upkeep.
+
+    For each faction with non-zero spending:
+    - Deduct spending amounts from faction resources
+    - If insufficient resources, deduct what's available
+    - Generate FACTION_SPENDING event
+    - Generate FACTION_SPENDING_PARTIAL if any resource was insufficient
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog events
+    """
+    events = []
+    logger.info(f"Faction spending: starting faction spending for guild {guild_id}, turn {turn_number}")
+
+    # Fetch all factions
+    factions = await Faction.fetch_all(conn, guild_id)
+    if not factions:
+        logger.info(f"Faction spending: no factions found for guild {guild_id}")
+        return events
+
+    resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum']
+
+    for faction in factions:
+        # Check if faction has any spending configured
+        spending = {
+            'ore': faction.ore_spending,
+            'lumber': faction.lumber_spending,
+            'coal': faction.coal_spending,
+            'rations': faction.rations_spending,
+            'cloth': faction.cloth_spending,
+            'platinum': faction.platinum_spending
+        }
+
+        total_spending = sum(spending.values())
+        if total_spending == 0:
+            continue
+
+        # Fetch faction resources
+        resources = await FactionResources.fetch_by_faction(conn, faction.id, guild_id)
+        if not resources:
+            resources = FactionResources(
+                faction_id=faction.id,
+                ore=0, lumber=0, coal=0, rations=0, cloth=0, platinum=0,
+                guild_id=guild_id
+            )
+
+        # Deduct spending from resources
+        amounts_spent = {}
+        shortfall = {}
+
+        for rt in resource_types:
+            needed = spending[rt]
+            if needed == 0:
+                continue
+
+            available = getattr(resources, rt)
+            deducted = min(needed, available)
+            setattr(resources, rt, available - deducted)
+
+            if deducted > 0:
+                amounts_spent[rt] = deducted
+
+            if deducted < needed:
+                shortfall[rt] = needed - deducted
+
+        # Save updated resources
+        await resources.upsert(conn)
+
+        # Get affected character IDs (those with FINANCIAL permission)
+        affected_ids = []
+        permissions = await FactionPermission.fetch_by_faction(conn, faction.id, guild_id)
+        for perm in permissions:
+            if perm.permission_type == 'FINANCIAL' and perm.character_id not in affected_ids:
+                affected_ids.append(perm.character_id)
+
+        # Generate FACTION_SPENDING event if any resources were spent
+        if amounts_spent:
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.UPKEEP.value,
+                event_type='FACTION_SPENDING',
+                entity_type='faction',
+                entity_id=faction.id,
+                event_data={
+                    'faction_id': faction.faction_id,
+                    'faction_name': faction.name,
+                    'amounts_spent': amounts_spent,
+                    'affected_character_ids': affected_ids
+                },
+                guild_id=guild_id
+            ))
+            logger.info(f"Faction spending: {faction.name} spent {amounts_spent}")
+
+        # Generate FACTION_SPENDING_PARTIAL event if there was any shortfall
+        if shortfall:
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.UPKEEP.value,
+                event_type='FACTION_SPENDING_PARTIAL',
+                entity_type='faction',
+                entity_id=faction.id,
+                event_data={
+                    'faction_id': faction.faction_id,
+                    'faction_name': faction.name,
+                    'shortfall': shortfall,
+                    'affected_character_ids': affected_ids
+                },
+                guild_id=guild_id
+            ))
+            logger.info(f"Faction spending: {faction.name} shortfall {shortfall}")
+
+    logger.info(f"Faction spending: finished faction spending for guild {guild_id}, turn {turn_number}")
+    return events
+
+
 async def execute_upkeep_phase(
     conn: asyncpg.Connection,
     guild_id: int,
@@ -821,6 +948,10 @@ async def execute_upkeep_phase(
     """
     events = []
     logger.info(f"Upkeep phase: starting upkeep phase for guild {guild_id}, turn {turn_number}")
+
+    # Process faction spending first, before unit upkeep
+    spending_events = await execute_faction_spending(conn, guild_id, turn_number)
+    events.extend(spending_events)
 
     # Fetch all units for the guild
     all_units = await Unit.fetch_all(conn, guild_id)

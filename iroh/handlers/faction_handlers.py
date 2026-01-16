@@ -648,3 +648,104 @@ async def delete_war(
         return True, f"War '{war_id}' (objective: '{objective}') has been deleted."
     else:
         return False, f"Failed to delete war '{war_id}'."
+
+
+# ============== Faction Spending Handlers ==============
+
+
+async def edit_faction_spending(
+    conn: asyncpg.Connection,
+    faction_id: str,
+    guild_id: int,
+    spending: Dict[str, int]
+) -> Tuple[bool, str]:
+    """
+    Edit a faction's per-turn spending configuration.
+    Only updates fields that are present in the spending dict.
+
+    Args:
+        conn: Database connection
+        faction_id: Faction identifier (user-facing)
+        guild_id: Guild ID
+        spending: Dict with spending values to update (only provided keys are changed)
+                  Keys: ore, lumber, coal, rations, cloth, platinum
+
+    Returns:
+        (success, message)
+    """
+    # Validate faction exists
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found."
+
+    # Validate all provided spending values are non-negative
+    for rt, value in spending.items():
+        if value < 0:
+            return False, f"Spending for {rt} must be >= 0."
+
+    # Update only the provided faction spending fields
+    if 'ore' in spending:
+        faction.ore_spending = spending['ore']
+    if 'lumber' in spending:
+        faction.lumber_spending = spending['lumber']
+    if 'coal' in spending:
+        faction.coal_spending = spending['coal']
+    if 'rations' in spending:
+        faction.rations_spending = spending['rations']
+    if 'cloth' in spending:
+        faction.cloth_spending = spending['cloth']
+    if 'platinum' in spending:
+        faction.platinum_spending = spending['platinum']
+
+    await faction.upsert(conn)
+
+    # Build summary of changes
+    if spending:
+        changes = [f"{rt}: {value}" for rt, value in spending.items()]
+        return True, f"Updated spending for {faction.name}: {', '.join(changes)}"
+    else:
+        return True, f"No changes made to spending for {faction.name}."
+
+
+async def get_faction_spending(
+    conn: asyncpg.Connection,
+    faction_id: str,
+    guild_id: int,
+    character_id: Optional[int] = None
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Get a faction's spending configuration.
+
+    Args:
+        conn: Database connection
+        faction_id: Faction identifier (user-facing)
+        guild_id: Guild ID
+        character_id: Optional - if provided, verify they are a member of the faction
+
+    Returns:
+        (success, message, spending_dict or None)
+    """
+    # Validate faction exists
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found.", None
+
+    # If character_id provided, verify they are a member
+    if character_id is not None:
+        membership = await FactionMember.fetch_by_character(conn, character_id, guild_id)
+        if not membership or membership.faction_id != faction.id:
+            return False, f"You are not a member of {faction.name}.", None
+
+    # Return spending data
+    spending_data = {
+        'faction_id': faction.faction_id,
+        'faction_name': faction.name,
+        'ore': faction.ore_spending,
+        'lumber': faction.lumber_spending,
+        'coal': faction.coal_spending,
+        'rations': faction.rations_spending,
+        'cloth': faction.cloth_spending,
+        'platinum': faction.platinum_spending
+    }
+
+    return True, f"Spending for {faction.name}.", spending_data
