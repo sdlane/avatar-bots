@@ -94,10 +94,18 @@ def test_declare_war_phase_mapping():
 
 
 def test_declare_war_priority():
-    """Test that DECLARE_WAR has priority 5 (after alliances at priority 4)."""
-    assert ORDER_PRIORITY_MAP[OrderType.DECLARE_WAR] == 5
-    # Executes after alliances (priority 4)
-    assert ORDER_PRIORITY_MAP[OrderType.DECLARE_WAR] > ORDER_PRIORITY_MAP[OrderType.MAKE_ALLIANCE]
+    """Test that DECLARE_WAR has priority 6 (after alliance dissolution at priority 5)."""
+    assert ORDER_PRIORITY_MAP[OrderType.DECLARE_WAR] == 6
+    # Executes after alliance dissolution (priority 5)
+    assert ORDER_PRIORITY_MAP[OrderType.DECLARE_WAR] > ORDER_PRIORITY_MAP[OrderType.DISSOLVE_ALLIANCE]
+
+
+def test_dissolve_alliance_priority():
+    """Test that DISSOLVE_ALLIANCE has priority 5 (after make alliance at priority 4)."""
+    assert ORDER_PRIORITY_MAP[OrderType.DISSOLVE_ALLIANCE] == 5
+    # Executes after making alliances (priority 4), before declaring war (priority 6)
+    assert ORDER_PRIORITY_MAP[OrderType.DISSOLVE_ALLIANCE] > ORDER_PRIORITY_MAP[OrderType.MAKE_ALLIANCE]
+    assert ORDER_PRIORITY_MAP[OrderType.DISSOLVE_ALLIANCE] < ORDER_PRIORITY_MAP[OrderType.DECLARE_WAR]
 
 
 # Test completeness
@@ -116,8 +124,8 @@ def test_all_order_types_have_priority():
 def test_total_order_type_count():
     """Test that we have the expected number of order types."""
     # JOIN_FACTION, LEAVE_FACTION, KICK_FROM_FACTION, ASSIGN_COMMANDER, ASSIGN_VICTORY_POINTS,
-    # MAKE_ALLIANCE, DECLARE_WAR, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER
-    assert len(OrderType) == 10
+    # MAKE_ALLIANCE, DISSOLVE_ALLIANCE, DECLARE_WAR, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER
+    assert len(OrderType) == 11
 
 
 # Test order status values

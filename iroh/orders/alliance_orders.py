@@ -107,6 +107,7 @@ async def handle_make_alliance_order(
                 # The other faction already proposed - activate the alliance!
                 existing_alliance.status = "ACTIVE"
                 existing_alliance.activated_at = datetime.now()
+                existing_alliance.activated_turn = turn_number
                 await existing_alliance.upsert(conn)
 
                 # Mark order as success
@@ -246,7 +247,7 @@ async def _get_affected_character_ids(
     return affected_ids
 
 
-def _create_failed_event(order, guild_id: int, turn_number: int, error: str) -> TurnLog:
+def _create_failed_event(order, guild_id: int, turn_number: int, error: str, order_type: str = 'MAKE_ALLIANCE') -> TurnLog:
     """Create a standard ORDER_FAILED event."""
     return TurnLog(
         turn_number=turn_number,
@@ -255,10 +256,148 @@ def _create_failed_event(order, guild_id: int, turn_number: int, error: str) -> 
         entity_type='character',
         entity_id=order.character_id,
         event_data={
-            'order_type': 'MAKE_ALLIANCE',
+            'order_type': order_type,
             'order_id': order.order_id,
             'error': error,
             'affected_character_ids': [order.character_id]
         },
         guild_id=guild_id
     )
+
+
+async def handle_dissolve_alliance_order(
+    conn: asyncpg.Connection,
+    order,  # Order type from db
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Handle a DISSOLVE_ALLIANCE order.
+
+    This function dissolves an existing active alliance between two factions.
+    Only the faction leader can dissolve an alliance.
+
+    Args:
+        conn: Database connection
+        order: The DISSOLVE_ALLIANCE order to process
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog objects
+    """
+    try:
+        # Extract order data
+        target_faction_id = order.order_data.get('target_faction_id')
+        submitting_faction_id = order.order_data.get('submitting_faction_id')
+
+        # Validate submitting character still exists and is still a faction leader
+        character = await Character.fetch_by_id(conn, order.character_id)
+        if not character:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'Character not found'}
+            order.updated_at = datetime.now()
+            order.updated_turn = turn_number
+            await order.upsert(conn)
+            return [_create_failed_event(order, guild_id, turn_number, 'Character not found', 'DISSOLVE_ALLIANCE')]
+
+        # Validate submitting faction still exists
+        submitting_faction = await Faction.fetch_by_faction_id(conn, submitting_faction_id, guild_id)
+        if not submitting_faction:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'Submitting faction not found'}
+            order.updated_at = datetime.now()
+            order.updated_turn = turn_number
+            await order.upsert(conn)
+            return [_create_failed_event(order, guild_id, turn_number, 'Submitting faction not found', 'DISSOLVE_ALLIANCE')]
+
+        # Validate character is still faction leader
+        if submitting_faction.leader_character_id != character.id:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'Character is no longer faction leader'}
+            order.updated_at = datetime.now()
+            order.updated_turn = turn_number
+            await order.upsert(conn)
+            return [_create_failed_event(order, guild_id, turn_number, 'Character is no longer faction leader', 'DISSOLVE_ALLIANCE')]
+
+        # Validate target faction still exists
+        target_faction = await Faction.fetch_by_faction_id(conn, target_faction_id, guild_id)
+        if not target_faction:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'Target faction not found'}
+            order.updated_at = datetime.now()
+            order.updated_turn = turn_number
+            await order.upsert(conn)
+            return [_create_failed_event(order, guild_id, turn_number, 'Target faction not found', 'DISSOLVE_ALLIANCE')]
+
+        # Check for existing active alliance between the two factions
+        existing_alliance = await Alliance.fetch_by_factions(
+            conn, submitting_faction.id, target_faction.id, guild_id
+        )
+
+        if not existing_alliance or existing_alliance.status != "ACTIVE":
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'No active alliance exists'}
+            order.updated_at = datetime.now()
+            order.updated_turn = turn_number
+            await order.upsert(conn)
+            return [_create_failed_event(order, guild_id, turn_number,
+                f'No active alliance exists between {submitting_faction.name} and {target_faction.name}', 'DISSOLVE_ALLIANCE')]
+
+        # Delete the alliance
+        await Alliance.delete(conn, submitting_faction.id, target_faction.id, guild_id)
+
+        # Mark order as success
+        order.status = OrderStatus.SUCCESS.value
+        order.result_data = {
+            'alliance_dissolved': True,
+            'target_faction_name': target_faction.name,
+            'submitting_faction_name': submitting_faction.name
+        }
+        order.updated_at = datetime.now()
+        order.updated_turn = turn_number
+        await order.upsert(conn)
+
+        # Get affected character IDs (both faction leaders + all members)
+        affected_character_ids = await _get_affected_character_ids(
+            conn, submitting_faction, target_faction, guild_id
+        )
+
+        # Determine canonical ordering for event data
+        if submitting_faction.id < target_faction.id:
+            faction_a_name = submitting_faction.name
+            faction_b_name = target_faction.name
+            faction_a_id = submitting_faction.faction_id
+            faction_b_id = target_faction.faction_id
+        else:
+            faction_a_name = target_faction.name
+            faction_b_name = submitting_faction.name
+            faction_a_id = target_faction.faction_id
+            faction_b_id = submitting_faction.faction_id
+
+        return [TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.BEGINNING.value,
+            event_type='ALLIANCE_DISSOLVED',
+            entity_type='faction',
+            entity_id=submitting_faction.id,
+            event_data={
+                'faction_a_name': faction_a_name,
+                'faction_b_name': faction_b_name,
+                'faction_a_id': faction_a_id,
+                'faction_b_id': faction_b_id,
+                'dissolved_by_faction_name': submitting_faction.name,
+                'dissolved_by_faction_id': submitting_faction.faction_id,
+                'order_id': order.order_id,
+                'affected_character_ids': affected_character_ids
+            },
+            guild_id=guild_id
+        )]
+
+    except Exception as e:
+        order.status = OrderStatus.FAILED.value
+        order.result_data = {'error': str(e)}
+        order.updated_at = datetime.now()
+        order.updated_turn = turn_number
+        await order.upsert(conn)
+        return [_create_failed_event(order, guild_id, turn_number, str(e), 'DISSOLVE_ALLIANCE')]

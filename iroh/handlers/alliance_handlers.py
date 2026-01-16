@@ -3,7 +3,7 @@ Alliance management handlers.
 """
 import asyncpg
 from typing import Tuple, List, Optional
-from db import Alliance, Faction, FactionMember, Character
+from db import Alliance, Faction, FactionMember, Character, WargameConfig
 from datetime import datetime
 
 
@@ -127,10 +127,15 @@ async def add_alliance(
     fa_id = min(faction_a.id, faction_b.id)
     fb_id = max(faction_a.id, faction_b.id)
 
+    # Get current turn for activated_turn
+    config = await WargameConfig.fetch(conn, guild_id)
+    current_turn = config.current_turn if config else 0
+
     if existing:
         # Update existing pending to active
         existing.status = 'ACTIVE'
         existing.activated_at = datetime.now()
+        existing.activated_turn = current_turn
         await existing.upsert(conn)
     else:
         # Create new active alliance
@@ -141,6 +146,7 @@ async def add_alliance(
             initiated_by_faction_id=fa_id,  # Admin-created, use faction A as initiator
             created_at=datetime.now(),
             activated_at=datetime.now(),
+            activated_turn=current_turn,
             guild_id=guild_id
         )
         await alliance.insert(conn)
@@ -189,12 +195,18 @@ async def edit_alliance(
 
     old_status = existing.status
 
+    # Get current turn if needed
+    config = await WargameConfig.fetch(conn, guild_id)
+    current_turn = config.current_turn if config else 0
+
     # Update status
     existing.status = status
     if status == 'ACTIVE' and not existing.activated_at:
         existing.activated_at = datetime.now()
+        existing.activated_turn = current_turn
     elif status != 'ACTIVE':
         existing.activated_at = None
+        existing.activated_turn = None
 
     await existing.upsert(conn)
 

@@ -2183,6 +2183,41 @@ async def order_make_alliance_cmd(interaction: discord.Interaction, target_facti
 
 
 @tree.command(
+    name="order-dissolve-alliance",
+    description="[Faction Leader] Submit an order to dissolve an alliance with another faction"
+)
+@app_commands.describe(
+    target_faction_id="The faction ID of the alliance to dissolve"
+)
+async def order_dissolve_alliance_cmd(interaction: discord.Interaction, target_faction_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_dissolve_alliance_order(
+            conn, character, target_faction_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} submitted dissolve alliance order for '{target_faction_id}'")
+        else:
+            logger.warning(f"User {interaction.user.name} failed dissolve alliance order: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
     name="view-alliances",
     description="View alliances in this wargame"
 )

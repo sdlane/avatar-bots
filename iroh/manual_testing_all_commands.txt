@@ -1345,6 +1345,49 @@ STEPS:
     EXPECTED: New alliance should appear
 
 
+--------------------------------------------------------------------------------
+TEST 10.5: /order-dissolve-alliance
+--------------------------------------------------------------------------------
+PURPOSE: Dissolve an active alliance (faction leader only)
+
+SETUP: Ensure alliance exists between fire-nation and earth-kingdom (from TEST 10.4)
+       Ensure current turn >= 4 (resolve turns if needed)
+       Wait 4 turns after alliance activation (resolve additional turns if needed)
+
+STEPS:
+10.5.1 Try dissolving too early (within first 4 turns of game):
+    - If current turn < 4:
+    /order-dissolve-alliance target_faction_id:earth-kingdom
+
+    EXPECTED: Error message about being within first 4 turns of the game
+
+10.5.2 Try dissolving within 4 turns of alliance:
+    - If alliance was activated < 4 turns ago:
+    /order-dissolve-alliance target_faction_id:earth-kingdom
+
+    EXPECTED: Error message about alliance being too new (must be at least 4 turns old)
+
+10.5.3 Successfully submit dissolve order:
+    - Ensure turn >= 4 AND alliance is >= 4 turns old
+    /order-dissolve-alliance target_faction_id:earth-kingdom
+
+    EXPECTED: Success message about order submitted
+
+10.5.4 Resolve turn:
+    /resolve-turn
+
+    EXPECTED: Note in turn report that alliance was dissolved
+
+10.5.5 Verify:
+    /view-alliances
+
+    EXPECTED: Alliance should no longer appear
+
+CLEANUP:
+    /add-alliance faction_a_id:fire-nation faction_b_id:earth-kingdom
+    (if needed for subsequent tests)
+
+
 ================================================================================
 SECTION 11: WAR MANAGEMENT
 ================================================================================

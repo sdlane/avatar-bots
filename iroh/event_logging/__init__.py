@@ -30,6 +30,8 @@ from .faction_events import (
     alliance_pending_gm_line,
     alliance_formed_character_line,
     alliance_formed_gm_line,
+    alliance_dissolved_character_line,
+    alliance_dissolved_gm_line,
     war_declared_character_line,
     war_declared_gm_line,
     war_joined_character_line,
@@ -145,6 +147,10 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'ALLIANCE_FORMED': EventHandler(
         get_character_line=alliance_formed_character_line,
         get_gm_line=alliance_formed_gm_line
+    ),
+    'ALLIANCE_DISSOLVED': EventHandler(
+        get_character_line=alliance_dissolved_character_line,
+        get_gm_line=alliance_dissolved_gm_line
     ),
 
     # War events

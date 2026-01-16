@@ -25,6 +25,7 @@ class Alliance:
     initiated_by_faction_id: int = 0
     created_at: Optional[datetime] = None
     activated_at: Optional[datetime] = None
+    activated_turn: Optional[int] = None
     guild_id: Optional[int] = None
 
     async def insert(self, conn: asyncpg.Connection):
@@ -35,9 +36,9 @@ class Alliance:
         query = """
         INSERT INTO Alliance (
             faction_a_id, faction_b_id, status, initiated_by_faction_id,
-            created_at, activated_at, guild_id
+            created_at, activated_at, activated_turn, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (faction_a_id, faction_b_id, guild_id) DO NOTHING
         RETURNING id;
         """
@@ -49,6 +50,7 @@ class Alliance:
             self.initiated_by_faction_id,
             self.created_at or datetime.now(),
             self.activated_at,
+            self.activated_turn,
             self.guild_id
         )
         if result:
@@ -61,12 +63,13 @@ class Alliance:
         query = """
         INSERT INTO Alliance (
             faction_a_id, faction_b_id, status, initiated_by_faction_id,
-            created_at, activated_at, guild_id
+            created_at, activated_at, activated_turn, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
         ON CONFLICT (faction_a_id, faction_b_id, guild_id) DO UPDATE
         SET status = EXCLUDED.status,
-            activated_at = EXCLUDED.activated_at
+            activated_at = EXCLUDED.activated_at,
+            activated_turn = EXCLUDED.activated_turn
         RETURNING id;
         """
         result = await conn.fetchrow(
@@ -77,6 +80,7 @@ class Alliance:
             self.initiated_by_faction_id,
             self.created_at or datetime.now(),
             self.activated_at,
+            self.activated_turn,
             self.guild_id
         )
         if result:
@@ -100,7 +104,7 @@ class Alliance:
 
         row = await conn.fetchrow("""
             SELECT id, faction_a_id, faction_b_id, status, initiated_by_faction_id,
-                   created_at, activated_at, guild_id
+                   created_at, activated_at, activated_turn, guild_id
             FROM Alliance
             WHERE faction_a_id = $1
             AND faction_b_id = $2
@@ -121,7 +125,7 @@ class Alliance:
         """
         rows = await conn.fetch("""
             SELECT id, faction_a_id, faction_b_id, status, initiated_by_faction_id,
-                   created_at, activated_at, guild_id
+                   created_at, activated_at, activated_turn, guild_id
             FROM Alliance
             WHERE (faction_a_id = $1 OR faction_b_id = $1)
             AND guild_id = $2
@@ -141,7 +145,7 @@ class Alliance:
         """
         rows = await conn.fetch("""
             SELECT id, faction_a_id, faction_b_id, status, initiated_by_faction_id,
-                   created_at, activated_at, guild_id
+                   created_at, activated_at, activated_turn, guild_id
             FROM Alliance
             WHERE status = 'ACTIVE'
             AND guild_id = $1
@@ -161,7 +165,7 @@ class Alliance:
         """
         rows = await conn.fetch("""
             SELECT id, faction_a_id, faction_b_id, status, initiated_by_faction_id,
-                   created_at, activated_at, guild_id
+                   created_at, activated_at, activated_turn, guild_id
             FROM Alliance
             WHERE guild_id = $1
             ORDER BY status, created_at DESC;

@@ -9,9 +9,9 @@ from datetime import datetime
 from db import (
     Character, Faction, FactionMember, WargameConfig, Order, Alliance
 )
-from handlers.order_handlers import submit_make_alliance_order
+from handlers.order_handlers import submit_make_alliance_order, submit_dissolve_alliance_order
 from handlers.alliance_handlers import view_alliances, add_alliance, edit_alliance, delete_alliance
-from orders.alliance_orders import handle_make_alliance_order
+from orders.alliance_orders import handle_make_alliance_order, handle_dissolve_alliance_order
 from order_types import OrderType, OrderStatus
 from tests.conftest import TEST_GUILD_ID
 
@@ -652,4 +652,511 @@ async def test_edit_alliance(db_conn, test_server):
 
     # Cleanup
     await db_conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+# ============================================================================
+# DISSOLVE ALLIANCE ORDER SUBMISSION TESTS
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_submit_dissolve_alliance_order_success(db_conn, test_server):
+    """Test successful dissolve alliance order submission."""
+    # Create two faction leaders
+    leader1 = Character(
+        identifier="leader1", name="Leader 1",
+        user_id=100000000000000001, channel_id=900000000000000001,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader1.upsert(db_conn)
+    leader1 = await Character.fetch_by_identifier(db_conn, "leader1", TEST_GUILD_ID)
+
+    leader2 = Character(
+        identifier="leader2", name="Leader 2",
+        user_id=100000000000000002, channel_id=900000000000000002,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader2.upsert(db_conn)
+    leader2 = await Character.fetch_by_identifier(db_conn, "leader2", TEST_GUILD_ID)
+
+    # Create factions
+    faction1 = Faction(
+        faction_id="faction-a", name="Faction A",
+        leader_character_id=leader1.id, guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-a", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-b", name="Faction B",
+        leader_character_id=leader2.id, guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-b", TEST_GUILD_ID)
+
+    # Make leader1 a member of faction1
+    member1 = FactionMember(
+        faction_id=faction1.id, character_id=leader1.id,
+        joined_turn=1, guild_id=TEST_GUILD_ID
+    )
+    await member1.insert(db_conn)
+
+    # Create active alliance with activated_turn = 0 (old enough)
+    alliance = Alliance(
+        faction_a_id=min(faction1.id, faction2.id),
+        faction_b_id=max(faction1.id, faction2.id),
+        status="ACTIVE",
+        initiated_by_faction_id=faction1.id,
+        activated_at=datetime.now(),
+        activated_turn=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await alliance.insert(db_conn)
+
+    # Create WargameConfig with turn >= 4
+    config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=5)
+    await config.upsert(db_conn)
+
+    # Submit dissolve order
+    success, message = await submit_dissolve_alliance_order(
+        db_conn, leader1, "faction-b", TEST_GUILD_ID
+    )
+
+    assert success is True
+    assert "faction-b" in message.lower() or "Faction B" in message
+
+    # Verify order was created
+    orders = await db_conn.fetch('SELECT * FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
+    assert len(orders) == 1
+    assert orders[0]['order_type'] == OrderType.DISSOLVE_ALLIANCE.value
+    assert orders[0]['status'] == OrderStatus.PENDING.value
+
+    # Cleanup
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_submit_dissolve_alliance_order_not_leader(db_conn, test_server):
+    """Test that non-leaders cannot dissolve alliances."""
+    # Create leader and regular member
+    leader = Character(
+        identifier="leader", name="Leader",
+        user_id=100000000000000001, channel_id=900000000000000001,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+    leader = await Character.fetch_by_identifier(db_conn, "leader", TEST_GUILD_ID)
+
+    member = Character(
+        identifier="member", name="Member",
+        user_id=100000000000000002, channel_id=900000000000000002,
+        guild_id=TEST_GUILD_ID
+    )
+    await member.upsert(db_conn)
+    member = await Character.fetch_by_identifier(db_conn, "member", TEST_GUILD_ID)
+
+    # Create factions
+    faction1 = Faction(
+        faction_id="faction-a", name="Faction A",
+        leader_character_id=leader.id, guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-a", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-b", name="Faction B",
+        leader_character_id=None, guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-b", TEST_GUILD_ID)
+
+    # Make member a member of faction1 (not leader)
+    membership = FactionMember(
+        faction_id=faction1.id, character_id=member.id,
+        joined_turn=1, guild_id=TEST_GUILD_ID
+    )
+    await membership.insert(db_conn)
+
+    # Create active alliance
+    alliance = Alliance(
+        faction_a_id=min(faction1.id, faction2.id),
+        faction_b_id=max(faction1.id, faction2.id),
+        status="ACTIVE",
+        initiated_by_faction_id=faction1.id,
+        activated_turn=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await alliance.insert(db_conn)
+
+    # Create WargameConfig
+    config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=5)
+    await config.upsert(db_conn)
+
+    # Try to submit order as non-leader
+    success, message = await submit_dissolve_alliance_order(
+        db_conn, member, "faction-b", TEST_GUILD_ID
+    )
+
+    assert success is False
+    assert "leader" in message.lower()
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_submit_dissolve_alliance_order_no_alliance(db_conn, test_server):
+    """Test that dissolve fails when no alliance exists."""
+    # Create faction leader
+    leader = Character(
+        identifier="leader", name="Leader",
+        user_id=100000000000000001, channel_id=900000000000000001,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+    leader = await Character.fetch_by_identifier(db_conn, "leader", TEST_GUILD_ID)
+
+    # Create factions
+    faction1 = Faction(
+        faction_id="faction-a", name="Faction A",
+        leader_character_id=leader.id, guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-a", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-b", name="Faction B",
+        leader_character_id=None, guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+
+    # Make leader a member
+    membership = FactionMember(
+        faction_id=faction1.id, character_id=leader.id,
+        joined_turn=1, guild_id=TEST_GUILD_ID
+    )
+    await membership.insert(db_conn)
+
+    # Create WargameConfig
+    config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=5)
+    await config.upsert(db_conn)
+
+    # Try to dissolve non-existent alliance
+    success, message = await submit_dissolve_alliance_order(
+        db_conn, leader, "faction-b", TEST_GUILD_ID
+    )
+
+    assert success is False
+    assert "no active alliance" in message.lower()
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_submit_dissolve_alliance_order_too_early_game(db_conn, test_server):
+    """Test that dissolve fails within first 4 turns of game."""
+    # Create faction leaders
+    leader1 = Character(
+        identifier="leader1", name="Leader 1",
+        user_id=100000000000000001, channel_id=900000000000000001,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader1.upsert(db_conn)
+    leader1 = await Character.fetch_by_identifier(db_conn, "leader1", TEST_GUILD_ID)
+
+    leader2 = Character(
+        identifier="leader2", name="Leader 2",
+        user_id=100000000000000002, channel_id=900000000000000002,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader2.upsert(db_conn)
+    leader2 = await Character.fetch_by_identifier(db_conn, "leader2", TEST_GUILD_ID)
+
+    # Create factions
+    faction1 = Faction(
+        faction_id="faction-a", name="Faction A",
+        leader_character_id=leader1.id, guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-a", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-b", name="Faction B",
+        leader_character_id=leader2.id, guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-b", TEST_GUILD_ID)
+
+    # Make leader1 a member
+    membership = FactionMember(
+        faction_id=faction1.id, character_id=leader1.id,
+        joined_turn=1, guild_id=TEST_GUILD_ID
+    )
+    await membership.insert(db_conn)
+
+    # Create active alliance
+    alliance = Alliance(
+        faction_a_id=min(faction1.id, faction2.id),
+        faction_b_id=max(faction1.id, faction2.id),
+        status="ACTIVE",
+        initiated_by_faction_id=faction1.id,
+        activated_turn=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await alliance.insert(db_conn)
+
+    # Create WargameConfig with turn < 4
+    config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=2)
+    await config.upsert(db_conn)
+
+    # Try to dissolve
+    success, message = await submit_dissolve_alliance_order(
+        db_conn, leader1, "faction-b", TEST_GUILD_ID
+    )
+
+    assert success is False
+    assert "first 4 turns" in message.lower()
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_submit_dissolve_alliance_order_too_early_alliance(db_conn, test_server):
+    """Test that dissolve fails within 4 turns of alliance activation."""
+    # Create faction leaders
+    leader1 = Character(
+        identifier="leader1", name="Leader 1",
+        user_id=100000000000000001, channel_id=900000000000000001,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader1.upsert(db_conn)
+    leader1 = await Character.fetch_by_identifier(db_conn, "leader1", TEST_GUILD_ID)
+
+    leader2 = Character(
+        identifier="leader2", name="Leader 2",
+        user_id=100000000000000002, channel_id=900000000000000002,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader2.upsert(db_conn)
+    leader2 = await Character.fetch_by_identifier(db_conn, "leader2", TEST_GUILD_ID)
+
+    # Create factions
+    faction1 = Faction(
+        faction_id="faction-a", name="Faction A",
+        leader_character_id=leader1.id, guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-a", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-b", name="Faction B",
+        leader_character_id=leader2.id, guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-b", TEST_GUILD_ID)
+
+    # Make leader1 a member
+    membership = FactionMember(
+        faction_id=faction1.id, character_id=leader1.id,
+        joined_turn=1, guild_id=TEST_GUILD_ID
+    )
+    await membership.insert(db_conn)
+
+    # Create active alliance activated on turn 3
+    alliance = Alliance(
+        faction_a_id=min(faction1.id, faction2.id),
+        faction_b_id=max(faction1.id, faction2.id),
+        status="ACTIVE",
+        initiated_by_faction_id=faction1.id,
+        activated_turn=3,
+        guild_id=TEST_GUILD_ID
+    )
+    await alliance.insert(db_conn)
+
+    # Create WargameConfig with turn = 5 (only 2 turns since activation)
+    config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=5)
+    await config.upsert(db_conn)
+
+    # Try to dissolve
+    success, message = await submit_dissolve_alliance_order(
+        db_conn, leader1, "faction-b", TEST_GUILD_ID
+    )
+
+    assert success is False
+    assert "4 turns old" in message.lower() or "remaining" in message.lower()
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+# ============================================================================
+# DISSOLVE ALLIANCE ORDER EXECUTION TESTS
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_handle_dissolve_alliance_order_success(db_conn, test_server):
+    """Test successful dissolution of an alliance."""
+    # Setup two factions with leaders
+    leader1 = Character(
+        identifier="leader1", name="Leader 1",
+        user_id=100000000000000001, channel_id=900000000000000001,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader1.upsert(db_conn)
+    leader1 = await Character.fetch_by_identifier(db_conn, "leader1", TEST_GUILD_ID)
+
+    leader2 = Character(
+        identifier="leader2", name="Leader 2",
+        user_id=100000000000000002, channel_id=900000000000000002,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader2.upsert(db_conn)
+    leader2 = await Character.fetch_by_identifier(db_conn, "leader2", TEST_GUILD_ID)
+
+    faction1 = Faction(
+        faction_id="faction-a", name="Faction A",
+        leader_character_id=leader1.id, guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-a", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-b", name="Faction B",
+        leader_character_id=leader2.id, guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-b", TEST_GUILD_ID)
+
+    # Create memberships
+    member1 = FactionMember(faction_id=faction1.id, character_id=leader1.id, joined_turn=1, guild_id=TEST_GUILD_ID)
+    await member1.insert(db_conn)
+    member2 = FactionMember(faction_id=faction2.id, character_id=leader2.id, joined_turn=1, guild_id=TEST_GUILD_ID)
+    await member2.insert(db_conn)
+
+    # Create active alliance
+    alliance = Alliance(
+        faction_a_id=min(faction1.id, faction2.id),
+        faction_b_id=max(faction1.id, faction2.id),
+        status="ACTIVE",
+        initiated_by_faction_id=faction1.id,
+        activated_turn=0,
+        guild_id=TEST_GUILD_ID
+    )
+    await alliance.insert(db_conn)
+
+    # Create dissolve order
+    order = Order(
+        order_id="ORD-0001",
+        order_type=OrderType.DISSOLVE_ALLIANCE.value,
+        character_id=leader1.id,
+        turn_number=6,
+        phase="BEGINNING",
+        priority=5,
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_faction_id': 'faction-b',
+            'submitting_faction_id': 'faction-a'
+        },
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute order
+    events = await handle_dissolve_alliance_order(db_conn, order, TEST_GUILD_ID, 6)
+
+    # Verify alliance was deleted
+    alliance = await Alliance.fetch_by_factions(db_conn, faction1.id, faction2.id, TEST_GUILD_ID)
+    assert alliance is None
+
+    # Verify event
+    assert len(events) == 1
+    assert events[0].event_type == "ALLIANCE_DISSOLVED"
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_handle_dissolve_alliance_order_alliance_already_deleted(db_conn, test_server):
+    """Test that dissolve order fails gracefully if alliance was already deleted."""
+    # Setup faction with leader
+    leader = Character(
+        identifier="leader", name="Leader",
+        user_id=100000000000000001, channel_id=900000000000000001,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+    leader = await Character.fetch_by_identifier(db_conn, "leader", TEST_GUILD_ID)
+
+    faction1 = Faction(
+        faction_id="faction-a", name="Faction A",
+        leader_character_id=leader.id, guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-a", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-b", name="Faction B",
+        leader_character_id=None, guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-b", TEST_GUILD_ID)
+
+    # Create memberships
+    member1 = FactionMember(faction_id=faction1.id, character_id=leader.id, joined_turn=1, guild_id=TEST_GUILD_ID)
+    await member1.insert(db_conn)
+
+    # NO alliance exists (simulating it was already deleted)
+
+    # Create dissolve order
+    order = Order(
+        order_id="ORD-0001",
+        order_type=OrderType.DISSOLVE_ALLIANCE.value,
+        character_id=leader.id,
+        turn_number=6,
+        phase="BEGINNING",
+        priority=5,
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_faction_id': 'faction-b',
+            'submitting_faction_id': 'faction-a'
+        },
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute order
+    events = await handle_dissolve_alliance_order(db_conn, order, TEST_GUILD_ID, 6)
+
+    # Verify order failed
+    updated_order = await Order.fetch_by_order_id(db_conn, "ORD-0001", TEST_GUILD_ID)
+    assert updated_order.status == OrderStatus.FAILED.value
+
+    # Verify failure event
+    assert len(events) == 1
+    assert events[0].event_type == "ORDER_FAILED"
+
+    # Cleanup
+    await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)

@@ -682,6 +682,7 @@ async def ensure_tables():
         initiated_by_faction_id INTEGER NOT NULL,
         created_at TIMESTAMP DEFAULT NOW(),
         activated_at TIMESTAMP,
+        activated_turn INTEGER,
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(faction_a_id, faction_b_id, guild_id),
         CHECK (faction_a_id < faction_b_id)
@@ -694,6 +695,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS initiated_by_faction_id INTEGER;")
     await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
     await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS activated_at TIMESTAMP;")
+    await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS activated_turn INTEGER;")
     await conn.execute("ALTER TABLE Alliance ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
     # Create index for Alliance table

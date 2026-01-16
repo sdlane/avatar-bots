@@ -1119,6 +1119,117 @@ async def submit_make_alliance_order(
     return True, f"Alliance order submitted: {submitting_faction.name} proposes alliance with {target_faction.name} (Order #{order_id}). The alliance will be activated when {target_faction.name}'s leader also submits an alliance order."
 
 
+async def submit_dissolve_alliance_order(
+    conn: asyncpg.Connection,
+    submitting_character: Character,
+    target_faction_id: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Submit an order for a faction leader to dissolve an alliance with another faction.
+
+    Constraints:
+    - Cannot be issued within the first 4 turns of the game
+    - Cannot be issued within 4 turns of the alliance being activated
+
+    Args:
+        conn: Database connection
+        submitting_character: Character submitting the order (must be faction leader)
+        target_faction_id: Faction ID of the alliance to dissolve
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Check submitter is in a faction
+    faction_member = await FactionMember.fetch_by_character(conn, submitting_character.id, guild_id)
+    if not faction_member:
+        return False, "You are not a member of any faction."
+
+    # Get submitter's faction
+    submitting_faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+    if not submitting_faction:
+        return False, "Your faction could not be found."
+
+    # Check submitter is faction leader
+    if submitting_faction.leader_character_id != submitting_character.id:
+        return False, f"Only the leader of {submitting_faction.name} can dissolve alliances."
+
+    # Validate target faction exists
+    target_faction = await Faction.fetch_by_faction_id(conn, target_faction_id, guild_id)
+    if not target_faction:
+        return False, f"Faction '{target_faction_id}' not found."
+
+    # Can't dissolve alliance with self
+    if submitting_faction.id == target_faction.id:
+        return False, "Cannot dissolve an alliance with your own faction."
+
+    # Check for existing active alliance
+    existing_alliance = await Alliance.fetch_by_factions(
+        conn, submitting_faction.id, target_faction.id, guild_id
+    )
+    if not existing_alliance or existing_alliance.status != 'ACTIVE':
+        return False, f"No active alliance exists between {submitting_faction.name} and {target_faction.name}."
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Check constraint: Cannot dissolve within first 4 turns of the game
+    if current_turn < 4:
+        turns_remaining = 4 - current_turn
+        return False, f"Cannot dissolve alliances within the first 4 turns of the game. {turns_remaining} turn(s) remaining."
+
+    # Check constraint: Cannot dissolve within 4 turns of alliance being activated
+    if existing_alliance.activated_turn is not None:
+        turns_since_activation = current_turn - existing_alliance.activated_turn
+        if turns_since_activation < 4:
+            turns_remaining = 4 - turns_since_activation
+            return False, f"Cannot dissolve this alliance yet. The alliance must be at least 4 turns old. {turns_remaining} turn(s) remaining."
+
+    # Check for existing pending order from this character for the same target
+    existing_orders = await Order.fetch_by_character_and_type(
+        conn, submitting_character.id, guild_id,
+        OrderType.DISSOLVE_ALLIANCE.value, OrderStatus.PENDING.value
+    )
+    # Filter to orders targeting the same faction
+    for existing in existing_orders:
+        if existing.order_data.get('target_faction_id') == target_faction_id:
+            return False, f"You already have a pending order to dissolve the alliance with {target_faction.name}."
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.DISSOLVE_ALLIANCE.value,
+        unit_ids=[],
+        character_id=submitting_character.id,
+        turn_number=current_turn + 1,  # Execute next turn
+        phase=ORDER_PHASE_MAP[OrderType.DISSOLVE_ALLIANCE].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.DISSOLVE_ALLIANCE],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_faction_id': target_faction_id,
+            'target_faction_name': target_faction.name,
+            'submitting_faction_id': submitting_faction.faction_id,
+            'submitting_faction_name': submitting_faction.name,
+            'alliance_activated_turn': existing_alliance.activated_turn
+        },
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    return True, f"Order to dissolve alliance with {target_faction.name} submitted (Order #{order_id}). The alliance will be dissolved next turn."
+
+
 async def submit_declare_war_order(
     conn: asyncpg.Connection,
     submitting_character: Character,

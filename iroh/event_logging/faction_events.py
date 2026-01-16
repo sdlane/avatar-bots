@@ -181,6 +181,22 @@ def alliance_formed_gm_line(event_data: Dict[str, Any]) -> str:
     return f"🤝 Alliance: {faction_a} ↔ {faction_b} (active)"
 
 
+def alliance_dissolved_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for ALLIANCE_DISSOLVED event."""
+    faction_a = event_data.get('faction_a_name', 'Unknown')
+    faction_b = event_data.get('faction_b_name', 'Unknown')
+    dissolved_by = event_data.get('dissolved_by_faction_name', 'Unknown')
+    return f"💔 Alliance between **{faction_a}** and **{faction_b}** has been dissolved by **{dissolved_by}**"
+
+
+def alliance_dissolved_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for ALLIANCE_DISSOLVED event."""
+    faction_a = event_data.get('faction_a_name', 'Unknown')
+    faction_b = event_data.get('faction_b_name', 'Unknown')
+    dissolved_by = event_data.get('dissolved_by_faction_name', 'Unknown')
+    return f"💔 Alliance: {faction_a} ↔ {faction_b} (dissolved by {dissolved_by})"
+
+
 # War events
 
 def war_declared_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
