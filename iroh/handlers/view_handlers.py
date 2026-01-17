@@ -4,7 +4,7 @@ View command handlers for displaying wargame information.
 import asyncpg
 from typing import Optional, Tuple, List, Any
 from db import (
-    Territory, Faction, FactionMember, Unit, UnitType, BuildingType,
+    Territory, Faction, FactionMember, Unit, UnitType, BuildingType, Building,
     PlayerResources, Character, TerritoryAdjacency, Order
 )
 from order_types import OrderType, OrderStatus
@@ -19,6 +19,7 @@ async def view_territory(conn: asyncpg.Connection, territory_id: str, guild_id: 
         - territory: Territory object
         - adjacent_ids: List of adjacent territory IDs
         - controller_name: Name of controlling faction (if any)
+        - buildings: List of Building objects in this territory
     """
     territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
 
@@ -35,10 +36,14 @@ async def view_territory(conn: asyncpg.Connection, territory_id: str, guild_id: 
         if character:
             controller_name = character.name
 
+    # Fetch buildings in this territory
+    buildings = await Building.fetch_by_territory(conn, territory_id, guild_id)
+
     return True, "", {
         'territory': territory,
         'adjacent_ids': adjacent_ids,
-        'controller_name': controller_name
+        'controller_name': controller_name,
+        'buildings': buildings
     }
 
 
@@ -152,6 +157,36 @@ async def view_building_type(conn: asyncpg.Connection, type_id: str, guild_id: i
         return False, f"Building type '{type_id}' not found.", None
 
     return True, "", {'building_type': building_type}
+
+
+async def view_building(conn: asyncpg.Connection, building_id: str, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
+    """
+    Fetch building information for display.
+
+    Returns:
+        (success, message, data) where data contains:
+        - building: Building object
+        - building_type: BuildingType object
+        - territory: Territory object (if building has a location)
+    """
+    building = await Building.fetch_by_building_id(conn, building_id, guild_id)
+
+    if not building:
+        return False, f"Building '{building_id}' not found.", None
+
+    # Fetch building type
+    building_type = await BuildingType.fetch_by_type_id(conn, building.building_type, guild_id)
+
+    # Fetch territory if building has a location
+    territory = None
+    if building.territory_id:
+        territory = await Territory.fetch_by_territory_id(conn, building.territory_id, guild_id)
+
+    return True, "", {
+        'building': building,
+        'building_type': building_type,
+        'territory': territory
+    }
 
 
 async def view_resources(conn: asyncpg.Connection, user_id: int, guild_id: int) -> Tuple[bool, str, Optional[dict]]:

@@ -529,6 +529,47 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE BuildingType ADD COLUMN IF NOT EXISTS upkeep_platinum INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE BuildingType ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
+    # --- Building table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Building (
+        id SERIAL PRIMARY KEY,
+        building_id VARCHAR(50) NOT NULL,
+        name VARCHAR(255),
+        building_type VARCHAR(50) NOT NULL,
+        territory_id VARCHAR(50),
+        durability INTEGER NOT NULL DEFAULT 10,
+        status VARCHAR(50) NOT NULL DEFAULT 'ACTIVE',
+        upkeep_ore INTEGER DEFAULT 0,
+        upkeep_lumber INTEGER DEFAULT 0,
+        upkeep_coal INTEGER DEFAULT 0,
+        upkeep_rations INTEGER DEFAULT 0,
+        upkeep_cloth INTEGER DEFAULT 0,
+        upkeep_platinum INTEGER DEFAULT 0,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(building_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS building_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS name VARCHAR(255);")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS building_type VARCHAR(50);")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS territory_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS durability INTEGER DEFAULT 10;")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'ACTIVE';")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_ore INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_lumber INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_coal INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_rations INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_platinum INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create index for buildings by territory
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_building_territory
+        ON Building(territory_id, guild_id);
+    """)
+
     # --- PlayerResources table ---
     await conn.execute("""
     CREATE TABLE IF NOT EXISTS PlayerResources (

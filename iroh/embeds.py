@@ -4,12 +4,13 @@ Helper functions for creating rich Discord embeds for wargame data display.
 import discord
 from typing import List, Optional, Tuple
 from db import (
-    Territory, Faction, Unit, UnitType, BuildingType, PlayerResources,
+    Territory, Faction, Unit, UnitType, BuildingType, Building, PlayerResources,
     WargameConfig, Character, FactionMember
 )
 
 
-def create_territory_embed(territory: Territory, adjacent_ids: List[int], controller_name: Optional[str] = None) -> discord.Embed:
+def create_territory_embed(territory: Territory, adjacent_ids: List[int], controller_name: Optional[str] = None,
+                           buildings: Optional[List[Building]] = None) -> discord.Embed:
     """Create a rich embed displaying territory information."""
     embed = discord.Embed(
         title=f"🗺️ Territory {territory.territory_id}: {territory.name or 'Unnamed'}",
@@ -74,6 +75,19 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
         embed.add_field(
             name="Production (per turn)",
             value="None",
+            inline=False
+        )
+
+    # Buildings
+    if buildings:
+        building_lines = []
+        for b in buildings:
+            status_emoji = "🏛️" if b.status == "ACTIVE" else "💀"
+            display_name = b.name or b.building_id
+            building_lines.append(f"{status_emoji} {display_name} ({b.building_type}) - Durability: {b.durability}")
+        embed.add_field(
+            name="Buildings",
+            value="\n".join(building_lines),
             inline=False
         )
 
@@ -453,6 +467,83 @@ def create_building_type_embed(building_type: BuildingType) -> discord.Embed:
         upkeep_lines.append(f"🧵 {building_type.upkeep_cloth}")
     if building_type.upkeep_platinum > 0:
         upkeep_lines.append(f"🪙 {building_type.upkeep_platinum}")
+
+    embed.add_field(
+        name="Upkeep (per turn)",
+        value=" | ".join(upkeep_lines) if upkeep_lines else "None",
+        inline=False
+    )
+
+    return embed
+
+
+def create_building_embed(building: Building, building_type: Optional[BuildingType] = None,
+                          territory: Optional[Territory] = None) -> discord.Embed:
+    """Create a rich embed displaying building information."""
+    embed = discord.Embed(
+        title=f"🏛️ {building.name or building.building_id}",
+        description=f"Building ID: `{building.building_id}` | Type: {building.building_type}",
+        color=discord.Color.teal()
+    )
+
+    # Status
+    status_emoji = "✅" if building.status == "ACTIVE" else "💀"
+    embed.add_field(
+        name="Status",
+        value=f"{status_emoji} {building.status}",
+        inline=True
+    )
+
+    # Durability
+    embed.add_field(
+        name="Durability",
+        value=str(building.durability),
+        inline=True
+    )
+
+    # Location
+    if territory:
+        embed.add_field(
+            name="Location",
+            value=f"{territory.name or territory.territory_id} (Territory {territory.territory_id})",
+            inline=True
+        )
+    elif building.territory_id:
+        embed.add_field(
+            name="Location",
+            value=f"Territory {building.territory_id}",
+            inline=True
+        )
+    else:
+        embed.add_field(
+            name="Location",
+            value="Not placed",
+            inline=True
+        )
+
+    # Building type info
+    if building_type:
+        if building_type.description:
+            embed.add_field(
+                name="Description",
+                value=building_type.description,
+                inline=False
+            )
+
+    # Upkeep
+    upkeep_lines = []
+    if building.upkeep_ore > 0:
+        upkeep_lines.append(f"⛏️ {building.upkeep_ore}")
+    if building.upkeep_lumber > 0:
+        upkeep_lines.append(f"🪵 {building.upkeep_lumber}")
+    if building.upkeep_coal > 0:
+        upkeep_lines.append(f"⚫ {building.upkeep_coal}")
+    if building.upkeep_rations > 0:
+        upkeep_lines.append(f"🍖 {building.upkeep_rations}")
+    if building.upkeep_cloth > 0:
+        upkeep_lines.append(f"🧵 {building.upkeep_cloth}")
+    if building.upkeep_platinum > 0:
+        upkeep_lines.append(f"🪙 {building.upkeep_platinum}")
 
     embed.add_field(
         name="Upkeep (per turn)",

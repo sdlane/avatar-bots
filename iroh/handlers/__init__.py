@@ -8,6 +8,7 @@ from .faction_handlers import *
 from .territory_handlers import*
 from .unit_type_handlers import *
 from .building_type_handlers import *
+from .building_handlers import *
 from .unit_handlers import *
 from .resource_handlers import *
 from .list_handlers import *

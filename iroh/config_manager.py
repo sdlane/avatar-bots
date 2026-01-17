@@ -3,7 +3,7 @@ from typing import Dict, Any, List, Optional
 import asyncpg
 import logging
 from db import (
-    Territory, Faction, FactionMember, Unit, UnitType,
+    Territory, Faction, FactionMember, Unit, UnitType, BuildingType, Building,
     PlayerResources, TerritoryAdjacency, WargameConfig, Character,
     FactionResources, FactionPermission, VALID_PERMISSION_TYPES
 )
@@ -206,6 +206,61 @@ class ConfigManager:
             }
 
             config_dict['unit_types'].append(unit_type_dict)
+
+        # Export Building Types
+        building_types = await BuildingType.fetch_all(conn, guild_id)
+        config_dict['building_types'] = []
+        for building_type in building_types:
+            building_type_dict = {
+                'type_id': building_type.type_id,
+                'name': building_type.name
+            }
+
+            if building_type.description:
+                building_type_dict['description'] = building_type.description
+
+            building_type_dict['cost'] = {
+                'ore': building_type.cost_ore,
+                'lumber': building_type.cost_lumber,
+                'coal': building_type.cost_coal,
+                'rations': building_type.cost_rations,
+                'cloth': building_type.cost_cloth,
+                'platinum': building_type.cost_platinum
+            }
+
+            building_type_dict['upkeep'] = {
+                'ore': building_type.upkeep_ore,
+                'lumber': building_type.upkeep_lumber,
+                'coal': building_type.upkeep_coal,
+                'rations': building_type.upkeep_rations,
+                'cloth': building_type.upkeep_cloth,
+                'platinum': building_type.upkeep_platinum
+            }
+
+            config_dict['building_types'].append(building_type_dict)
+
+        # Export Buildings
+        buildings = await Building.fetch_all(conn, guild_id)
+        config_dict['buildings'] = []
+        for building in buildings:
+            building_dict = {
+                'building_id': building.building_id,
+                'type': building.building_type
+            }
+
+            if building.name:
+                building_dict['name'] = building.name
+
+            if building.territory_id:
+                building_dict['territory_id'] = building.territory_id
+
+            if building.durability != 10:
+                building_dict['durability'] = building.durability
+
+            if building.status != 'ACTIVE':
+                building_dict['status'] = building.status
+
+            config_dict['buildings'].append(building_dict)
 
         # Export Units
         units = await Unit.fetch_all(conn, guild_id)
@@ -591,6 +646,58 @@ class ConfigManager:
                     guild_id=guild_id
                 )
                 await unit_type.upsert(conn)
+
+        # Import Building Types
+        if 'building_types' in config_dict:
+            for building_type_data in config_dict['building_types']:
+                cost = building_type_data.get('cost', {})
+                upkeep = building_type_data.get('upkeep', {})
+
+                building_type = BuildingType(
+                    type_id=building_type_data['type_id'],
+                    name=building_type_data['name'],
+                    description=building_type_data.get('description'),
+                    cost_ore=cost.get('ore', 0),
+                    cost_lumber=cost.get('lumber', 0),
+                    cost_coal=cost.get('coal', 0),
+                    cost_rations=cost.get('rations', 0),
+                    cost_cloth=cost.get('cloth', 0),
+                    cost_platinum=cost.get('platinum', 0),
+                    upkeep_ore=upkeep.get('ore', 0),
+                    upkeep_lumber=upkeep.get('lumber', 0),
+                    upkeep_coal=upkeep.get('coal', 0),
+                    upkeep_rations=upkeep.get('rations', 0),
+                    upkeep_cloth=upkeep.get('cloth', 0),
+                    upkeep_platinum=upkeep.get('platinum', 0),
+                    guild_id=guild_id
+                )
+                await building_type.upsert(conn)
+
+        # Import Buildings
+        if 'buildings' in config_dict:
+            for building_data in config_dict['buildings']:
+                # Get building type to copy upkeep values
+                building_type = await BuildingType.fetch_by_type_id(conn, building_data['type'], guild_id)
+                if not building_type:
+                    logger.warning(f"Building type {building_data['type']} not found, skipping building {building_data['building_id']}")
+                    continue
+
+                building = Building(
+                    building_id=building_data['building_id'],
+                    name=building_data.get('name'),
+                    building_type=building_data['type'],
+                    territory_id=str(building_data['territory_id']) if building_data.get('territory_id') else None,
+                    durability=building_data.get('durability', 10),
+                    status=building_data.get('status', 'ACTIVE'),
+                    upkeep_ore=building_type.upkeep_ore,
+                    upkeep_lumber=building_type.upkeep_lumber,
+                    upkeep_coal=building_type.upkeep_coal,
+                    upkeep_rations=building_type.upkeep_rations,
+                    upkeep_cloth=building_type.upkeep_cloth,
+                    upkeep_platinum=building_type.upkeep_platinum,
+                    guild_id=guild_id
+                )
+                await building.upsert(conn)
 
         # Import Units
         if 'units' in config_dict:

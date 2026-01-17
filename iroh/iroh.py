@@ -81,7 +81,12 @@ async def view_territory_cmd(interaction: discord.Interaction, territory_id: str
             return
 
         # Create and send embed
-        embed = create_territory_embed(data['territory'], data['adjacent_ids'], data['controller_name'])
+        embed = create_territory_embed(
+            data['territory'],
+            data['adjacent_ids'],
+            data['controller_name'],
+            data.get('buildings')
+        )
         await interaction.followup.send(embed=embed)
 
 
@@ -446,6 +451,8 @@ async def clear_wargame_config(interaction: discord.Interaction):
         await conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Unit WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", interaction.guild_id)
+        await conn.execute("DELETE FROM Building WHERE guild_id = $1;", interaction.guild_id)
+        await conn.execute("DELETE FROM BuildingType WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM Territory WHERE guild_id = $1;", interaction.guild_id)
         await conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", interaction.guild_id)
@@ -1258,6 +1265,128 @@ async def delete_building_type_cmd(interaction: discord.Interaction, type_id: st
             logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted building type '{type_id}' in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete building type '{type_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+# Building Commands
+@tree.command(
+    name="view-building",
+    description="View detailed information about a building"
+)
+@app_commands.describe(building_id="The building ID to view")
+async def view_building_cmd(interaction: discord.Interaction, building_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.view_building(conn, building_id, interaction.guild_id)
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        # Create and send embed
+        embed = create_building_embed(
+            data['building'],
+            data.get('building_type'),
+            data.get('territory')
+        )
+        await interaction.followup.send(embed=embed)
+
+
+@tree.command(
+    name="create-building",
+    description="[Admin] Create a new building in a territory"
+)
+@app_commands.describe(
+    building_id="Unique identifier for the building (e.g., 'fire-barracks')",
+    building_type="Building type ID (e.g., 'barracks')",
+    territory_id="Territory ID where the building will be located",
+    name="Optional custom name for the building"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def create_building_cmd(
+    interaction: discord.Interaction,
+    building_id: str,
+    building_type: str,
+    territory_id: str,
+    name: str = None
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.create_building(
+            conn, building_id, building_type, territory_id, interaction.guild_id, name
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created building '{building_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to create building '{building_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="edit-building",
+    description="[Admin] Edit a building's properties"
+)
+@app_commands.describe(
+    building_id="The building ID to edit",
+    name="New name for the building (optional)",
+    durability="New durability value (optional)",
+    status="New status: ACTIVE or DESTROYED (optional)"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_building_cmd(
+    interaction: discord.Interaction,
+    building_id: str,
+    name: str = None,
+    durability: int = None,
+    status: str = None
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.edit_building(
+            conn, building_id, interaction.guild_id, name, durability, status
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited building '{building_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to edit building '{building_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="delete-building",
+    description="[Admin] Delete a building"
+)
+@app_commands.describe(
+    building_id="The building ID to delete"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def delete_building_cmd(interaction: discord.Interaction, building_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.delete_building(conn, building_id, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted building '{building_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete building '{building_id}' in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),

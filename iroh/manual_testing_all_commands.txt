@@ -751,6 +751,155 @@ CLEANUP:
 
 
 ================================================================================
+SECTION 4B: BUILDING MANAGEMENT (Admin)
+================================================================================
+
+--------------------------------------------------------------------------------
+TEST 4B.1: /create-building
+--------------------------------------------------------------------------------
+PURPOSE: Create buildings in territories
+
+PREREQUISITES:
+- At least one building type exists (e.g., barracks)
+- At least one territory exists
+
+STEPS:
+4B.1.1 Create a building:
+    /create-building building_id:fire-barracks building_type:barracks territory_id:1
+
+    EXPECTED: Success message showing building created
+
+4B.1.2 Create with custom name:
+    /create-building building_id:earth-workshop building_type:workshop territory_id:2 name:Toph's Workshop
+
+    EXPECTED: Success message
+
+4B.1.3 Try creating duplicate:
+    /create-building building_id:fire-barracks building_type:barracks territory_id:1
+
+    EXPECTED: Error about building already existing
+
+4B.1.4 Try creating with invalid building type:
+    /create-building building_id:test-building building_type:nonexistent territory_id:1
+
+    EXPECTED: Error about building type not found
+
+4B.1.5 Try creating with invalid territory:
+    /create-building building_id:test-building building_type:barracks territory_id:999
+
+    EXPECTED: Error about territory not found
+
+
+--------------------------------------------------------------------------------
+TEST 4B.2: /view-building
+--------------------------------------------------------------------------------
+PURPOSE: View building details (Player accessible)
+
+STEPS:
+4B.2.1 View existing building:
+    /view-building building_id:fire-barracks
+
+    EXPECTED: Embed showing:
+    - Building name and ID
+    - Building type
+    - Location (territory name)
+    - Durability (10 by default)
+    - Status (ACTIVE)
+    - Upkeep costs (with resource emojis)
+
+4B.2.2 View nonexistent:
+    /view-building building_id:nonexistent
+
+    EXPECTED: Error about building not found
+
+
+--------------------------------------------------------------------------------
+TEST 4B.3: /view-territory (Buildings Integration)
+--------------------------------------------------------------------------------
+PURPOSE: Verify buildings appear in territory view
+
+STEPS:
+4B.3.1 View territory with buildings:
+    /view-territory territory_id:1
+
+    EXPECTED: Territory embed includes section listing buildings:
+    - fire-barracks (barracks) - Durability: 10
+
+
+--------------------------------------------------------------------------------
+TEST 4B.4: /edit-building
+--------------------------------------------------------------------------------
+PURPOSE: Edit building properties
+
+STEPS:
+4B.4.1 Edit building name:
+    /edit-building building_id:fire-barracks name:Royal Barracks
+
+    EXPECTED: Success message
+
+4B.4.2 Edit durability:
+    /edit-building building_id:fire-barracks durability:5
+
+    EXPECTED: Success message
+
+4B.4.3 Edit status to DESTROYED:
+    /edit-building building_id:fire-barracks status:DESTROYED
+
+    EXPECTED: Success message
+
+4B.4.4 Verify changes:
+    /view-building building_id:fire-barracks
+
+    EXPECTED: Updated name, durability, and status shown
+
+4B.4.5 Reset status to ACTIVE:
+    /edit-building building_id:fire-barracks status:ACTIVE durability:10
+
+    EXPECTED: Success message
+
+4B.4.6 Try editing nonexistent:
+    /edit-building building_id:nonexistent name:Test
+
+    EXPECTED: Error about building not found
+
+4B.4.7 Try editing with invalid status:
+    /edit-building building_id:fire-barracks status:INVALID
+
+    EXPECTED: Error about invalid status
+
+4B.4.8 Try editing with negative durability:
+    /edit-building building_id:fire-barracks durability:-5
+
+    EXPECTED: Error about negative durability
+
+
+--------------------------------------------------------------------------------
+TEST 4B.5: /delete-building
+--------------------------------------------------------------------------------
+PURPOSE: Delete a building
+
+STEPS:
+4B.5.1 Delete:
+    /delete-building building_id:earth-workshop
+
+    EXPECTED: Success message
+
+4B.5.2 Verify:
+    /view-building building_id:earth-workshop
+
+    EXPECTED: Error about building not found
+
+4B.5.3 Try deleting nonexistent:
+    /delete-building building_id:nonexistent
+
+    EXPECTED: Error message
+
+
+CLEANUP:
+    /delete-building building_id:fire-barracks
+
+
+================================================================================
 SECTION 5: UNIT MANAGEMENT (Admin)
 ================================================================================
 

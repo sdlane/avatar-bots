@@ -152,6 +152,83 @@ unit_types:
       cloth: 1
       platinum: 0
 
+building_types:
+  - type_id: "barracks"
+    name: "Military Barracks"
+    description: "A training facility for soldiers"
+    cost:
+      ore: 10
+      lumber: 10
+      coal: 0
+      rations: 5
+      cloth: 0
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 1
+      coal: 0
+      rations: 2
+      cloth: 0
+      platinum: 0
+
+  - type_id: "workshop"
+    name: "Craftsman Workshop"
+    description: "A place for crafting equipment and tools"
+    cost:
+      ore: 5
+      lumber: 15
+      coal: 2
+      rations: 0
+      cloth: 0
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 2
+      coal: 1
+      rations: 0
+      cloth: 0
+      platinum: 0
+
+  - type_id: "warehouse"
+    name: "Storage Warehouse"
+    description: "A building for storing resources"
+    cost:
+      ore: 8
+      lumber: 20
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 1
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 0
+
+buildings:
+  # Fire Nation buildings
+  - building_id: "fire-barracks-1"
+    name: "Royal Barracks"
+    type: "barracks"
+    territory_id: 1
+
+  - building_id: "fire-warehouse-1"
+    type: "warehouse"
+    territory_id: 1
+
+  # Earth Kingdom buildings
+  - building_id: "earth-workshop-1"
+    name: "Toph's Workshop"
+    type: "workshop"
+    territory_id: 2
+
+  # Water Tribe buildings
+  - building_id: "water-warehouse-1"
+    type: "warehouse"
+    territory_id: 3
+
 units:
   # Zuko's units - Fire Nation
   - unit_id: "fire-1st-infantry"
