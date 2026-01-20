@@ -132,6 +132,14 @@ def create_faction_embed(faction: Faction, members: List[Character], leader: Opt
         inline=True
     )
 
+    # Nation
+    if faction.nation:
+        embed.add_field(
+            name="Nation",
+            value=faction.nation,
+            inline=True
+        )
+
     # List members
     if members:
         member_list = [f"• {char.name} (`{char.identifier}`)" for char in members]

@@ -805,3 +805,140 @@ characters:
     assert not success
     assert "Missing characters" in message
     assert "nonexistent-character" in message
+
+
+# ============================================================================
+# FACTION NATION TESTS
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_import_faction_with_nation(db_conn, clean_wargame_data):
+    """Test importing faction with nation field."""
+    config_with_nation = """
+wargame:
+  turn: 0
+
+factions:
+  - faction_id: "fire-nation"
+    name: "Fire Nation"
+    nation: "fire-nation"
+    members:
+      - "test-char-1"
+
+  - faction_id: "earth-kingdom"
+    name: "Earth Kingdom"
+    nation: "earth-kingdom"
+    members:
+      - "test-char-2"
+"""
+
+    success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, config_with_nation)
+    assert success, f"Import failed: {message}"
+
+    # Verify factions have nation set
+    fire_nation = await Faction.fetch_by_faction_id(db_conn, "fire-nation", TEST_GUILD_ID)
+    assert fire_nation is not None
+    assert fire_nation.nation == "fire-nation"
+
+    earth_kingdom = await Faction.fetch_by_faction_id(db_conn, "earth-kingdom", TEST_GUILD_ID)
+    assert earth_kingdom is not None
+    assert earth_kingdom.nation == "earth-kingdom"
+
+
+@pytest.mark.asyncio
+async def test_import_faction_without_nation(db_conn, clean_wargame_data):
+    """Test importing faction without nation (backward compatibility)."""
+    config_without_nation = """
+wargame:
+  turn: 0
+
+factions:
+  - faction_id: "test-faction"
+    name: "Test Faction"
+"""
+
+    success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, config_without_nation)
+    assert success, f"Import failed: {message}"
+
+    # Verify faction has no nation
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    assert faction is not None
+    assert faction.nation is None
+
+
+@pytest.mark.asyncio
+async def test_export_includes_faction_nation(db_conn, clean_wargame_data):
+    """Test that export includes faction nation field."""
+    # Create faction with nation
+    faction = Faction(
+        faction_id="fire-nation",
+        name="Fire Nation",
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+
+    # Export
+    yaml_output = await ConfigManager.export_config(db_conn, TEST_GUILD_ID)
+    config_dict = yaml.safe_load(yaml_output)
+
+    # Verify nation in export
+    assert 'factions' in config_dict
+    assert len(config_dict['factions']) == 1
+    assert config_dict['factions'][0]['faction_id'] == 'fire-nation'
+    assert config_dict['factions'][0]['nation'] == 'fire-nation'
+
+
+@pytest.mark.asyncio
+async def test_export_omits_nation_when_null(db_conn, clean_wargame_data):
+    """Test that export omits nation field when it's null."""
+    # Create faction without nation
+    faction = Faction(
+        faction_id="test-faction",
+        name="Test Faction",
+        nation=None,
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+
+    # Export
+    yaml_output = await ConfigManager.export_config(db_conn, TEST_GUILD_ID)
+    config_dict = yaml.safe_load(yaml_output)
+
+    # Verify nation not in export (when null)
+    assert 'factions' in config_dict
+    assert len(config_dict['factions']) == 1
+    assert 'nation' not in config_dict['factions'][0]
+
+
+@pytest.mark.asyncio
+async def test_nation_roundtrip(db_conn, clean_wargame_data):
+    """Test export -> import -> export preserves faction nation."""
+    # Create faction with nation
+    faction = Faction(
+        faction_id="water-tribe",
+        name="Water Tribe",
+        nation="water-tribe",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+
+    # First export
+    yaml_output_1 = await ConfigManager.export_config(db_conn, TEST_GUILD_ID)
+    config_dict_1 = yaml.safe_load(yaml_output_1)
+
+    # Clean and reimport
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+    success, message = await ConfigManager.import_config(db_conn, TEST_GUILD_ID, yaml_output_1)
+    assert success, f"Reimport failed: {message}"
+
+    # Second export
+    yaml_output_2 = await ConfigManager.export_config(db_conn, TEST_GUILD_ID)
+    config_dict_2 = yaml.safe_load(yaml_output_2)
+
+    # Compare nation values
+    assert config_dict_1['factions'][0]['nation'] == config_dict_2['factions'][0]['nation']
+    assert config_dict_2['factions'][0]['nation'] == 'water-tribe'

@@ -52,6 +52,10 @@ class ConfigManager:
                 'name': faction.name
             }
 
+            # Include nation if set
+            if faction.nation:
+                faction_dict['nation'] = faction.nation
+
             # Get leader character identifier
             if faction.leader_character_id:
                 leader = await Character.fetch_by_id(conn, faction.leader_character_id)
@@ -421,6 +425,7 @@ class ConfigManager:
                 faction = Faction(
                     faction_id=faction_data['faction_id'],
                     name=faction_data['name'],
+                    nation=faction_data.get('nation'),
                     guild_id=guild_id
                 )
                 await faction.upsert(conn)

@@ -5,7 +5,13 @@
 \cenquote{``War$\ldots$ War never changes''}{-- Fallout}
 \cenquote{``War has changed''}{-- Solid Snake, Metal Gear Solid 4: Guns of the Patriots}
 
+\begin{itemz}[Changelog v1 -> v1.1]
+    \item Southern Water Tribe should start in an alliance with the northern water tribe
+\end{itemz}
+
 \section{Introduction}
+
+\textbf{Note: More documentation about the commands for the Discord bot will be added in the near future.}
 
 Geopolitics is a dangerous arena. Strategic goals of belligerent nations are often achieved at the point of a spear or the fist of a bender. Avatar Kyoshi has long kept the world at relative peace but there is a palpable feeling in the air that the Pax Kyoshi is coming to an end. With the Fifth Nation on the rise, tensions between the water tribes, and strategic friction between the Fire Nation and Earth Kingdoms, the world seems primed for war. These are the rules for fighting one$\ldots$ or for supplying one side from the shadows.
 
@@ -13,33 +19,107 @@ Players may find themselves in command of a unit or fleet and can use them to en
 
 Wars require a formal goal that will be used in calculating the victor post game. Wars cannot be formally declared unless sanctioned by Avatar Kyoshi, she has a history of putting a stop to them$\ldots$ violently.  
 
+Most interactions with the wargame will be done through a Discord bot called General Iroh. See \gHawky{} for general instructions on using Discord bots. This sheet will be updated with the documentation for the bot commands for General Iroh in the lead up to game.
+
+\subsection{Disclaimer}
+
+The Discord Bot might let you issue orders that are not allowed under these rules. Please double check that you are following the rules in this document and not just relying on the bot to enforce those rules.
+
+With regards to the map, if it looks like a line should go all the way, you should probably assume that it does. The Discord bot has a list of territory adjacency. If you think something is in error, see a GM.
+
+\subsection{On Character Death and ``Automatically"}
+
+A number of things in these rules say something "Automatically" happens on character death. This is true from a rules perspective but not from an implementation perspective. Make sure you tell the GMs you died as soon as you can after it happens so we can process these things.
+
 \section{Overview}
 
-\subsection{Turns}
+\subsection{Factions}
 
-Turns are resolved for all parties simultaneously. Players interact with the game by issuing \textbf{orders} to their units and fleets. \textbf{Unit Orders} consist of movement orders, an action, rules of engagement, and potentially unit specific special actions. They can take multiple turns to resolve. A unit will continue to carry out whatever orders it was given until it is issued new orders. If the orders given are invalid, the unit will continue to operate under its previous orders. Once a turn is resolved each player receives a \textbf{report} about each of their territories and units that gives the state of each of these things including the position of each unit, any sighted enemy units, and the resources produced that turn. 
+A \textbf{faction} is a political group that can own units and control territories. While individuals own units and control territories, most start under the control of a faction. Factions are used to identify whether one unit will treat another as friend or foe. Units that are owned by factions will always truthfully fly the banner of that faction. Units that are owned by individuals will truthfully fly the banner of the faction that their \textit{commander} is associated with, though the commander of a particular unit is not publicly available information. 
 
-Turn resolution begins at \textbf{midnight} and \textbf{noon}. No turns take place during game break. Any orders received will go into effect during the next turn resolution phase so an order received at 4 PM will be used during the midnight resolution phase.
+Factions have a designated leader who makes decisions about declaring wars and making alliances. There are other faction permissions that will be discussed below. The leadership of factions that are associated with \textbf{governments} is passed according to the succession laws of that government. The leadership of factions that do not have an associated government can be passed (posthumously or otherwise) by the current leader of the faction. The leader of a faction must always be a living player character. Faction leadership changes are processed by the GMs.
 
-Turns consist of the following phases:
+A character may be a member of more than one faction but all personally owned units of that character will be designated as being part of one and only one faction at a time. Once changed, the represented faction cannot be changed again for 3 turns.
 
-\begin{enumerate}
-    \item Beginning
-    \item Movement
-    \item Combat
-    \item Resource Collection
-    \item Cleanup
-\end{enumerate}
+Like characters, factions have identifiers that are used when interacting with the discord bot around them. 
 
-The phases will be discussed in more detail below. In brief, during the Beginning phase, certain unit abilities or effects might be used or triggered. During the Movement phase, units will move based on their orders. In the Combat phase, opposing units that are in the same territory after the Movement will fight. In the Resource Collection phase, resources will be collected and can be used or transferred. In the Cleanup phase, resources will be transferred between players, resources will be spent on unit upkeep, units with low organization will be disbanded, and resources will be used to create new units.
+The set of factions that are known to exist at game start along with their identifiers and leadership are as follows:
+
+\begin{itemz}
+    \item Fire Nation (fire-nation): \cFireLord{\full}
+    \begin{itemz}
+        \item Saowon (saowon): Unknown
+        \item Fire Sages (fire-sages): \cFireSage{\full}
+    \end{itemz}
+    \item Earth Kingdom (earth-kingdom): \cEarthKing{\full}.
+    \begin{itemz}
+        \item Omashu (omashu): \cEarthOmashuQueen{\full}
+        \item Gaoling (gaoling): \cEarthGaolingGovernor{\full}
+        \item Hu Xin (hu-xin): \cEarthHuXinGovernor{\full}
+        \item Kyoshi Island (kyoshi-island): \cEarthKyoshiGovernor{\full} for civil matters, \cEarthKyoshiLeader{\full} for military matters.
+    \end{itemz}
+    \item Air Nomads (air-nomads): Special, if you are an Air Nomad see \gAirPolitics{} for more information.  
+    \item Northern Water Tribe (north-water): \cWaterChief{}
+    \begin{itemz}
+        \item Southern Water Tribe (south-water): \cSouthWaterRep{}
+    \end{itemz}
+    \item Fifth Nation (fifth-nation): \cPirateLeader{}
+\end{itemz}
+
+The factions under the Fire Nation start in an \textbf{alliance} with the Fire Nation and each other. The factions under the Earth Kingdom also start in an \textbf{alliance} with the Earth Kingdom and each other. The Southern Water Tribe starts out governed by and in an \textbf{alliance} with the Northern Water Tribe. That might change during game.
+
+There may be existing factions that are not publicly known. There may also be ways that new factions can be formed in game.
+
+Information on adding and removing players from factions is available under the Orders section.
+
+\subsubsection{Faction Resources}
+
+Factions collect resources each turn from the territories they control. These are stored in a database table that can be queried using the Discord bot using the \texttt{/view-faction-resources} command. Factions also have resources that they spend each turn representing government not represented by this game such as public works. There may be ways to adjust this spending during game, though that will likely come with downsides.
+
+\subsubsection{Faction Permissions}
+
+There are four sets of permissions for faction actions that players can be given: command, financial, construction, and membership. 
+
+Command permissions allow a person with that permission to issue orders to units controlled by that faction.
+
+Financial permissions allow a person with that permission to issue orders related to transferring resources.
+
+Construction permissions allow a person with that permission to issue orders related to the construction of units and buildings. 
+
+Membership permissions allow a person with that permission to issue orders related to adding and removing people from factions.
+
+Some factions (notably the Earth Kingdom and Air Nomads) have restrictions on who can hold which permissions. For other factions, the leader may freely grant permissions. Once granted, permissions cannot be revoked for three turns. See a GM to adjust faction permissions. 
+
+The orders relating to making alliances and declaring wars are always issued by the faction leader, that permission cannot be transferred.
+
+\subsection{Resources}
+
+Each territory produces a set of resources every turn. New resources are collected during the Resource Collection phase each turn. There exist effects in the game that modify the resources that a territory produces. Each point of a resource represents a macroeconomic unit of that resource, sufficient for being used to create or maintain equipment for a large military unit. 
+
+There may be various mechanics elsewhere in the game that utilize these resources but there is no way to have them be in game items. They are not steal-able. When resources are collected, they are given to the player in control of the territory during that phase unless some other effect changes who receives them.
+
+The primary use of resources is the construction and maintenance of units. The resources that each territory produces can be queried with the Discord bot using the \texttt{/view-territory} command.
+
+The set of known resources is:
+
+\begin{itemz}
+  \item Ore
+  \item Lumber
+  \item Coal
+  \item Rations
+  \item Cloth
+  \item Platinum
+\end{itemz}
 
 \subsection{Territories}
 
-Territories are spaces on the map that represent a geographic area. All territories have an ID and Terrain. Land territories will also have Resources and a Controller. Some territories may have a flavorful name such as the name of the state it represents. 
+Territories are spaces on the map that represent a geographic area. All territories have an ID and Terrain. Land territories also have Resources and a Controller. Some territories may have a flavorful name such as the name of the state it represents. 
 
+You can view information about a particular territory using the \texttt{/view-territory} command of the Discord Bot. This includes information about which territories it is adjacent to in case there is ambiguity on the map. 
+ 
 \subsubsection{Territory IDs}
 
-Territory IDs are numbers that are used when specifying territories in \textbf{orders}. Each territory ID is unique, there are no duplicates.
+Territory IDs are strings that are used when specifying territories in \textbf{orders}. Each territory ID is unique, there are no duplicates.
 
 \subsubsection{Terrain}
 
@@ -48,54 +128,33 @@ Terrain represents the kind of terrain that a territory contains. Many forms of 
 \begin{itemz}
 \item \textbf{Ocean} - The territory can only be traversed by Naval Units and does not have a controller
 \item \textbf{Lake} - The territory can only be traversed by Naval Units and does not have a controller
-\item \textbf{Mountains} - It takes double the movement points to move into this territory. 
+\item \textbf{Mountains} - It takes triple the movement points to move into this territory. 
 \item \textbf{Desert} - It takes double the movement points to move into this territory.
 \end{itemz}
 
-\subsection{Movement and Positioning}
+\subsubsection{Sacred Land}
 
-The way that units move around the map differs between land units and naval units. Land units are each located in a specific territory at a given time. They can traverse a number of territories in a given turn. The path that a unit takes and its behavior depends on the specific action it is ordered to perform. 
+Some territories start out with a \textbf{Sacred Land} designation. These territories will have 0 production at the start. You will not be able to construct buildings there while they have this designation. \textbf{This is a kludge. The bot won't stop you.} The designation can be changed by passing laws, see the various law greensheets for more information. See a GM to adjust the production if you do this. There may be consequences for starting to harvest resources from \textbf{Sacred Land}.
 
-Naval unit positioning is somewhat more abstract in that each naval unit occupies a set of territories. Naval orders generally require specifying a set or sequence of territories in which a specified action will be performed.
+\subsection{Units}
 
-\subsection{Factions}
-
-A \textbf{Faction} is a group of at least \TODO{3} players that controlled at least \TODO{10} units when the faction is formed. These are related to \textbf{Governments}\footnote{See "Governance" greensheet} in that every government is a faction but not every faction is a government. Factions are primarily used to identify whether one unit will treat another as friend or foe. Units will truthfully fly the banner of the faction that their \textit{commander} is associated with, though the commander of a particular unit is not publicly available information. 
-
-Factions have a designated leader who makes decisions about membership in the faction, declaring wars, and making alliances. The leadership of factions that are associated governments is passed according to the succession laws of that government. The leadership of factions that do not have an associated government can be passed (posthumously or otherwise) by the current leader of the faction.
-
-The following factions are known to exist at the beginning of game: 
-
-\TODO{Probably split Fire Nation and Earth Kingdom into somewhat smaller factions with a note that they are associated with the Fire Nation and Earth Kingdom}
-
-\begin{itemz}
-    \item Fire Nation
-    \item Earth Kingdom
-    \item Air Nomads
-    \item Northern Water Tribe (Associated with the Water Tribes Government)
-    \item Southern Water Tribe
-    \item Fifth Nation
-\end{itemz}
-
-In order to join a faction, both the player joining and the leader must agree. A player can leave a faction willingly three turns after they first join, or can be kicked out by the faction leader. If a player is not part of a faction, their units are neutral to everything and cannot take actions, though they also cannot be engaged in combat. They will stay positioned in whatever space(s) they were in at the end of the previous turn. 
-
-\section{Units}
-
-Units represent divisions of soldiers or fleets of ships. Each has an ID, a name (for flavor), a type (such as infantry, cavalry, etc.), an owner (the player or NPC that owns the unit and can set the commander), a commander (i.e. the player or NPC that can issue orders to the unit), an upkeep cost, and a set of stats. 
+Units represent divisions of soldiers or fleets of ships. Each has an ID, a name (for flavor), a type (such as infantry, cavalry, etc.), an owner (the faction, player, or NPC that owns the unit and can set the commander), an upkeep cost, and a set of stats. Some units may also have a commander who can issue orders which may be different than the owner.
 
 Some units may have additional abilities that change how they can be interacted with. 
 
-The units that are known to exist at the start of the game, their controllers, and their positions are listed in a separate Greensheet.
+The unit types that are known to exist at the start of the game are listed in a separate Greensheet.
 
-\subsection{Unit IDs, Ownership, Command, and Upkeep}
+In general, exact information about units that you do not control will be hidden information. You can query information about units you have ownership or command permissions for using the \texttt{/view-unit} command. 
 
-The ID is used when issuing orders to units in order to minimize any potential ambiguity. 
+\subsubsection{Unit IDs, Ownership, Command, and Upkeep}
+
+The ID is used when issuing orders to units. 
 
 The owner of a unit can assign a commander to a unit by issuing a Commander Assignment order. Once a commander is assigned, the commander cannot be changed for two turns. If the commander dies, command of the unit reverts to the owner. If the owner dies, command and ownership of the unit is passed to a trusted subordinate (i.e. an NPC played by the same player as the owner). Ownership of a unit cannot be transferred to a different player unless you know otherwise\footnote{One known exception is the units that are owned by Earth Sages. Ownership of those units is governed by Earth Kingdom law and will likely change during the game.}. Both the owner and commander of a unit will receive details about that unit in their end of turn \textbf{report}.
 
-Each unit has an upkeep cost in resources. Upkeep is paid at the end of each turn in the Upkeep and Construction phase. If there are insufficient resources to cover the upkeep of a unit, or if there is no path between the unit and territory controlled by the the faction from which it originated, the \textbf{Organization} stat of that unit will be reduced. 
+Each unit has an upkeep cost in resources. Upkeep is paid at the end of each turn during the Upkeep sub phase. If there are insufficient resources to cover the upkeep of a unit, or if there is no path between the unit and territory controlled by the the faction from which it originated, the \textbf{Organization} stat of that unit will be reduced. 
 
-\subsection{Stats}
+\subsubsection{Stats}
 
 Units have at least these six stats:
 
@@ -115,186 +174,250 @@ Some units may have additional stats. These include:
     \item Capacity - The total number of dots of units that this unit can transport. This is mostly for naval units, though there are exceptions
 \end{itemz}
 
-\section{Resources}
+\subsection{Buildings}
 
-Each territory produces a set of resources every turn. New resources are collected during the Resource Collection phase each turn. There exist effects in the game that modify the resources that a territory produces. Each point of a resource represents a macroeconomic unit of that resource, sufficient for being used to create or maintain equipment for a large military unit. 
+Buildings can be constructed in territories during game. Each will have difference effects on the Wargame or on other systems in game. Not all effects of constructing particular buildings are public information. The publicly available buildings at the start of the game are listed in the \gWargamePublicUnits{} greensheet.
 
-There may be various mechanics elsewhere in the game that utilize these resources but there is no way to have them be in game items. They are not steal-able. When resources are collected, they are given to the player in control of the territory during that phase unless some other effect changes who receives them.
+Buildings have a construction cost in resources, an upkeep cost in resources, and a durability. Once a building is constructed, if its durability ever hits 0, the unit is destroyed and removed from the game.
 
-The primary use of resources is the construction and maintenance of units. The resources that each territory produces are listed in a separate Greensheet.
+\subsubsection{Movement and Positioning}
 
-The set of known resources is:
+The way that units move around the map differs between land units and naval units. Land units are each located in a specific territory at a given time. They can traverse a number of territories in a given turn. The path that a unit takes and its behavior depends on the specific action it is ordered to perform. 
 
-\begin{itemz}
-  \item Ore
-  \item Lumber
-  \item Coal
-  \item Rations
-  \item Cloth
-\end{itemz}
+Naval unit positioning is somewhat more abstract in that each naval unit occupies a set of territories. Naval orders generally require specifying a set or sequence of territories in which a specified action will be performed.
+
+
+\subsection{Turns}
+
+Turns are resolved for all parties simultaneously. Players interact with the game by issuing \textbf{orders} to their units and fleets. \textbf{Unit Orders} consist of movement orders, an action, rules of engagement, and potentially unit specific special actions. They can take multiple turns to resolve. A unit will continue to carry out whatever orders it was given until it is issued new orders. If the orders given are invalid, the unit will continue to operate under its previous orders. Once a turn is resolved each player receives a \textbf{report} about each of their territories and units that gives the state of each of these things including the position of each unit, any sighted enemy units, and the resources produced that turn. 
+
+Turn resolution begins at \textbf{1 AM} and \textbf{1 PM}. No turns take place during game break. Any orders received will go into effect during the next turn resolution phase so an order received at 4 PM will be used during the midnight resolution phase.
+
+Turns consist of the following phases:
+
+\begin{enumerate}
+    \item Beginning
+    \item Movement
+    \item Combat
+    \item Resource Collection
+    \item End
+    \begin{enumerate}
+        \item Resource Transfer
+        \item Encirclement
+        \item Upkeep
+        \item Organization
+        \item Construction
+    \end{enumerate}
+\end{enumerate}
+
+The phases will be discussed in more detail below. In brief, during the Beginning phase, certain unit abilities or effects might be used or triggered. During the Movement phase, units will move based on their orders. In the Combat phase, opposing units that are in the same territory after the Movement will fight. In the Resource Collection phase, resources will be collected and can be used or transferred. In the End phase, resources will be transferred between players, resources will be spent on upkeep, units with low organization and buildings with low durability will be disbanded, and resources will be used to create new units.
 
 \section{Orders}
 
-Orders are designed to allow a flexible way to interact with the wargame without requiring specific information being given by every player on every turn. They are issued via discord by interacting with a discord bot. Units will be processed during the next turn resolution, meaning an order issued at 2 PM will be processed at \TODO{Midnight}. The kinds of orders that can be issued and their required information is included below.
+Orders are designed to allow a flexible way to interact with the wargame without requiring specific information being given by every player on every turn. They are issued via discord by interacting with the discord bot. Orders will be processed during the next turn resolution, meaning an order issued at 2 PM will be processed at 1 AM. The kinds of orders that can be issued and their required information is included below.
 
 \subsection{Commander Assignment}
 
-A Commander Assignment order can be issued by the owner of a unit. They require the ID of the unit and the name of the desired commander of the unit. New commanders \textit{can} issue orders for units that they are assigned control of during the turn where the Commander Assignment order is issued. Once a Commander Assignment order has been issued, it cannot be revoked or changed for two turns, e.g. if a Commander Assignment order is issued at 3 PM, the command of that unit cannot be changed until after the noon turn resolution the next day unless the commander or the owner of the unit dies.
+A Commander Assignment order can be issued by the owner of a unit if the owner is an individual \textbf{not} a faction. They require the ID of the unit and the identifier of the desired commander of the unit. New commanders \textit{can} issue orders for units that they are assigned control of during the turn where the Commander Assignment order is issued. Once a Commander Assignment order has been issued, it cannot be revoked or changed for two turns. Commander Assignment turns are processed during the Beginning phase.
+
+
+\subsection{Mobilization Orders}
+
+Mobilization Orders are used to mobilize new units within friendly territory. They require the type of unit to be created, the territory in which the unit will be created, optionally the faction that will own the unit (if faction resources will be used), and optionally a name for that unit. 
+
+Mobilization orders are processed during the Construction sub phase.
+
+If constructing a unit for a faction, the mobilization order may only be issued by someone with construction permissions for that faction and only in territory controlled by that faction.
+
+Mobilization orders for personal units may be issued by anyone with sufficient resources and permission to use the specified territory\footnote{There is no formal method of granting permission to construct a unit, this is enforced on the honor system by being granted verbal permission by the controller of that territory.}. 
+
+New units must match \textbf{both} the public nation of the faction/owner \textbf{and} the nation that controlled the territory at the start of the game\footnote{You can't stand up a new division of fire benders in Ba Sing Se, even if the Fire Nation takes control. There simply aren't enough fire benders in the city.}. The exception to this is the Fifth Nation who can construct Fifth Nation units in any territory they control. The nation of the owner need not match the nation of the unit.
 
 \subsection{Construction Orders}
 
-Construction Orders are used to mobilize new units within friendly territory. They require the type of unit to be constructed, the location in which the unit will be constructed, the owner of the unit (if not the same as the person issuing the construction order, and optionally a name for that unit. Unit construction orders may be issued by anyone with sufficient resources and permission to use the specified territory\footnote{There is no formal method of granting permission to construct a unit, this is enforced on the honor system by being granted verbal permission by the controller of that territory.}. New units must match \textbf{both} the public nation of the person issuing the order \textbf{and} the nation that controlled the territory at the start of the game\footnote{You can't stand up a new division of fire benders in Ba Sing Se, even if the Fire Nation takes control. There simply aren't enough fire benders in the city.}. The exception to this is the Fifth Nation who can construct Fifth Nation units in any territory they control. The nation of the owner need not match the nation of the unit.
+Construction Orders are used to construct new buildings. They require the type of building to be created, the territory in which the building will be created, optionally the faction whose resources will be used to construct the building. There are no restrictions on where you can build buildings.
 
-\subsubsection{Resource Transfer Orders}
+If using resources from a faction, the construction order can only be issued by someone with construction permissions. If using personal resources, construction orders can be issue by anyone.
 
-Resource transfer orders are meant to allow resources to be transferred from one player to another. There are three kinds of resources transfer orders: One Time Transfers, Ongoing Transfers, and Cancel Orders. Each is described below. For more information on how these orders are processed, see Section \ref{sec:transfer}.
+Construction orders are processed in the Construction sub phase.
+
+\subsection{Resource Transfer Orders}
+
+Resource transfer orders are meant to allow resources to be transferred from one player to another. There are two kinds of resources transfer orders: One Time Transfers and Ongoing Transfers. Each is described below. For more information on how these orders are processed see below.
 
 \subsubsection{One Time Transfers}
 
 One Time Transfer orders transfer a specified set of resources to another player once. They require the name of the recipient and the set of resources being transferred. Once issued, these orders cannot be canceled, though they will fail to resolve if either party to the order is killed before the turn is processed.
 
-\subsection{Ongoing Transfers}
+\subsubsection{Ongoing Transfers}
 
 Ongoing Transfer orders transfer a set of resources to another player every turn until they expire or are canceled. They require the name of the recipient, the set of resources being transferred, and optionally a number of turns that the agreement will be valid for which must be at least two. If no term is specified, the order will be considered indefinite. Once issued, an ongoing transfer order may not be canceled for one turn. Ongoing transfers are automatically ended if either party is killed.
 
-\subsubsection{Cancel Orders}
-
-Cancel orders remove an ongoing transfer order, preventing it from being processed from that turn forward. They require the information from the original order to ensure that they are not ambiguous. 
 
 \subsection{Unit Orders}
 
 Unit orders determine how a unit will act on each turn. They are designed to allow for actions that take multiple turns to complete without having to give specific orders to the unit every single turn\footnote{Though you can if you want.}. The timing and movement rules are complex because of that goal. Optimal play likely requires issuing new orders frequently, but it should be possible to engage with the game on only a few turns of the game or only for a few units each turn.
 
-Unit orders require a Unit ID or set of Unit IDs be specified, and consist of movement orders, an action, rules of engagement, and potentially unit specific special actions (which may or may not replace other actions. They may optionally include a reduced upkeep clause, specifying a subset of the required resources be spent in order to de-prioritize it for upkeep.
+Unit orders require a Unit ID or set of Unit IDs , a set of adjacent territories, an action, and potentially unit specific special actions (which may or may not replace other actions). Some actions may require additional arguments.
 
-If a set of Unit IDs is specified, the set of units will take the actions together, moving at the speed of the slowest unit in the set. At the start of the turn where the order is issued, all of the units must be located in the same territory. A unit can only be included in one order at a time. Valid new orders issued to the same unit ID will override the previous orders.
+If a set of Unit IDs is specified, the set of units will take the actions together, moving at the speed of the slowest unit in the set. At the start of the turn where the order is issued, all of the units must be located in the same territory and that territory must be the first territory in the input territory sequence. A unit can only be included in one order at a time. Valid new orders issued to the same unit ID will override the previous orders, either removing them from the group of units, or canceling the previous order depending.
 
+\textbf{When not at war}, a unit can only move one land tile into territory that does not belong to the units owner or an allied faction. \textbf{This is not checked by the bot. Please double check.} 
 
-Movement orders consist of a sequence of of adjacent territories that the unit will traverse and a speed at which they will be traversed. The interaction between the movement orders and the action depends on the specific action taken and is described below. It also varies depending on whether the unit in question is a land unit or a naval unit. 
+There are multiple turn stages in which unit orders will be processed, see below for more details. The set pf possible unit actions is described below. 
 
-Rules of Engagement allow you to specify that the unit being ordered should treat a faction as allied, neutral, or hostile, overriding what would normally be the case given the set of formal wars declared. For example, with no war declared, a unit patrolling a border between Fifth Nation controlled territory and the Earth Kingdom could be set to treat Fifth Nation troops as hostile. 
+\subsection{Faction Orders}
 
-\subsubsection{Queued Orders}
-
-Some unit actions can be \textbf{completed}, though many cannot. For unit actions that can be completed, \textit{one} additional order can be queued to begin executing when the previous action is complete. For example, if a unit currently has an order to Capture a territory next to Omashu, it could be given a queued order to Transport to a territory near the Southern Air Temple. Once the territory has been captured, the unit will start to move towards the other space.
-
-\subsection{Faction Actions}
-
-Faction orders are processed at the beginning of a turn, taking effect immediately. 
+Faction orders are processed in the beginning phase of a turn. 
 
 \subsubsection{Join Faction}
 
-A leader of a faction can issue a Join Faction order, specifying the person to be added to their faction. An individual can issue a Join Faction order, specifying the faction they wish to join. When both the leader of the faction and the individual have issued Join Faction orders, the individual will be considered a member of that Faction.
+Someone with the membership permission for a faction can issue a Join Faction order, specifying the person to be added to their faction. An individual can issue a Join Faction order, specifying the faction they wish to join. When both the leader of the faction and the individual have issued Join Faction orders, the individual will be considered a member of that Faction. Characters cannot be in more than one faction at a time. Faction membership is not public information and is only known to faction members. Not every character is in a faction, though every character that starts with faction permissions, ownership of units, or control of territories does start in a faction.
 
 \subsubsection{Leave Faction}
 
 A member of a faction can issue a Leave Faction order, leaving the faction that they are current a part of. This cannot be done within the first three turns the game, within the first three turns after the faction is created, or within three turns of the person joining the faction. This action can be performed unilaterally. 
 
-Territories, resources, and units controlled by the person who is kicked from a faction remain under the control of that person. Someone with control of territories or units but not part of a faction is treated as their own faction for the purposes of resolving actions.
+Territories, resources, and units controlled by the person who leaves from a faction remain under the control of that person. Territories and units that are owned by the faction will remain owned by the faction. Someone with control of territories or units but not part of a faction is treated as their own faction for the purposes of resolving actions.
 
 \subsubsection{Kick from Faction}
 
-The leader of a faction can issue a Kick from Faction order, specifying a player to be kicked from the faction. This cannot be done within the first three turns the game, within the first three turns after the faction is created, or within three turns of the person joining the faction. This action can be performed unilaterally. 
+Someone with the membership permission for a faction can issue a Kick from Faction order, specifying a player to be kicked from the faction. This cannot be done within the first three turns the game or within three turns of the person joining the faction. This action can be performed unilaterally. 
 
-Territories, resources, and units controlled by the person who is kicked from a faction remain under the control of that person. Someone with control of territories or units but not part of a faction is treated as their own faction for the purposes of resolving actions. 
+Territories, resources, and units controlled by the person who is kicked from a faction remain under the control of that person. Territories and units that are owned by the faction will remain owned by the faction. Someone with control of territories or units but not part of a faction is treated as their own faction for the purposes of resolving actions. 
 
 \subsubsection{Make Alliance}
 
-The leader of a faction can issue a Make Alliance order, specifying another faction with which to align. Once both factions have issued a Make Alliance order, the Alliance will be created. Factions in an Alliance will join each other's wars automatically as co-belligerents. This includes ongoing wars that are in effect when the alliance is created. In addition, Factions that are allied will treat each others units as Friendly by default and will assist each other in combat.
+The leader of a faction can issue a Make Alliance order, specifying another faction with which to align. Once both factions have issued a Make Alliance order, the Alliance will be created. Factions in an Alliance will join each other's wars automatically as co-belligerents. If a faction is allied with both the faction declaring war and the faction upon whom war is being declared, that faction will join the war on the side of the faction that is being declared upon and the alliance with the declaring faction will be broken. This includes ongoing wars that are in effect when the alliance is created. In addition, Factions that are allied treat each others' units as Friendly by default and will assist each other in combat. 
 
-An Alliance cannot be dissolved once made.
+
+\subsubsection{Break Alliance}
+
+The leader of a faction can issue a Break Alliance order, specifying another faction with which to break an alliance. For factions that are part of a larger government (e.g. Southern Water Tribe, Saowon, Omashu), there are additional requirements that must be met before the alliance can be broken. \textbf{These requirements are not checked by the bot.}
+
+An alliance cannot be broken within 4 turns of that alliance being made. It also cannot be broken during the first 4 turns of the game.
+
 
 \subsubsection{Declare War}
 
-\TODO{War Declearion Orders}
+The leader of a faction can issue a Declaration of War on another faction or factions. \textbf{Avatar Kyoshi will stop any wars that start so you cannot declare war unless you know otherwise.} Declarations of war require a formal document stating the \textit{casus belli}\footnote{The justification for the war.} and the objective of the war. The declaration must be posted publicly in the \sLawPosting{} after the turn is resolved. Some factions may have special requirements for declaring war beyond the written formal declaration. 
 
-\subsection{Victory Point Orders}
+The first time that a faction declares war, the resource production of each member of that faction and the faction as a whole is doubled for that turn. Even if a faction is already involved in a war (i.e. war was declared on them) they can still declare war to get this production bonus.
 
-\subsection{Victory Support}
+\textbf{You may not declare war on a faction you are allied with.} The bot does not enforce this condition as of this writing so please double check.
 
-This order is used to throw your support behind a particular faction in a war where you are not a member of one of the belligerent factions. Because there are things outside of territorial control that provide victory points (e.g. political situations, research results), there are people who may be otherwise uninvolved in the Wargame who may find themselves in control of VPs. They may issue this order to make sure those VPs are used in the final outcome calculations as described below. You may not issue a Victory Support order if you are a member of a belligerent faction.
+The command to declare war is \texttt{/order-declare-war}. It takes two arguments, \texttt{target\_faction\_ids} and \texttt{objective}. \texttt{target\_faction\_ids} is a comma separated list of faction identifiers on which you are declaring war. \texttt{objective} is a one sentence summary of the objective of the war as stated in the written declaration.
 
-A Victory Support order requires specifying the faction to support and the war to support. The VPs controlled by the person issuing the Victory Support action will be divided evenly between all wars they are supporting, rounded down to the nearest whole point.
 
-\subsection{Cancel Victory Support}
-
-This order is used to cancel a previously issued Victory Support order. It cannot be issued on the same turn the Victory Support order was issued. 
-
-\section{Unit Actions}\label{sec:unit-actions}
+\section{Unit Actions}
 
 \subsection{Land Actions}
 
 While a faction is not at war, land units associated with that faction can only be given the Transit, Transport, Patrol, and Raid actions. 
 
-\subsubsection{A note on movement}
+\subsubsection{Transit} 
 
-\TODO{The intent here was to deal with what happens when a unit retreats but I just remembered they retreat backwards on their path so this can easily be replaced with a fully specified path instead which would simplify things.}
+The transit action will cause the the units to move along the path specified by the territory list in the unit order. These territories can only be land tiles. The unit or unit group will move along the path specified by the territory sequence at the speed slowest unit in the group plus 1. When the units reach the end of the sequence they will stop and the order will be completed. 
 
-Sequences of territories for land units are treated as waypoints. When a unit reaches one point in the sequence, it will travel towards the next via the shortest path between the two points. If there is more than one path with the same distance, it will prioritize paths that go through more friendly territory. If there is more than one path that meets those criteria, it will prioritize territories with a lower ID number. The path will be recalculated using this algorithm at the beginning of each turn. \TODO{Write Formal Algorithm}
+\subsubsection{Transport} 
 
-\subsubsection{Transit} orders require a specified sequence of territories. It can optionally include a \textbf{speed} which is the number of territories the unit will progress each turn and which cannot be higher than the movement stat of the unit plus 1 or lower than 1. Each turn, the unit will move along its path either at a rate of its movement stat plus one, or the speed parameter if one is specified. The unit will stop moving when it reaches the destination, \textbf{completing} the order. If there is a queued order, it will start executing that order on the next turn, otherwise it will remain on the destination square.
+The transit action will cause the the units to move along the path specified by the territory list in the unit order. These territories \textbf{can} include water territories. When the set of units reaches the coast, it will wait until it can board a set of naval units that have their own transport action which matches the sequence of water tiles specified in the unit order. If the set of naval units does not have sufficient capacity to hold the entire unit group, all units will just wait. Boarding and disembarking both occur at the \textbf{beginning} of the movement phase. While moving on land tiles, the unit or unit group will move along the path specified by the territory sequence at the speed slowest unit in the group plus 1. See the transport action for naval units below for more information about carrying units.
 
-\subsubsection{Transport} orders require a departure point, a destination. It can optionally include a sequence of territories representing a set of waypoints to follow to get to the departure point. The unit will proceed to the specified departure point using the specified path as in the transit order above. Then it will wait at the departure point until it can board a naval unit that has it's own transport order. It will board when both units are present by the departure point at the start of a turn. Once the naval unit is adjacent to the destination, the order is \textbf{completed}. If there is a queued action, it will start executing it at the start of the next turn, otherwise it will wait at the destination point. 
 
-\subsubsection{Patrol} orders require a sequence of territories. It can optionally include a \textbf{speed} value. The unit will proceed along the specified path with it's speed or it's movement stat. If a hostile unit enters an adjacent space and this unit has movement points remaining, it will move into the hostile unit's territory between movement ticks \textbf{engaging} it in combat.
+\subsubsection{Patrol} 
 
-\subsubsection{Raid} orders require a target territory and optionally a path. The unit will proceed to the target territory and occupy it. If the unit is there at the end of the turn, the commander of the unit will receive the resources that territory produces, though no territory will change hands. When not at war, the specified territory must be adjacent to friendly or allied territory, or along a coast with the raiding unit having been transported there.
+The patrol action will cause the unit group to patrol the specified path, looking for hostile units. It can optionally include a \textbf{speed} value which cannot be higher than the movement stat of the slowest unit in the group. The unit group will proceed along the specified path at the specified speed or the movement stat of the slowest unit in the group, whichever is lower. If a hostile unit enters an adjacent space and this unit has movement points remaining, it will move into the hostile unit's territory between movement ticks \textbf{engaging} it in combat. If the sequence of territories starts and ends with the same territory, the unit group will keep patrolling on that path, otherwise it will stop when it reaches the end of the path and the order will be completed.
 
-\subsubsection{Capture} orders require a target territory and optionally a path. The unit will proceed to the target territory and occupy it. If the unit is there at the end of the turn, and the territory is not a city, the commander of the unit will receive the resources that territory produces and the territory will become controlled by the commander of the unit.
 
-\subsubsection{Siege} orders require a target territory and optionally a path. The unit will proceed to the target territory and occupy that space. As long as the unit remains in that territory with an active siege order at the end of the game, it will contribute to sieging that city, contributing victory points.
+\subsubsection{Raid} 
+
+The raid action will cause the unit group to follow the specified path and then occupy a non-allied territory, stealing its resource production. The last territory in the input sequence must be a territory controlled by a faction that is not allied with the faction of the unit doing the raiding. The unit group will proceed to the target territory and occupy it. If the unit is still in that territory in the Resource Collection Phase, the \textbf{commander} of the unit will receive the resources that territory produces, though no territory will change hands. When not at war, the specified territory must be adjacent to friendly or allied territory, or along a coast with the raiding unit having been transported there. If the sequence of territories includes a water tile, the unit will stop on the last land tile and wait for a set of naval units with sufficient capacity and a matching transport action. See the transport actions for land and naval units for more information.
+
+\subsubsection{Capture} 
+
+The capture action will cause the unit group to follow the specified path, stopping to conquer each territory controlled by a hostile faction that it enters along the way. When the unit reaches a hostile territory, it will stop. If the unit is still in that territory at end of the Combat phase, and the territory is not a city, the \textbf{owner} of the unit will become the controller of that territory. 
+
+\subsubsection{Siege} 
+
+The capture action will cause the unit group to follow the specified path and set up for a siege on a city. The last territory in the sequence must have the city terrain type. The unit group will travel along the path until it reaches the end and then will wait. As long as the unit group remains in that territory with an active siege order at the end of the game, it will contribute to sieging that city, potentially  contributing victory points.
 
 \subsection{Naval Actions}
 
-Naval actions all require specifying a set or sequence of ocean territories. The set of territories \textit{must} overlap with at least one of the territories specified in the previous order. If the unit has not yet been issued an order, one of the specified territories must be the territory that the unit started in. If given no orders, a unit is considered to be occupying its initial ocean territory and will not engage other units, though it can be \textbf{engaged} in combat by other units that select Patrol or Hunt actions.
+The sequence of territories specified by unit orders for groups of naval units may only contain water tiles. The set of territories \textit{must} overlap with at least one of the territories specified in the previous order. If the unit has not yet been issued an order, one of the specified territories must be the territory that the unit started in. If given no orders, a unit is considered to be occupying its initial ocean territory and will not engage other units, though it can be \textbf{engaged} in combat by other units that select the Patrol action.
 
 There are no restrictions on which naval actions can be taken while not at war.
 
-\subsubsection{Transit} orders require an ordered \textit{sequence} of ocean territories. It can optionally include a \textbf{speed} which is the number of territories the unit will progress each turn and which cannot be higher than the movement stat of the unit plus 1 or lower than 1. The first territory in the sequence must overlap with a territory the unit occupied on the preceding turn. On the first turn a transit order is executed, the naval unit will occupy the first n territories in the specified sequence where n is the movement stat of the unit plus 1 or the specified \textbf{speed}. On subsequent turns, it will occupy the next n territories until it has reached the end of the sequence. A transport order can be \textbf{completed}. When the transport order is completed, the unit will begin to execute its queued order. If it does not have an ordered queued, it will occupy the final territory in the sequence until a new order is issued.
+\subsubsection{Transit}
 
-\subsubsection{Transport} orders require a \textbf{departure point}, a \textbf{destination}, and an ordered \textit{sequence} of ocean territories. It can optionally include a \textbf{speed} which is the number of territories the unit will progress each turn and which cannot be higher than the movement stat of the unit or lower than 1. The \textbf{departure point} and \textbf{destination} must both be land territories. The specified sequence must represent a complete path between the \textbf{departure point} and the destination. The \textit{first} territory in the sequence must overlap with a territory the unit occupied in the previous turn. A unit with this order will wait in that \textit{first} territory until it picks up at least one land unit. If a land unit with its own \textbf{transport} order starts its turn on the \textbf{departure point}, it will be loaded onto this unit. A transport order will not fire until at least one land unit is loaded onto this unit. Once at least one land unit is being transported, the naval unit will occupy the first n territories in the specified sequence where n is the movement stat of the unit or the specified \textbf{speed}. On subsequent turns, it will occupy the next n territories until it has reached the end of the sequence. At the \textit{beginning} of the \textit{next} turn after reaching the end of the sequence, any transported land units will be deposited at the \textbf{destination}. If a unit is already being transported, the sequence and destination can be changed but the unit cannot receive a different kind of order until it is no longer transporting units. A transport order can be \textbf{completed}. When the transport order is completed, the unit will begin to execute its queued order. If it does not have an ordered queued, it will occupy the final territory in the sequence until a new order is issued. A unit with this order does not contribute to the total \textbf{attack} in any combats it participates in.
+The transit action allows a naval unit group to traverse a sequence of water territories. The first territory in the sequence must overlap with a territory the unit occupied on the preceding turn. On the first turn a transit order is executed, the naval unit will occupy the first n territories in the specified sequence where n is the movement stat of the slowest unit in the group plus 1. On subsequent turns, the group will occupy the next n territories until it has reached the end of the sequence. Once it reaches the end of the sequence, the group will occupy the final territory in the sequence until a new order is issued.
 
-\TODO{This paragraph should possibly be split up in order to make it more readable, if that's the case, I should move Unit actions into its own section rather than being a sub section.}
+\subsubsection{Convoy} 
 
-\subsubsection{Convoy} orders require a set of territories specified by ID number. The size of the set of territories can be up to the movement speed of the unit. If this unit is still alive during the upkeep phase, all specified territories will be considered connected for the purposes of calculating whether a friendly unit is \textbf{encircled}. A unit with this order does not contribute to the total \textbf{attack} in any combats it participates in.
+The convoy action allows a naval unit group to transport goods across water tiles. The size of the set of territories from the order can be up to the movement stat of the slowest unit in the unit group. If at least unit in the group is still alive during the upkeep phase, all specified territories will be considered connected to for the purposes of calculating whether a friendly unit is \textbf{encircled}. 
 
-\subsubsection{Patrol} orders require a set of territories specified by ID number. The size of the set of territories can be up to the movement speed of the unit. This unit will become \textbf{engaged} in combat with any naval units within the specified set of territories that it considers \textbf{hostile} or that consider it \textbf{hostile}.
+\subsubsection{Patrol}
 
+The patrol action allows a naval unit group to hunt enemy fleets.  The size of the set of territories can be up to the movement speed of the unit. This unit will become \textbf{engaged} in combat with any naval units within the \textbf{entire} specified set of territories that it considers \textbf{hostile} or that consider it \textbf{hostile}.
 
-\subsubsection{Hunt} orders requires a set of territories specified by ID number. The size of the set of territories can be up to the movement speed of the unit \textit{minus one}. This unit will become \textbf{engaged} in combat with any naval units within the specified set of territories that it considers \textbf{hostile} or that consider it \textbf{hostile}. It will also become \textbf{engaged} in combat with any naval units that \textit{it} considers \textbf{hostile} within up to n ocean territories adjacent to the specified set, where n is the unit's movement stat minus the size of the specified set. The adjacent territories are selected based on the orders of the enemy naval units in those territories based on the following priority order: Transport, Convoy, Patrol, Hunt. If there are multiple options, the territories will be selected based on the number of units that match the priority level. A territory with two units with a transport order will be selected over a territory with one unit with a transport order and one unit with a convoy order. If there is still a tie, the territory with the lower ID number will be selected. Territories that contain units with a hunt order will only be considered if they are in the specified set of that unit. \TODO{I like this idea but the wording is confusing and adds a lot of unnecessary edge cases. It can probably be safely cut. I'm probably not going to do that until I see how hard it is to actually implement in the bot.}
+\subsubsection{Transport} 
+
+The transport action allows a naval unit group to carry a land unit group. The naval unit group will occupy the first territory in the sequence until it picks up a land unit group, after which it will proceed to the last territory in the sequence as described in the transit action above, though the number of territories occupied each turn is equal to the movement stat of the slowest unit in the unit group \textit{without} the plus one bonus from the transit action. The land unit group will board the naval unit group at the beginning of the movement phase if the land unit group is located in a territory adjacent to the starting water territory, both unit groups have a matching sequence of water territories, and the naval unit group has sufficient capacity to carry the entire land unit group. If there is more than one land unit group that can board, the unit whose transport order was issued first will board first. The second will only board if there is sufficient capacity. 
+
+The naval unit group will wait, occupying the first territory in the sequence until a land unit group boards. When the land unit has disembarked, the naval unit group will occupy the last territory in the sequence until a new order is issued. 
+
+New orders cannot be issued to the naval unit group while it is carrying a land unit group.
 
 \section{Territorial Control}
 
-Rural territories (those without a city) change hands once a unit has stayed there for one complete turn while having an order with the capture action. 
-
-\TODO{The info for this section is mostly included in the unit actions above and needs to be ported down here.}
+Rural territories (those without a city) change controllers at the end of the Combat phase if a unit with the capture action for the specified territory remains in that territory. The new controller will be the \textbf{owner} of the units with the capture order. If there are units from more than one owner still in the territory, the new territory controller will be the owner with the highest total attack for all units in the territory. Ties are broken by the number of units, then the total defense, then the controller of the unit that was created the earliest.
 
 \section{Turns in Detail}
 
+\subsection{Beginning}
+
+The beginning phase exists for faction actions. Orders in this phase are processed in the following priority order:
+
+\begin{enumerate}
+    \item Leave Faction and Kick from Faction
+    \item Join Faction
+    \item Assign Commander
+    \item Make Alliance
+    \item Dissolve Alliance
+    \item Declare War
+\end{enumerate}
+
+Orders at the same priority are processed in the order they are received.
+
 \subsection{Movement}
 
-During the movement phase, land units change their positions on the map. Naval units are positioned differently.
+During the movement phase, land units change their positions on the map. Naval units are positioned differently and not processed at all during this phase.
 
-The path that a unit follows is based on the route specified in its orders and the action that it was given. The movement rules for each action are described in the Unit Actions section above. Movement is broken down into "ticks". Each unit that is able to move during a given tick moves one territory along their path, potentially deviating based on their action. Movement occurs simultaneously for all units within each movement tick. The number of ticks is based on the maximum movement stat of any unit that exists in the game. Whether a unit is able to move in a tick depends on its movement stat with the movement required to move during a tick going down by one each time. 
+The path that a unit follows is based on the route specified in its orders and the action that it was given. The movement rules for each action are described in the Unit Actions section above. Movement is broken down into "ticks". Each unit that is able to move during a given tick moves one territory along their path, potentially deviating between ticks based on their action. Movement occurs simultaneously for all units within each movement tick. The number of ticks is based on the maximum movement of any unit group that is moving in that phase. Whether a unit is able to move in a tick depends on its movement stat with the movement required to move during a tick going down by one each time. Each unit group can spend a number of movement points equal to the movement stat of the unit in the group with the lowest movement stat (potentially plus 1 depending on the action taken). It takes 1 point to move into most kinds of terrain but some take extra. See the Terrain section above for more information.
 
-For example, if the maximum movement stat is 4, there would be four ticks. On the first tick, all units with a movement stat of 4 would move one territory. On the second tick, all units with a movement stat of 3 or 4 would move one territory. On the third tick, all units with a movement stat of 2, 3, or 4 would move one territory. On the fourth and final tick, all units with a movement stat of at least 1 would move one territory. If a unit has a movement stat of 0 or the \textbf{immobile} keyword, it cannot move unless you know otherwise.
+For example, if the highest moment stat is 4, there would be four ticks. On the first tick, all units with a movement stat of 4 would move one territory. On the second tick, all units with a movement stat of 3 or 4 would move one territory. On the third tick, all units with a movement stat of 2, 3, or 4 would move one territory. On the fourth and final tick, all units with a movement stat of at least 1 would move one territory. If a unit has a movement stat of 0 or the \textbf{immobile} keyword, it cannot move unless you know otherwise. Units will stop if their next territory requires more movement points remaining for that turn.
+
+Before any ticks are processed, between each of the ticks, and after the last tick is processed, units with the patrol action will look to move to engage hostile units. This movement will occur only if the unit group still has enough movement points remaining. These are processed in the order that the patrol order was issued.
 
 If two or more units that are hostile to are located in the same territory at any time during the movement phase, they become \textbf{engaged} and do not continue moving during later ticks. They will then fight one another during the combat phase.
 
-Note: The world map does not wrap around. Outside of the map is thought to me ocean and is considered dangerous and unexplored. You may not sail off the either edge of the map.
+The end of turn report will include a note about each of the units that are adjacent to units you control at any point during the movement phase.
+
+Note: The world map does not wrap around. Outside of the map is thought to be ocean and is considered dangerous and unexplored. You may not sail outside the specified set of water territories.
 
 \subsection{Combat}
 
-During the combat phase, units that are \textbf{engaged}, i.e. are hostile and in the same territory will fight. The total Attack and Defense stats of units for each faction that are located within a particular territory is calculated. If the total attack of a side is larger than the total defense of the other side, the organization stat of each unit on the other side is reduced by 2. Both sides can potentially have their units' organization depleted this way. After the organization is reduced, any units with zero or negative organization are immediately removed. 
+During the combat phase, units that are \textbf{engaged}, i.e. are hostile and in the same territory will fight. The total Attack and Defense stats of units for each faction that are located within a particular territory is calculated. Allied factions are treated as one faction for the purposes of combat calculations. If the total attack of a side is larger than the total defense of the other side, the organization stat of each unit on the other side is reduced by 2. Both sides can potentially have their units' organization depleted this way. After all of these organization reductions are processed, any units with zero or negative organization are immediately disbanded. 
 
 
-After that, if the combat is taking place in a land territory, the side with the higher attack among surviving units remains in the disputed territory and the units from the other side will each retreat. If both sides are tied for total attack, the units belonging to the faction controlling the territory will remain in the territory and the other side will retreat. If neither side controls the territory, all units will retreat. When a unit retreats, it will move one territory along the path it had traveled most recently, even if that movement did not occur during this turn. If a retreating unit has not yet moved, it instead retreats one territory towards the capital of the faction it is associated with. 
+After that, if the combat is taking place in a land territory, the side with the higher attack among surviving units remains in the disputed territory and the units from the other side will each retreat. If both sides are tied for total attack, the units belonging to the faction controlling the territory will remain in the territory and the other side will retreat. If neither side controls the territory, all units will retreat. When a unit retreats, it will move one territory along the path it had traveled most recently, even if that movement did not occur during this turn. If a retreating unit has not yet moved, it instead retreats one territory towards the capital of the faction it is associated with. If the unit cannot move (e.g. it is immobile or the naval unit that transported the unit is no longer transporting), combat will repeat until one side disbands.
 
-If more than one faction enters the same territory, each hostile faction will fight all other hostile factions, depleting organization as described above. Units will not be removed for low organization until \textit{all} of these paired fights are resolved. A land unit will retreat if it has a lower attack in any of these paired confrontations\footnote{Yes this can theoretically result in a set of combats where no units are left in the territory at the end of the turn.}
+If more than one faction enters the same territory, each hostile faction will fight all other hostile factions, depleting organization as described above. Units will not be disbanded for low organization until \textit{all} of these paired fights are resolved. A land unit will retreat if it has a lower attack in any of these paired confrontations\footnote{Yes this can theoretically result in a set of combats where no units are left in the territory at the end of the turn.}
 
 If two or more factions enter a territory and are neutral \textbf{or allied} to each other but take actions that are mutually exclusive (e.g. both try to occupy the territory, one tries to raid the territory and the other tries to occupy the territory), combat will occur between those two factions within that territory on that turn. Such events will be included in the \textbf{report} for that turn and it is recommended that both parties coordinate for future turns.
 
-Note: Naval units can become \textbf{engaged} in combat with other naval units on multiple ocean territories during a given turn. Each of these engagements is processed simultaneously meaning multiple combats can occur involviing the same units in different territories on the same turn.
+After all combats have been resolved and all units moved, if a unit with a \textbf{capture} action remains in a hostile territory, the controller of that territory will become the owner of the unit. See the Territory Control section above for how ties are resolved. When a territory changes controllers in this way, the durability of all buildings in that territory is reduced by 1.
+
+Note: Naval units can become \textbf{engaged} in combat with other naval units on multiple ocean territories during a given turn. Each of these engagements is processed simultaneously meaning multiple combats can occur involving the same units in different territories on the same turn.
 
 \begin{itemz}[Combat Summary]
  \item Total attack and defense within each territory
@@ -302,11 +425,14 @@ Note: Naval units can become \textbf{engaged} in combat with other naval units o
  \item Remove units with 0 or less organization
  \item Re-total attack and defense within each land territory
  \item Retreat units from land territories
+ \item Update territory control
 \end{itemz}
 
 \subsection{Resource Collection}
 
-In the resource collection phase, each territory produces a set or resources based on its natural production and any modifiers that have been applied. The produced resources are then added to the resource inventory of the player who controls that territory, or to the commander of the unit that raided or occupied the territory during that round.
+In the resource collection phase, each territory produces a set or resources based on its natural production and any modifiers that have been applied. The produced resources are then added to the resource inventory of the player or faction who controls that territory, or to the commander of the unit that raided the territory during that round. Resources are only collected by a raiding unit if it remains in the territory after combat.
+
+When resources are collected by a raiding unit in this way, the durability of all buildings in that territory is reduced by 1.
 
 \subsection{Cleanup}
 
@@ -320,9 +446,9 @@ The cleanup phase has the following sub phases:
     \item Construction
 \end{enumerate}
 
-\subsubsection{Resource Transfer}\label{sec:transfer}
+\subsubsection{Resource Transfer}
 
-During the resource transfer part of the cleanup phase, resource transfer orders are processed. First, any cancel orders are processed, removing any orders that they cancel and preventing them from being processed. Then, any one time resource transfer orders are processed. Finally, any ongoing resource transfer orders are processed. During each of these steps, the orders are processed from oldest to newest. Resources are transferred from one inventory to another at the time that they are processed. If the inventory of the person doing the transferring lacks sufficient resources to cover the entire transfer order at the time the order is processed, only the resources available at that time will be transferred. \textbf{A lack of resources on a particular turn will not remove ongoing transfer orders, though both parties will be notified it wasn't completed.}
+During the resource transfer part of the cleanup phase, resource transfer orders are processed. First, any one time resource transfer orders are processed. Then, any ongoing resource transfer orders are processed. During each of these steps, the orders are processed from oldest to newest. Resources are transferred from one inventory to another at the time that they are processed. If the inventory of the person doing the transferring lacks sufficient resources to cover the entire transfer order at the time the order is processed, only the resources available at that time will be transferred. \textbf{A lack of resources on a particular turn will not remove ongoing transfer orders, though both parties will be notified it wasn't completed.}
 
 \subsubsection{Encirclement}
 
@@ -331,22 +457,21 @@ Before performing the Upkeep step, it must be determined whether each land unit 
 
 \subsubsection{Upkeep}
 
-Each unit has an upkeep cost in resources. Upkeep is paid at the end of each turn in the Upkeep and Construction phase. Starting with the unit with the lowest organization\footnote{Ties are broken by the unit ID}, the resources required to upkeep a unit are paid. Upkeep costs are taken out of the resource inventory of the \textbf{owner} of the unit, not the \textbf{commander} of that unit. If you do not have sufficient resources to cover the entire upkeep cost, the organization of that unit is reduced by 1 for each missing resource. Units that are \textbf{encircled} cannot have resources spent on them for any reason including upkeep. Units that are \textbf{encircled} therefore will lose 1 organization for each missing resource. 
+Each unit and each building has an upkeep cost in resources. Upkeep is paid at the end of each turn in the Upkeep and Construction phase. Building upkeep is paid first, starting with the building with the lowest organization\footnote{Ties are broken by the territory in which the building was constructed followed by the time at which the building was constructed, older buildings first}. Once all building upkeep has been proceed, units are processed. Starting with the unit with the lowest organization\footnote{Ties are broken by the unit ID}, the resources required to upkeep a unit are paid. 
+
+Upkeep costs for units are taken out of the resource inventory of the \textbf{owner} of the unit, not the \textbf{commander} of that unit. Upkeep costs for a territory are taken out of the inventory of a territory's controller. If there are insufficient resources to cover the entire upkeep cost, the durability of that building or the organization of that unit is reduced by 1 for each \textit{kind} of missing resource. Units that are \textbf{encircled} cannot have resources spent on them for any reason including upkeep. Units that are \textbf{encircled} therefore will lose 1 organization for each \textit{kind} of resource in their upkeep cost. 
 
 \subsubsection{Organization}
 
 At the beginning of the Organization phase, each unit with an organization at or below 0 will immediately disband meaning it will be removed from the game. The owner and commander will still receive a \textbf{report} for that unit for the turn in which it is disbanded.
 
+Additionally, all buildings with a durability at or below 0 will immediately be destroyed, meaning they are removed from the game. This will also be included in the turn report.
+
 After that, each unit that is in territory controlled by the faction it originated from or an allied faction increases its organization stat by 1. A unit's organization cannot go over its initial organization unless you know otherwise.
 
 \subsubsection{Construction}
 
-During the construction phase, resources are spent to create new units. The resources are taken from the resource inventory of the player who issued the construction order. Construction orders will be processed in order from oldest to newest. If the inventory of the player lacks sufficient resources to produce the specified unit, the construction order will fail. 
-
-\section{Declarations of War}
-
-Declarations of war may come from an individual or group with control of at least 10 units. 
-
+During the construction phase, resources are spent to create new units and new buildings. The resources are taken from the resource inventory of the faction that will own the unit or the player who issued the construction order. Construction and mobilization orders will be processed in order from oldest to newest. If an inventory lacks sufficient resources to produce the specified object, the order will fail. 
 
 \section{Resolution of Wars}
 
@@ -354,15 +479,13 @@ Wars are resolved post game based on the victory points achieved by each side in
 
 \subsection{Siege Resolution}
 
-Any units positioned on a \textbf{city} territory will contribute to a siege. Each city has a \textbf{siege defense} stat. This is added to the siege defense of each defending unit.
+Any units positioned on a \textbf{city} territory at the end of game will be considered for inclusion in the siege. Units on the attacking side must end the game with an active order with the siege action in order ot be counted. Units on the defending side must simply occupy the territory. Each city has a \textbf{siege defense} stat. This is added to the siege defense of each defending unit.
 
-If the total \textbf{siege attack} is less than or equal to the total \textbf{siege defense}, the defending side receives all VPs for that city. If the total \textbf{siege attack} is greater than the total \textbf{siege defense}, the attacking side receives 1 VP plus an additional VP for every 2 points that the \textbf{siege attack} exceeds the \textbf{siege defense}, up to the VP value of the city. The defending side receives the remained of the VPs for that city.
+If the total \textbf{siege attack} is less than or equal to the total \textbf{siege defense}, the defending side receives all VPs for that city. If the total \textbf{siege attack} is greater than the total \textbf{siege defense}, the attacking side receives 1 VP plus an additional VP for every 2 points that the \textbf{siege attack} exceeds the \textbf{siege defense}, up to the VP value of the city. The defending side receives the remainder of the VPs for that city.
 
 \subsection{Totaling Victory Points}
 
-If you are a belligerent in a war, all VPs that you control at the end of the game will be given to the side of the war that you participated in during the last turn of the game. If you are a belligerent in more than one war, the VPs will be split evenly between the wars you are participating in with the contribution rounded to the nearest whole point, rounded down. 
-
-If you are not a belligerent, you may assign your VPs to a particular side in a war by issuing a \textbf{victory support} order as described above. This order must be issued before the last turn in the wargame. If you support more than one war, the VPs will be split evenly between the wars you are supporting with the contribution rounded to the nearest whole point, rounded down. 
+The total victory points on each side of each declared war will be totaled and the victor of the war announced post game. The final resolution will be based on the difference in victory points between the two sides and the total influence of both sides. 
 
 \section{Miscellaneous}
 
@@ -370,38 +493,30 @@ If you are not a belligerent, you may assign your VPs to a particular side in a 
 
 There are NPC factions in game that will attack other units. They will often operate under different rules and either be controlled by an NPC or have some specified, though possibly not publicly known, set of rules of engagement.  
 
-\section{Summary}
 
-\begin{itemz}
-\item If you have \textbf{ownership} of a unit, you are assumed to be in \textbf{command} of that unit, though you can transfer ownership to another player. You receive an end of turn \textbf{report} for each unit that you own.
-\item Killing the owner of a unit will result in unit command and ownership being transferred to a "trusted subordinate", i.e. an NPC played by the same player as the owner.
-\item If you are in command of a unit, you may issue \textbf{orders} to that unit and will a receive an end of turn \textbf{report} for that unit each turn.
-\item A unit will continue to follow whatever orders it was given until it receives new orders. This means you do not need to make new decisions about actions every turn.
-\end{itemz}
+%\section{What needs to happen to implement this?}
 
-\section{What needs to happen to implement this?}
+%\begin{itemz}
+%    \item Map
+%    \item Assign resources to territories on map
+%    \item Create and stat units
+%    \item Find testers and test
+%    \item Discord bot to process orders and issue reports
+%\end{itemz}
 
-\begin{itemz}
-    \item Map
-    \item Assign resources to territories on map
-    \item Create and stat units
-    \item Find testers and test
-    \item Discord bot to process orders and issue reports
-\end{itemz}
-
-\begin{itemz}[Owners]
-    \item Taiso (Fire Nation)
-    \item Zhao (Leader of Souwon)
-    \item Jialun (Earth Kingdom)
-    \item Guo Xun (Queen of Omashu)
-    \item Lomaang (Governor of Gowlin)
-    \item Chenmo Ai (Sleeper agent and governor of ??)
-    \item Karliq Chief of the Northern Watertribe
-    \item Norarro (Southern Commander)
-    \item Nerrevik (Leader of Fith Nation)
-    \item Junyi (Earth Folk Hero)
-    \item Abbot Rinzen (Air Capitalist)
-    \item Aiku (Caldera Industries)
-\end{itemz}
+%\begin{itemz}[Owners]
+%    \item Taiso (Fire Nation)
+%    \item Zhao (Leader of Souwon)
+%    \item Jialun (Earth Kingdom)
+%    \item Guo Xun (Queen of Omashu)
+%    \item Lomaang (Governor of Gowlin)
+%    \item Chenmo Ai (Sleeper agent and governor of ??)
+%    \item Karliq Chief of the Northern Watertribe
+%    \item Norarro (Southern Commander)
+%    \item Nerrevik (Leader of Fith Nation)
+%    \item Junyi (Earth Folk Hero)
+%    \item Abbot Rinzen (Air Capitalist)
+%    \item Aiku (Caldera Industries)
+%\end{itemz}
 
 \end{document}

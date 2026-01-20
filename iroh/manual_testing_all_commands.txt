@@ -318,15 +318,15 @@ PURPOSE: Create new factions
 PREREQUISITE: Have a character created via Hawky (e.g., "test-leader")
 
 STEPS:
-3.1.1 Create a faction with a leader:
-    /create-faction faction_id:fire-nation name:Fire Nation leader:test-leader
+3.1.1 Create a faction with leader and nation:
+    /create-faction faction_id:fire-nation name:Fire Nation leader:test-leader nation:fire-nation
 
     EXPECTED: Success message
 
-3.1.2 Create a faction without a leader:
+3.1.2 Create a faction without nation:
     /create-faction faction_id:earth-kingdom name:Earth Kingdom
 
-    EXPECTED: Success message
+    EXPECTED: Success message (nation will be null)
 
 3.1.3 Try creating duplicate faction:
     /create-faction faction_id:fire-nation name:Duplicate
@@ -337,6 +337,11 @@ STEPS:
     /create-faction faction_id:test-faction name:Test leader:nonexistent-char
 
     EXPECTED: Error about character not found
+
+3.1.5 Verify nation in view:
+    /view-faction faction_id:fire-nation
+
+    EXPECTED: Should show nation: fire-nation
 
 
 --------------------------------------------------------------------------------
@@ -483,6 +488,33 @@ STEPS:
 
 3.7.2 Verify:
     /view-faction faction_id:earth-kingdom
+
+    EXPECTED: Error about faction not found
+
+
+--------------------------------------------------------------------------------
+TEST 3.8: /set-faction-nation (Admin)
+--------------------------------------------------------------------------------
+PURPOSE: Set or update a faction's nation
+
+STEPS:
+3.8.1 Set nation for existing faction:
+    /set-faction-nation faction_id:fire-nation nation:fire-nation
+
+    EXPECTED: Success message
+
+3.8.2 Verify:
+    /view-faction faction_id:fire-nation
+
+    EXPECTED: Should show nation: fire-nation
+
+3.8.3 Update nation:
+    /set-faction-nation faction_id:fire-nation nation:fifth-nation
+
+    EXPECTED: Success message showing old and new nation
+
+3.8.4 Try setting nation for nonexistent faction:
+    /set-faction-nation faction_id:nonexistent nation:fire-nation
 
     EXPECTED: Error about faction not found
 

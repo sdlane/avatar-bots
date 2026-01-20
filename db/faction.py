@@ -15,6 +15,7 @@ class Faction:
     created_turn: int = 0
     has_declared_war: bool = False  # True after first-ever war declaration
     guild_id: Optional[int] = None
+    nation: Optional[str] = None  # Nation identifier (e.g., 'fire-nation', 'earth-kingdom')
     # Resource spending per turn (deducted during upkeep phase)
     ore_spending: int = 0
     lumber_spending: int = 0
@@ -31,14 +32,15 @@ class Faction:
         query = """
         INSERT INTO Faction (
             faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id,
-            ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
+            nation, ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
         ON CONFLICT (faction_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             leader_character_id = EXCLUDED.leader_character_id,
             created_turn = EXCLUDED.created_turn,
             has_declared_war = EXCLUDED.has_declared_war,
+            nation = EXCLUDED.nation,
             ore_spending = EXCLUDED.ore_spending,
             lumber_spending = EXCLUDED.lumber_spending,
             coal_spending = EXCLUDED.coal_spending,
@@ -54,6 +56,7 @@ class Faction:
             self.created_turn,
             self.has_declared_war,
             self.guild_id,
+            self.nation,
             self.ore_spending,
             self.lumber_spending,
             self.coal_spending,
@@ -69,7 +72,7 @@ class Faction:
         """
         row = await conn.fetchrow("""
             SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id,
-                   ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
+                   nation, ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
             FROM Faction
             WHERE id = $1;
         """, faction_internal_id)
@@ -82,7 +85,7 @@ class Faction:
         """
         row = await conn.fetchrow("""
             SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id,
-                   ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
+                   nation, ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
             FROM Faction
             WHERE faction_id = $1 AND guild_id = $2;
         """, faction_id, guild_id)
@@ -95,7 +98,7 @@ class Faction:
         """
         rows = await conn.fetch("""
             SELECT id, faction_id, name, leader_character_id, created_turn, has_declared_war, guild_id,
-                   ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
+                   nation, ore_spending, lumber_spending, coal_spending, rations_spending, cloth_spending, platinum_spending
             FROM Faction
             WHERE guild_id = $1
             ORDER BY faction_id;

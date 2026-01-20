@@ -717,17 +717,18 @@ async def create_test_config(interaction: discord.Interaction):
 @app_commands.describe(
     faction_id="Unique identifier for the faction (e.g., 'fire-nation')",
     name="Display name for the faction",
-    leader="Optional: Character identifier for the faction leader"
+    leader="Optional: Character identifier for the faction leader",
+    nation="Optional: Nation identifier (e.g., 'fire-nation', 'earth-kingdom')"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
-async def create_faction_cmd(interaction: discord.Interaction, faction_id: str, name: str, leader: str = None):
+async def create_faction_cmd(interaction: discord.Interaction, faction_id: str, name: str, leader: str = None, nation: str = None):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
-        success, message = await handlers.create_faction(conn, faction_id, name, interaction.guild_id, leader)
+        success, message = await handlers.create_faction(conn, faction_id, name, interaction.guild_id, leader, nation)
 
         if success:
-            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created faction '{faction_id}' (name: {name}, leader: {leader}) in guild {interaction.guild_id}")
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) created faction '{faction_id}' (name: {name}, leader: {leader}, nation: {nation}) in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to create faction '{faction_id}' in guild {interaction.guild_id}: {message}")
 
@@ -753,6 +754,32 @@ async def delete_faction_cmd(interaction: discord.Interaction, faction_id: str):
             logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) deleted faction '{faction_id}' in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to delete faction '{faction_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="set-faction-nation",
+    description="[Admin] Set or update a faction's nation"
+)
+@app_commands.describe(
+    faction_id="The faction ID",
+    nation="Nation identifier (e.g., 'fire-nation', 'earth-kingdom', 'fifth-nation')"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def set_faction_nation_cmd(interaction: discord.Interaction, faction_id: str, nation: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.set_faction_nation(conn, faction_id, nation, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set nation for faction '{faction_id}' to '{nation}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set nation for faction '{faction_id}' in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),

@@ -6,7 +6,7 @@ Run with: pytest tests/test_faction_handlers.py -v
 """
 import pytest
 from handlers.faction_handlers import (
-    create_faction, delete_faction, set_faction_leader,
+    create_faction, delete_faction, set_faction_leader, set_faction_nation,
     add_faction_member, remove_faction_member,
     grant_faction_permission, revoke_faction_permission, get_faction_permissions
 )
@@ -842,3 +842,130 @@ async def test_remove_member_revokes_permissions(db_conn, test_server):
     await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+# =========================
+# Nation Tests
+# =========================
+
+
+@pytest.mark.asyncio
+async def test_create_faction_with_nation(db_conn, test_server):
+    """Test creating a faction with nation specified."""
+    # Create character
+    char = Character(
+        identifier="leader-char", name="Leader Character",
+        user_id=100000000000000201, channel_id=900000000000000201,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+
+    # Create faction with nation
+    success, message = await create_faction(
+        db_conn, "test-faction", "Test Faction", TEST_GUILD_ID,
+        leader_identifier="leader-char",
+        nation="fire-nation"
+    )
+
+    # Verify
+    assert success is True
+    assert "created successfully" in message.lower()
+
+    # Verify faction has nation
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    assert faction is not None
+    assert faction.nation == "fire-nation"
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_create_faction_without_nation(db_conn, test_server):
+    """Test creating a faction without nation (backward compatibility)."""
+    # Create faction without nation
+    success, message = await create_faction(
+        db_conn, "test-faction", "Test Faction", TEST_GUILD_ID
+    )
+
+    # Verify
+    assert success is True
+    assert "created successfully" in message.lower()
+
+    # Verify faction has no nation
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    assert faction is not None
+    assert faction.nation is None
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_set_faction_nation_success(db_conn, test_server):
+    """Test setting nation on existing faction."""
+    # Create faction without nation
+    faction = Faction(
+        faction_id="test-faction", name="Test Faction",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+
+    # Set nation
+    success, message = await set_faction_nation(
+        db_conn, "test-faction", "earth-kingdom", TEST_GUILD_ID
+    )
+
+    # Verify
+    assert success is True
+    assert "earth-kingdom" in message.lower()
+
+    # Verify faction has nation
+    fetched = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    assert fetched.nation == "earth-kingdom"
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_set_faction_nation_update(db_conn, test_server):
+    """Test updating nation on existing faction."""
+    # Create faction with nation
+    faction = Faction(
+        faction_id="test-faction", name="Test Faction",
+        nation="fire-nation",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+
+    # Update nation
+    success, message = await set_faction_nation(
+        db_conn, "test-faction", "water-tribe", TEST_GUILD_ID
+    )
+
+    # Verify
+    assert success is True
+    assert "water-tribe" in message.lower()
+    assert "fire-nation" in message.lower()  # Old nation should be in message
+
+    # Verify faction has updated nation
+    fetched = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+    assert fetched.nation == "water-tribe"
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_set_faction_nation_nonexistent_faction(db_conn, test_server):
+    """Test setting nation on nonexistent faction fails."""
+    success, message = await set_faction_nation(
+        db_conn, "nonexistent-faction", "fire-nation", TEST_GUILD_ID
+    )
+
+    # Verify failure
+    assert success is False
+    assert "not found" in message.lower()

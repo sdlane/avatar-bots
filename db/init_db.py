@@ -252,6 +252,8 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS rations_spending INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS cloth_spending INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS platinum_spending INTEGER DEFAULT 0;")
+    # Nation identifier for faction (e.g., 'fire-nation', 'earth-kingdom')
+    await conn.execute("ALTER TABLE Faction ADD COLUMN IF NOT EXISTS nation VARCHAR(50);")
 
     # --- FactionMember table ---
     await conn.execute("""

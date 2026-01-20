@@ -209,7 +209,7 @@ async def get_faction_permissions(
 # ============== Faction Management Handlers ==============
 
 
-async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, guild_id: int, leader_identifier: Optional[str] = None) -> Tuple[bool, str]:
+async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, guild_id: int, leader_identifier: Optional[str] = None, nation: Optional[str] = None) -> Tuple[bool, str]:
     """
     Create a new faction.
 
@@ -219,6 +219,7 @@ async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, g
         name: Display name for faction
         guild_id: Guild ID
         leader_identifier: Optional character identifier for leader
+        nation: Optional nation identifier (e.g., 'fire-nation', 'earth-kingdom')
 
     Returns:
         (success, message)
@@ -246,7 +247,8 @@ async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, g
         name=name,
         leader_character_id=leader_character_id,
         created_turn=current_turn,
-        guild_id=guild_id
+        guild_id=guild_id,
+        nation=nation
     )
 
     await faction.upsert(conn)
@@ -271,6 +273,34 @@ async def create_faction(conn: asyncpg.Connection, faction_id: str, name: str, g
         return True, f"Faction '{name}' created successfully with leader {leader_identifier}."
     else:
         return True, f"Faction '{name}' created successfully."
+
+
+async def set_faction_nation(conn: asyncpg.Connection, faction_id: str, nation: str, guild_id: int) -> Tuple[bool, str]:
+    """
+    Set or update a faction's nation.
+
+    Args:
+        conn: Database connection
+        faction_id: Faction identifier
+        nation: Nation identifier (e.g., 'fire-nation', 'earth-kingdom')
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Check if faction exists
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found."
+
+    old_nation = faction.nation
+    faction.nation = nation
+    await faction.upsert(conn)
+
+    if old_nation:
+        return True, f"Updated nation for '{faction.name}' from '{old_nation}' to '{nation}'."
+    else:
+        return True, f"Set nation for '{faction.name}' to '{nation}'."
 
 
 async def delete_faction(conn: asyncpg.Connection, faction_id: str, guild_id: int) -> Tuple[bool, str]:
