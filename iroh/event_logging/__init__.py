@@ -95,6 +95,17 @@ from .organization_events import (
     org_recovery_gm_line,
 )
 
+from .construction_events import (
+    unit_mobilized_character_line,
+    unit_mobilized_gm_line,
+    mobilization_failed_character_line,
+    mobilization_failed_gm_line,
+    building_constructed_character_line,
+    building_constructed_gm_line,
+    construction_failed_character_line,
+    construction_failed_gm_line,
+)
+
 
 @dataclass
 class EventHandler:
@@ -267,6 +278,24 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'ORG_RECOVERY': EventHandler(
         get_character_line=org_recovery_character_line,
         get_gm_line=org_recovery_gm_line
+    ),
+
+    # Construction and mobilization events
+    'UNIT_MOBILIZED': EventHandler(
+        get_character_line=unit_mobilized_character_line,
+        get_gm_line=unit_mobilized_gm_line
+    ),
+    'MOBILIZATION_FAILED': EventHandler(
+        get_character_line=mobilization_failed_character_line,
+        get_gm_line=mobilization_failed_gm_line
+    ),
+    'BUILDING_CONSTRUCTED': EventHandler(
+        get_character_line=building_constructed_character_line,
+        get_gm_line=building_constructed_gm_line
+    ),
+    'CONSTRUCTION_FAILED': EventHandler(
+        get_character_line=construction_failed_character_line,
+        get_gm_line=construction_failed_gm_line
     ),
 }
 

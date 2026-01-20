@@ -18,6 +18,7 @@ from orders.resource_transfer_orders import (
 from orders.victory_point_orders import handle_assign_victory_points_order
 from orders.alliance_orders import handle_make_alliance_order, handle_dissolve_alliance_order
 from orders.faction_orders import handle_declare_war_order
+from orders.construction_orders import handle_mobilization_order, handle_construction_order
 
 import logging
 
@@ -1388,7 +1389,9 @@ async def execute_construction_phase(
     turn_number: int
 ) -> List[TurnLog]:
     """
-    Execute the Construction phase
+    Execute the Construction phase - processes MOBILIZATION and CONSTRUCTION orders.
+
+    Orders are processed in FIFO order by submitted_at timestamp.
 
     Args:
         conn: Database connection
@@ -1401,7 +1404,23 @@ async def execute_construction_phase(
     events = []
     logger.info(f"Construction phase: starting construction phase for guild {guild_id}, turn {turn_number}")
 
-    # Placeholder for now
+    # Fetch all unresolved orders for the construction phase
+    all_orders = await Order.fetch_unresolved_by_phase(
+        conn, guild_id, TurnPhase.CONSTRUCTION.value
+    )
+
+    # Sort by submitted_at for FIFO processing (both order types have same priority)
+    all_orders.sort(key=lambda o: o.submitted_at or datetime.min)
+
+    logger.info(f"Construction phase: processing {len(all_orders)} orders")
+
+    for order in all_orders:
+        if order.order_type == OrderType.MOBILIZATION.value:
+            order_events = await handle_mobilization_order(conn, order, guild_id, turn_number)
+            events.extend(order_events)
+        elif order.order_type == OrderType.CONSTRUCTION.value:
+            order_events = await handle_construction_order(conn, order, guild_id, turn_number)
+            events.extend(order_events)
 
     logger.info(f"Construction phase: finished construction phase for guild {guild_id}, turn {turn_number}")
     return events

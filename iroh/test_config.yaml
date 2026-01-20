@@ -3,19 +3,19 @@ wargame:
   max_movement_stat: 4
 
 factions:
-  - faction_id: "fire-nation"
+  - faction_id: "test-fn"
     name: "Fire Nation"
     nation: "fire-nation"
     leader: "test-zuko"
     members: ["test-zuko", "test-azula"]
 
-  - faction_id: "earth-kingdom"
+  - faction_id: "test-ek"
     name: "Earth Kingdom"
     nation: "earth-kingdom"
     leader: "test-toph"
     members: ["test-toph", "test-boulder"]
 
-  - faction_id: "water-tribe"
+  - faction_id: "test-wt"
     name: "Water Tribe"
     nation: "water-tribe"
     leader: "test-sokka"

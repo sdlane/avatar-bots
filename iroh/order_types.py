@@ -17,6 +17,8 @@ class OrderType(Enum):
     TRANSIT = "TRANSIT"
     RESOURCE_TRANSFER = "RESOURCE_TRANSFER"
     CANCEL_TRANSFER = "CANCEL_TRANSFER"
+    MOBILIZATION = "MOBILIZATION"
+    CONSTRUCTION = "CONSTRUCTION"
 
 
 class TurnPhase(Enum):
@@ -45,6 +47,8 @@ ORDER_PHASE_MAP: Dict[OrderType, TurnPhase] = {
     OrderType.TRANSIT: TurnPhase.MOVEMENT,
     OrderType.RESOURCE_TRANSFER: TurnPhase.RESOURCE_TRANSFER,
     OrderType.CANCEL_TRANSFER: TurnPhase.RESOURCE_TRANSFER,
+    OrderType.MOBILIZATION: TurnPhase.CONSTRUCTION,
+    OrderType.CONSTRUCTION: TurnPhase.CONSTRUCTION,
 }
 
 
@@ -61,6 +65,8 @@ ORDER_PRIORITY_MAP: Dict[OrderType, int] = {
     OrderType.TRANSIT: 0,          # All transit orders at same priority (FIFO by submitted_at)
     OrderType.CANCEL_TRANSFER: 0,  # Process cancellations first
     OrderType.RESOURCE_TRANSFER: 1, # Then resource transfers
+    OrderType.MOBILIZATION: 0,      # All construction phase orders at same priority (FIFO)
+    OrderType.CONSTRUCTION: 0,      # All construction phase orders at same priority (FIFO)
 }
 
 

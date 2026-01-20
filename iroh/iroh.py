@@ -2811,6 +2811,94 @@ async def order_declare_war_cmd(interaction: discord.Interaction, target_faction
 
 
 @tree.command(
+    name="order-mobilize",
+    description="Submit a mobilization order to create a new unit"
+)
+@app_commands.describe(
+    unit_type="The unit type ID to mobilize (e.g., 'infantry', 'cavalry')",
+    territory_id="The territory ID where the unit will be created",
+    faction_id="Optional: Faction ID to use faction resources (requires CONSTRUCTION permission)",
+    unit_name="Optional: Custom name for the unit"
+)
+async def order_mobilize_cmd(
+    interaction: discord.Interaction,
+    unit_type: str,
+    territory_id: str,
+    faction_id: str = None,
+    unit_name: str = None
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_mobilization_order(
+            conn, unit_type, territory_id, interaction.guild_id, character.id,
+            faction_id=faction_id, unit_name=unit_name
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} submitted mobilization order for {unit_type} in territory {territory_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} failed to submit mobilization order: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="order-construct",
+    description="Submit a construction order to build a new building"
+)
+@app_commands.describe(
+    building_type="The building type ID to construct (e.g., 'barracks', 'forge')",
+    territory_id="The territory ID where the building will be constructed",
+    faction_id="Optional: Faction ID to use faction resources (requires CONSTRUCTION permission)"
+)
+async def order_construct_cmd(
+    interaction: discord.Interaction,
+    building_type: str,
+    territory_id: str,
+    faction_id: str = None
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.submit_construction_order(
+            conn, building_type, territory_id, interaction.guild_id, character.id,
+            faction_id=faction_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} submitted construction order for {building_type} in territory {territory_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} failed to submit construction order: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
     name="view-wars",
     description="View all ongoing wars"
 )

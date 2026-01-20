@@ -3,7 +3,7 @@ Order management command handlers.
 """
 import asyncpg
 from typing import Tuple, List, Optional
-from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog, Alliance, FactionPermission
+from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog, Alliance, FactionPermission, UnitType, BuildingType
 from order_types import OrderType, ORDER_PHASE_MAP, ORDER_PRIORITY_MAP, OrderStatus, TurnPhase
 from datetime import datetime
 
@@ -1364,3 +1364,250 @@ async def validate_path(
             return False, f"Territories {territory_a} and {territory_b} are not adjacent."
 
     return True, ""
+
+
+async def submit_mobilization_order(
+    conn: asyncpg.Connection,
+    unit_type_id: str,
+    territory_id: str,
+    guild_id: int,
+    submitting_character_id: int,
+    faction_id: Optional[str] = None,
+    unit_name: Optional[str] = None
+) -> Tuple[bool, str]:
+    """
+    Submit a mobilization order to create a new unit.
+
+    Args:
+        conn: Database connection
+        unit_type_id: The type of unit to create
+        territory_id: Territory where unit will be mobilized
+        guild_id: Guild ID
+        submitting_character_id: Character submitting the order
+        faction_id: Optional faction ID if using faction resources
+        unit_name: Optional custom name for the unit
+
+    Returns:
+        (success, message)
+    """
+    # Validate unit type exists
+    unit_type = await UnitType.fetch_by_type_id(conn, unit_type_id, guild_id)
+    if not unit_type:
+        return False, f"Unit type '{unit_type_id}' not found."
+
+    # Validate territory exists
+    territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+    if not territory:
+        return False, f"Territory '{territory_id}' not found."
+
+    # Get submitter's faction membership
+    submitter = await Character.fetch_by_id(conn, submitting_character_id)
+    if not submitter:
+        return False, "Character not found."
+
+    submitter_membership = await FactionMember.fetch_by_character(conn, submitting_character_id, guild_id)
+    submitter_faction = None
+    submitter_faction_nation = None
+
+    if submitter_membership:
+        submitter_faction = await Faction.fetch_by_id(conn, submitter_membership.faction_id)
+        if submitter_faction:
+            submitter_faction_nation = submitter_faction.nation
+
+    use_faction_resources = False
+    target_faction = None
+
+    if faction_id:
+        # Using faction resources - need CONSTRUCTION permission
+        target_faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+        if not target_faction:
+            return False, f"Faction '{faction_id}' not found."
+
+        has_construction = await FactionPermission.has_permission(
+            conn, target_faction.id, submitting_character_id, "CONSTRUCTION", guild_id
+        )
+        if not has_construction:
+            return False, f"You do not have CONSTRUCTION permission for {target_faction.name}."
+
+        # Check territory is controlled by faction or a faction member
+        territory_accessible = await _is_territory_accessible_for_construction(
+            conn, territory, target_faction.id, guild_id
+        )
+        if not territory_accessible:
+            return False, f"Territory '{territory_id}' is not controlled by {target_faction.name} or a member of the faction."
+
+        use_faction_resources = True
+
+    # Validate nation matching rules
+    # unit_type.nation must match owner's faction.nation
+    if unit_type.nation:
+        owner_nation = target_faction.nation if target_faction else submitter_faction_nation
+        if owner_nation != unit_type.nation:
+            return False, f"Unit type '{unit_type.name}' requires nation '{unit_type.nation}' but your faction is '{owner_nation or 'none'}'."
+
+        # unit_type.nation must match territory.original_nation
+        # EXCEPTION: Fifth Nation can build Fifth Nation units in any territory they control
+        is_fifth_nation_exception = (owner_nation == "fifth-nation" and unit_type.nation == "fifth-nation")
+
+        if not is_fifth_nation_exception:
+            if territory.original_nation != unit_type.nation:
+                return False, f"Unit type '{unit_type.name}' can only be built in {unit_type.nation} territories, but territory '{territory_id}' is originally '{territory.original_nation or 'unaffiliated'}'."
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.MOBILIZATION.value,
+        unit_ids=[],
+        character_id=submitting_character_id,
+        turn_number=current_turn + 1,
+        phase=ORDER_PHASE_MAP[OrderType.MOBILIZATION].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.MOBILIZATION],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'unit_type_id': unit_type_id,
+            'unit_type_name': unit_type.name,
+            'territory_id': territory_id,
+            'faction_id': faction_id,
+            'unit_name': unit_name,
+            'use_faction_resources': use_faction_resources
+        },
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    name_note = f" named '{unit_name}'" if unit_name else ""
+    resource_note = f" using {target_faction.name} resources" if target_faction else ""
+    return True, f"Mobilization order submitted: {unit_type.name}{name_note} in territory {territory_id}{resource_note} (Order #{order_id})."
+
+
+async def submit_construction_order(
+    conn: asyncpg.Connection,
+    building_type_id: str,
+    territory_id: str,
+    guild_id: int,
+    submitting_character_id: int,
+    faction_id: Optional[str] = None
+) -> Tuple[bool, str]:
+    """
+    Submit a construction order to build a new building.
+
+    Args:
+        conn: Database connection
+        building_type_id: The type of building to construct
+        territory_id: Territory where building will be constructed
+        guild_id: Guild ID
+        submitting_character_id: Character submitting the order
+        faction_id: Optional faction ID if using faction resources
+
+    Returns:
+        (success, message)
+    """
+    # Validate building type exists
+    building_type = await BuildingType.fetch_by_type_id(conn, building_type_id, guild_id)
+    if not building_type:
+        return False, f"Building type '{building_type_id}' not found."
+
+    # Validate territory exists
+    territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+    if not territory:
+        return False, f"Territory '{territory_id}' not found."
+
+    use_faction_resources = False
+    target_faction = None
+
+    if faction_id:
+        # Using faction resources - need CONSTRUCTION permission
+        target_faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+        if not target_faction:
+            return False, f"Faction '{faction_id}' not found."
+
+        has_construction = await FactionPermission.has_permission(
+            conn, target_faction.id, submitting_character_id, "CONSTRUCTION", guild_id
+        )
+        if not has_construction:
+            return False, f"You do not have CONSTRUCTION permission for {target_faction.name}."
+
+        use_faction_resources = True
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.CONSTRUCTION.value,
+        unit_ids=[],
+        character_id=submitting_character_id,
+        turn_number=current_turn + 1,
+        phase=ORDER_PHASE_MAP[OrderType.CONSTRUCTION].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.CONSTRUCTION],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'building_type_id': building_type_id,
+            'building_type_name': building_type.name,
+            'territory_id': territory_id,
+            'faction_id': faction_id,
+            'use_faction_resources': use_faction_resources
+        },
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    resource_note = f" using {target_faction.name} resources" if target_faction else ""
+    return True, f"Construction order submitted: {building_type.name} in territory {territory_id}{resource_note} (Order #{order_id})."
+
+
+async def _is_territory_accessible_for_construction(
+    conn: asyncpg.Connection,
+    territory: Territory,
+    faction_id: int,
+    guild_id: int
+) -> bool:
+    """
+    Check if territory is controlled by the faction or a member of the faction.
+
+    Args:
+        conn: Database connection
+        territory: Territory to check
+        faction_id: Faction ID (internal)
+        guild_id: Guild ID
+
+    Returns:
+        True if territory is accessible, False otherwise
+    """
+    # Check if territory is controlled by the faction directly
+    if territory.controller_faction_id == faction_id:
+        return True
+
+    # Check if territory is controlled by a character who is a member of the faction
+    if territory.controller_character_id:
+        member = await FactionMember.fetch_by_character(
+            conn, territory.controller_character_id, guild_id
+        )
+        if member and member.faction_id == faction_id:
+            return True
+
+    return False

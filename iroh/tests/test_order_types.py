@@ -124,8 +124,9 @@ def test_all_order_types_have_priority():
 def test_total_order_type_count():
     """Test that we have the expected number of order types."""
     # JOIN_FACTION, LEAVE_FACTION, KICK_FROM_FACTION, ASSIGN_COMMANDER, ASSIGN_VICTORY_POINTS,
-    # MAKE_ALLIANCE, DISSOLVE_ALLIANCE, DECLARE_WAR, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER
-    assert len(OrderType) == 11
+    # MAKE_ALLIANCE, DISSOLVE_ALLIANCE, DECLARE_WAR, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER,
+    # MOBILIZATION, CONSTRUCTION
+    assert len(OrderType) == 13
 
 
 # Test order status values

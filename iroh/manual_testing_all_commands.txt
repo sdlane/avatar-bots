@@ -1498,6 +1498,127 @@ STEPS:
     EXPECTED: Success message
 
 
+--------------------------------------------------------------------------------
+TEST 8.13: /order-mobilize
+--------------------------------------------------------------------------------
+PURPOSE: Submit unit mobilization orders
+
+PREREQUISITES (from test_config.yaml - load with /import-config):
+- Factions: test-fn (Fire Nation), test-ek (Earth Kingdom), test-wt (Water Tribe)
+- Territories: 1 (fire-nation), 2 (earth-kingdom), 3 (water-tribe)
+- Unit types: infantry (fire-nation), cavalry (earth-kingdom), waterbenders (water-tribe)
+- Characters: test-zuko (leader of test-fn), test-toph (leader of test-ek)
+
+SETUP:
+- Assign your Discord user to test-zuko (faction leader of test-fn)
+- Give test-zuko resources: /modify-resources character:test-zuko
+  (Set ore:50, lumber:50, rations:50, cloth:50 to cover costs)
+
+STEPS:
+8.13.1 Personal mobilization (as test-zuko in fire-nation territory):
+    /order-mobilize unit_type:infantry territory_id:1
+
+    EXPECTED: Success message with order ID
+
+8.13.2 Faction mobilization (grant CONSTRUCTION permission first):
+    /grant-faction-permission faction_id:test-fn character:test-zuko permission_type:CONSTRUCTION
+    /order-mobilize unit_type:infantry territory_id:1 faction_id:test-fn
+
+    EXPECTED: Success message referencing Fire Nation resources
+
+8.13.3 Verify order:
+    /my-orders
+
+    EXPECTED: MOBILIZATION order listed
+
+8.13.4 Resolve turn:
+    /resolve-turn
+
+    EXPECTED: UNIT_MOBILIZED event in turn report
+
+8.13.5 Verify unit created:
+    /list-units
+
+    EXPECTED: New unit appears with FN-XXX unit ID in territory 1
+
+ERROR CASES:
+8.13.6 Wrong nation unit type (cavalry is earth-kingdom, not fire-nation):
+    /order-mobilize unit_type:cavalry territory_id:1
+
+    EXPECTED: Error about nation mismatch
+
+8.13.7 Wrong territory nation (territory 2 is earth-kingdom):
+    /order-mobilize unit_type:infantry territory_id:2
+
+    EXPECTED: Error about territory original_nation mismatch
+
+8.13.8 Territory not controlled by faction:
+    /order-mobilize unit_type:infantry territory_id:2 faction_id:test-fn
+
+    EXPECTED: Error about territory not controlled by Fire Nation
+
+8.13.9 Missing CONSTRUCTION permission (switch to test-azula first):
+    - Assign to test-azula (member but not leader)
+    /order-mobilize unit_type:infantry territory_id:1 faction_id:test-fn
+
+    EXPECTED: Error about missing CONSTRUCTION permission
+
+
+--------------------------------------------------------------------------------
+TEST 8.14: /order-construct
+--------------------------------------------------------------------------------
+PURPOSE: Submit building construction orders
+
+PREREQUISITES (from test_config.yaml):
+- Building types: barracks, workshop, warehouse
+- Territories: 1, 2, 3
+- Faction: test-fn with test-zuko as leader
+
+SETUP:
+- Assign your Discord user to test-zuko
+- Give test-zuko resources: /modify-resources character:test-zuko
+  (Set ore:50, lumber:50, rations:50 to cover costs)
+
+STEPS:
+8.14.1 Personal construction:
+    /order-construct building_type:barracks territory_id:1
+
+    EXPECTED: Success message with order ID
+
+8.14.2 Faction construction (with CONSTRUCTION permission):
+    /grant-faction-permission faction_id:test-fn character:test-zuko permission_type:CONSTRUCTION
+    /order-construct building_type:workshop territory_id:1 faction_id:test-fn
+
+    EXPECTED: Success message referencing Fire Nation resources
+
+8.14.3 Verify order:
+    /my-orders
+
+    EXPECTED: CONSTRUCTION order listed
+
+8.14.4 Resolve turn:
+    /resolve-turn
+
+    EXPECTED: BUILDING_CONSTRUCTED event in turn report
+
+8.14.5 Verify building:
+    /view-territory territory_id:1
+
+    EXPECTED: New building listed (BLD-XXXX)
+
+ERROR CASES:
+8.14.6 Building type not found:
+    /order-construct building_type:nonexistent territory_id:1
+
+    EXPECTED: Error about building type not found
+
+8.14.7 Missing CONSTRUCTION permission (switch to test-azula):
+    - Assign to test-azula
+    /order-construct building_type:barracks territory_id:1 faction_id:test-fn
+
+    EXPECTED: Error about missing CONSTRUCTION permission
+
+
 ================================================================================
 SECTION 9: PLAYER VIEW COMMANDS
 ================================================================================
