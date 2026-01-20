@@ -564,6 +564,110 @@ async def blend_herbs(
 
 
 @tree.command(
+    name="apply-herbs",
+    description="Apply an herbal product to a character"
+)
+@app_commands.describe(
+    character_identifier="The identifier of the character to apply the product to",
+    item_number="The item number of the herbal product"
+)
+async def apply_herbs(
+    interaction: discord.Interaction,
+    character_identifier: str,
+    item_number: str
+):
+    """Apply an herbal product to a character."""
+    async with db_pool.acquire() as conn:
+        # Look up character
+        character = await Character.fetch_by_identifier(
+            conn, character_identifier.strip(), interaction.guild_id
+        )
+
+        # Look up product
+        product = await Product.fetch_by_item_number(conn, item_number.strip())
+
+    # Handle character not found
+    if character is None:
+        logger.warning(
+            f"apply-herbs failed: Character '{character_identifier}' not found. "
+            f"User: {interaction.user.id}, Guild: {interaction.guild_id}"
+        )
+        await interaction.response.send_message(
+            f"No character found with identifier '{character_identifier}'.",
+            ephemeral=True
+        )
+        return
+
+    # Handle product not found
+    if product is None:
+        logger.warning(
+            f"apply-herbs failed: Product '{item_number}' not found. "
+            f"User: {interaction.user.id}, Guild: {interaction.guild_id}"
+        )
+        await interaction.response.send_message(
+            f"No herbal product found with item number '{item_number}'.",
+            ephemeral=True
+        )
+        return
+
+    # Check that product is a salve or decoction
+    valid_types = ("salve", "decoction")
+    if product.product_type is None or product.product_type.lower() not in valid_types:
+        logger.warning(
+            f"apply-herbs failed: Product '{item_number}' is type '{product.product_type}', "
+            f"not a salve or decoction. User: {interaction.user.id}, Guild: {interaction.guild_id}"
+        )
+        await interaction.response.send_message(
+            f"Product '{item_number}' is a {product.product_type or 'unknown type'}, not a salve or decoction. "
+            f"Only salves and decoctions can be applied to characters using this method.",
+            ephemeral=True
+        )
+        return
+
+    # Get the channel
+    channel = interaction.guild.get_channel(character.channel_id)
+    if channel is None:
+        channel = await client.fetch_channel(character.channel_id)
+
+    # Get user for mention (if assigned)
+    user = None
+    if character.user_id is not None:
+        user = await client.fetch_user(character.user_id)
+
+    # Build the message
+    mention_str = f"{user.mention}\n" if user else ""
+    product_type = product.product_type.title() if product.product_type else "Product"
+
+    message_content = (
+        f"{mention_str}"
+        f"You have been dosed with the following herbal product:\n\n"
+        f"**{product_type}: {product.name or 'Unknown'}**\n"
+        f"Item Number: {product.item_number}\n\n"
+    )
+
+    if product.flavor_text:
+        message_content += f"*{product.flavor_text}*\n\n"
+
+    if product.rules_text:
+        message_content += f"{product.rules_text}"
+
+    # Send to character channel (non-ephemeral)
+    await channel.send(message_content)
+
+    # Log the action
+    logger.info(
+        f"apply-herbs: User {interaction.user.id} applied product '{product.name}' "
+        f"(#{item_number}) to character '{character_identifier}' in guild {interaction.guild_id}"
+    )
+
+    # Send ephemeral success to command user
+    await interaction.response.send_message(
+        f"Successfully applied {product.name or item_number} to {character.name or character_identifier}.",
+        ephemeral=True
+    )
+
+
+@tree.command(
     name="analyze-evidence",
     description="Analyze evidence by its analysis number"
 )
