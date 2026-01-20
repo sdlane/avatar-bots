@@ -1,6 +1,7 @@
 import discord
 from discord import app_commands
 from discord.ext import commands, tasks
+from typing import Optional
 from helpers import *
 from views import *
 import os
@@ -11,6 +12,7 @@ from datetime import datetime, timedelta
 from tasks.send_letter import handle_send_letter
 from tasks.remind_me import handle_remind_me
 from tasks.send_response import handle_send_response
+from herbalism import make_blend
 import re
 
 load_dotenv()
@@ -491,6 +493,110 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
     await interaction.response.edit_message(
         content=emotive_message(f"Response queued"),
         view=None)
+
+
+@tree.command(
+    name="blend-herbs",
+    description="Blend herbal ingredients to create a product"
+)
+@app_commands.describe(
+    ingredients="Comma-separated list of ingredient item numbers (1-6 items, e.g. '5111,5419,5312')"
+)
+async def blend_herbs(
+    interaction: discord.Interaction,
+    ingredients: str
+):
+    """Blend herbal ingredients to create a product."""
+    # Parse comma-separated list and strip whitespace
+    ingredient_numbers = [num.strip() for num in ingredients.split(",") if num.strip()]
+
+    # Validate ingredient count
+    if len(ingredient_numbers) == 0:
+        await interaction.response.send_message(
+            "Please provide at least one ingredient.",
+            ephemeral=True
+        )
+        return
+
+    if len(ingredient_numbers) > 6:
+        await interaction.response.send_message(
+            f"Too many ingredients ({len(ingredient_numbers)}). Maximum is 6.",
+            ephemeral=True
+        )
+        return
+
+    async with db_pool.acquire() as conn:
+        result = await make_blend(conn, ingredient_numbers)
+
+    if not result.success:
+        await interaction.response.send_message(
+            result.error_message,
+            ephemeral=True
+        )
+        return
+
+    product = result.product
+
+    # Build the embed
+    embed = discord.Embed(
+        title=f"{product.product_type.title() if product.product_type else 'Product'}: {product.name or 'Unknown'}",
+        color=discord.Color.green() if result.success else discord.Color.red()
+    )
+
+    embed.add_field(name="Item Number", value=product.item_number, inline=True)
+    embed.add_field(name="Quantity", value=str(result.quantity), inline=True)
+    embed.add_field(name="Type", value=product.product_type.title() if product.product_type else "Unknown", inline=True)
+
+    if product.flavor_text:
+        embed.add_field(name="Description", value=f"*{product.flavor_text}*", inline=False)
+
+    if product.rules_text:
+        embed.add_field(name="Effect", value=product.rules_text, inline=False)
+
+    # Add box room instructions
+    box_type = product.product_type.title() if product.product_type else "Product"
+    embed.set_footer(
+        text=f"Find this in the box room in the envelope labeled '{box_type}: {product.item_number}'. "
+             f"Please let the GMs know if the folder is running low."
+    )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="analyze-evidence",
+    description="Analyze evidence by its analysis number"
+)
+@app_commands.describe(
+    analysis_number="The analysis number to look up"
+)
+async def analyze_evidence(interaction: discord.Interaction, analysis_number: str):
+    """Analyze evidence by looking up its analysis number."""
+    async with db_pool.acquire() as conn:
+        evidence = await Evidence.fetch_by_analysis_number(conn, analysis_number.strip())
+
+    if evidence is None:
+        await interaction.response.send_message(
+            f"No evidence found with analysis number '{analysis_number}'.",
+            ephemeral=True
+        )
+        return
+
+    # Check if user is an admin
+    is_admin = interaction.user.guild_permissions.manage_guild
+
+    # Build the embed
+    embed = discord.Embed(
+        title=f"Evidence Analysis: {evidence.analysis_number}",
+        color=discord.Color.blue()
+    )
+
+    embed.add_field(name="Hint", value=evidence.hint or "No hint available", inline=False)
+
+    if is_admin:
+        embed.add_field(name="GM Notes", value=evidence.gm_notes or "No GM notes available", inline=False)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 @tree.command(

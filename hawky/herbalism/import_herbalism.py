@@ -1,0 +1,145 @@
+"""
+Main script to import all herbalism data from CSV files.
+
+Usage:
+    python import_herbalism.py
+
+Configure the file paths below before running.
+"""
+
+import asyncio
+import asyncpg
+import logging
+import sys
+from pathlib import Path
+from typing import List
+
+# Handle both direct execution and module import
+if __name__ == "__main__":
+    # Add parent directories to path for direct execution
+    # Script is in hawky/herbalism/
+    herbalism_dir = Path(__file__).parent
+    hawky_dir = herbalism_dir.parent
+    avatar_bots_dir = hawky_dir.parent
+    sys.path.insert(0, str(herbalism_dir))
+    sys.path.insert(0, str(hawky_dir))
+    sys.path.insert(0, str(avatar_bots_dir))
+
+    from loaders import (
+        load_ingredients,
+        load_products,
+        load_subset_recipes,
+        load_constraint_recipes,
+        load_failed_blends,
+    )
+    from clear_data import clear_herbal_data
+else:
+    from .loaders import (
+        load_ingredients,
+        load_products,
+        load_subset_recipes,
+        load_constraint_recipes,
+        load_failed_blends,
+    )
+    from .clear_data import clear_herbal_data
+
+# Configure logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - ImportHerbalism - %(levelname)s - %(message)s'
+)
+logger = logging.getLogger(__name__)
+
+# --- Configuration ---
+# Update these paths to point to your CSV files
+
+INGREDIENTS_FILE = "test_data/test_ingredients.csv"
+PRODUCTS_FILE = "test_data/test_products.csv"
+SUBSET_RECIPES_FILE = "test_data/test_subset_recipes.csv"
+CONSTRAINT_RECIPES_FILES: List[str] = [
+    "test_data/test_constraint_recipes.csv",
+]
+FAILED_BLENDS_FILE = "test_data/test_failed_blends.csv"
+
+DB_URL = "postgresql://AVATAR:password@db:5432/AVATAR"
+
+
+async def import_herbalism_data(
+    conn: asyncpg.Connection,
+    ingredients_file: str,
+    products_file: str,
+    subset_recipes_file: str,
+    constraint_recipes_files: List[str],
+    failed_blends_file: str
+):
+    """
+    Import all herbalism data from the specified files.
+    Clears existing data before importing.
+    """
+    logger.info("Clearing existing herbalism data...")
+    await clear_herbal_data(conn)
+
+    # Load and insert ingredients
+    logger.info(f"Loading ingredients from {ingredients_file}...")
+    ingredients = load_ingredients(ingredients_file)
+    logger.info(f"Inserting {len(ingredients)} ingredients...")
+    for ing in ingredients:
+        await ing.upsert(conn)
+
+    # Load and insert products
+    logger.info(f"Loading products from {products_file}...")
+    products = load_products(products_file)
+    logger.info(f"Inserting {len(products)} products...")
+    for prod in products:
+        await prod.upsert(conn)
+
+    # Load and insert subset recipes
+    logger.info(f"Loading subset recipes from {subset_recipes_file}...")
+    subset_recipes = load_subset_recipes(subset_recipes_file)
+    logger.info(f"Inserting {len(subset_recipes)} subset recipes...")
+    for recipe in subset_recipes:
+        await recipe.upsert(conn)
+
+    # Load and insert constraint recipes (in order)
+    all_constraint_recipes = []
+    for file in constraint_recipes_files:
+        logger.info(f"Loading constraint recipes from {file}...")
+        recipes = load_constraint_recipes(file)
+        all_constraint_recipes.extend(recipes)
+
+    logger.info(f"Inserting {len(all_constraint_recipes)} constraint recipes...")
+    for recipe in all_constraint_recipes:
+        await recipe.insert(conn)
+
+    # Load and insert failed blends
+    logger.info(f"Loading failed blends from {failed_blends_file}...")
+    failed_blends = load_failed_blends(failed_blends_file)
+    logger.info(f"Inserting {len(failed_blends)} failed blends...")
+    for fb in failed_blends:
+        await fb.upsert(conn)
+
+    logger.info("Herbalism data import complete!")
+
+
+async def main():
+    """
+    Main entry point for the import script.
+    """
+    logger.info("Connecting to database...")
+    conn = await asyncpg.connect(DB_URL)
+
+    try:
+        await import_herbalism_data(
+            conn,
+            INGREDIENTS_FILE,
+            PRODUCTS_FILE,
+            SUBSET_RECIPES_FILE,
+            CONSTRAINT_RECIPES_FILES,
+            FAILED_BLENDS_FILE
+        )
+    finally:
+        await conn.close()
+
+
+if __name__ == "__main__":
+    asyncio.run(main())

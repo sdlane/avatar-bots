@@ -920,6 +920,132 @@ async def ensure_tables():
     if factions:
         logger.info(f"Migrated permissions for {len(factions)} faction leaders")
 
+    # --- HERBALISM TABLES (shared across all guilds, no guild_id) ---
+
+    # --- Ingredient table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Ingredient (
+        id SERIAL PRIMARY KEY,
+        item_number VARCHAR(20) NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        macro TEXT,
+        rarity TEXT,
+        primary_chakra VARCHAR(20),
+        primary_chakra_strength INTEGER,
+        secondary_chakra VARCHAR(20),
+        secondary_chakra_strength INTEGER,
+        properties TEXT,
+        flavor_text TEXT,
+        rules_text TEXT,
+        skip_export BOOLEAN DEFAULT FALSE
+    );
+    """)
+
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS item_number VARCHAR(20);")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS name TEXT;")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS macro TEXT;")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS rarity TEXT;")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS primary_chakra VARCHAR(20);")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS primary_chakra_strength INTEGER;")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS secondary_chakra VARCHAR(20);")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS secondary_chakra_strength INTEGER;")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS properties TEXT;")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS flavor_text TEXT;")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS rules_text TEXT;")
+    await conn.execute("ALTER TABLE Ingredient ADD COLUMN IF NOT EXISTS skip_export BOOLEAN DEFAULT FALSE;")
+
+    # --- Product table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Product (
+        id SERIAL PRIMARY KEY,
+        item_number VARCHAR(20) NOT NULL UNIQUE,
+        name TEXT,
+        macro TEXT,
+        product_type TEXT,
+        flavor_text TEXT,
+        rules_text TEXT,
+        skip_export BOOLEAN DEFAULT FALSE
+    );
+    """)
+
+    await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS item_number VARCHAR(20);")
+    await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS name TEXT;")
+    await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS macro TEXT;")
+    await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS product_type TEXT;")
+    await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS flavor_text TEXT;")
+    await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS rules_text TEXT;")
+    await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS skip_export BOOLEAN DEFAULT FALSE;")
+
+    # --- SubsetRecipe table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS SubsetRecipe (
+        id SERIAL PRIMARY KEY,
+        product_item_number VARCHAR(20) NOT NULL,
+        product_type TEXT NOT NULL,
+        quantity_produced INTEGER DEFAULT 1,
+        ingredients TEXT[] NOT NULL
+    );
+    """)
+
+    await conn.execute("ALTER TABLE SubsetRecipe ADD COLUMN IF NOT EXISTS product_item_number VARCHAR(20);")
+    await conn.execute("ALTER TABLE SubsetRecipe ADD COLUMN IF NOT EXISTS product_type TEXT;")
+    await conn.execute("ALTER TABLE SubsetRecipe ADD COLUMN IF NOT EXISTS quantity_produced INTEGER DEFAULT 1;")
+    await conn.execute("ALTER TABLE SubsetRecipe ADD COLUMN IF NOT EXISTS ingredients TEXT[];")
+
+    # --- ConstraintRecipe table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS ConstraintRecipe (
+        id SERIAL PRIMARY KEY,
+        product_item_number VARCHAR(20) NOT NULL,
+        product_type TEXT NOT NULL,
+        quantity_produced INTEGER DEFAULT 1,
+        ingredients TEXT[],
+        primary_chakra VARCHAR(20),
+        primary_is_boon VARCHAR(10),
+        secondary_chakra VARCHAR(20),
+        secondary_is_boon VARCHAR(10),
+        tier INTEGER,
+        created_at TIMESTAMP DEFAULT NOW()
+    );
+    """)
+
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS product_item_number VARCHAR(20);")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS product_type TEXT;")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS quantity_produced INTEGER DEFAULT 1;")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS ingredients TEXT[];")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS primary_chakra VARCHAR(20);")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS primary_is_boon VARCHAR(10);")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS secondary_chakra VARCHAR(20);")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS secondary_is_boon VARCHAR(10);")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS tier INTEGER;")
+    await conn.execute("ALTER TABLE ConstraintRecipe ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT NOW();")
+
+    # --- FailedBlend table ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS FailedBlend (
+        id SERIAL PRIMARY KEY,
+        product_item_number VARCHAR(20) NOT NULL,
+        product_type TEXT NOT NULL UNIQUE
+    );
+    """)
+
+    await conn.execute("ALTER TABLE FailedBlend ADD COLUMN IF NOT EXISTS product_item_number VARCHAR(20);")
+    await conn.execute("ALTER TABLE FailedBlend ADD COLUMN IF NOT EXISTS product_type TEXT;")
+
+    # --- Evidence table (global, no guild_id) ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS Evidence (
+        id SERIAL PRIMARY KEY,
+        analysis_number VARCHAR(50) NOT NULL UNIQUE,
+        hint TEXT NOT NULL,
+        gm_notes TEXT NOT NULL
+    );
+    """)
+
+    await conn.execute("ALTER TABLE Evidence ADD COLUMN IF NOT EXISTS analysis_number VARCHAR(50);")
+    await conn.execute("ALTER TABLE Evidence ADD COLUMN IF NOT EXISTS hint TEXT;")
+    await conn.execute("ALTER TABLE Evidence ADD COLUMN IF NOT EXISTS gm_notes TEXT;")
+
     logger.info("Schema verified and updated successfully.")
     await conn.close()
 

@@ -24,3 +24,13 @@ from .territory_adjacency import *
 from .wargame_config import *
 from .order import *
 from .turn_log import *
+
+# Herbalism models
+from .ingredient import *
+from .product import *
+from .subset_recipe import *
+from .constraint_recipe import *
+from .failed_blend import *
+
+# Evidence model
+from .evidence import *
