@@ -1,7 +1,9 @@
 import discord
-from helpers import *
+from helpers import emotive_message
 import asyncpg
-from db import *
+from db import Character
+from typing import Optional
+
 
 async def assign_character_callback(interaction: discord.Interaction,
                                     new_identifier: str,
@@ -17,7 +19,7 @@ async def assign_character_callback(interaction: discord.Interaction,
             # If so, remove them from the associated channel
             old_channel = await interaction.guild.fetch_channel(old_character.channel_id)
             await old_channel.set_permissions(member, overwrite=None)
-            
+
             # Update the old character to not have a user ID
             old_character.user_id = None
             await old_character.upsert(conn)
@@ -34,15 +36,15 @@ async def assign_character_callback(interaction: discord.Interaction,
             overwrite.read_messages = True
             new_channel = await interaction.guild.fetch_channel(new_character.channel_id)
             await new_channel.set_permissions(member, overwrite=overwrite)
-        
+
             # Assign to this character in the database
             # Add user to character
             new_character.user_id = user_id
-        
+
             # Write to Database
             await new_character.upsert(conn)
         await conn.close()
-        
+
 
     # Send confirmation by editing the original message
     if new_identifier == "None":
@@ -51,6 +53,7 @@ async def assign_character_callback(interaction: discord.Interaction,
     else:
         await interaction.response.edit_message(content=f"Assigned character with identifer: {new_identifier}",
                                             view=None)
+
 
 async def config_character_callback(interaction: discord.Interaction,
                                     character: Character,
@@ -82,19 +85,17 @@ async def config_character_callback(interaction: discord.Interaction,
     character.letter_limit = limit
     character.letter_count = count
     character.name = name
-    
+
     # Verify values
     ok, message = character.verify()
 
     if not ok:
-        await interaction.response.send_message(emotive_message(message), ephemeral=True) 
+        await interaction.response.send_message(emotive_message(message), ephemeral=True)
         return
-    
+
     # Upsert result
     conn = await asyncpg.connect("postgresql://AVATAR:password@db:5432/AVATAR")
     await character.upsert(conn)
     await conn.close()
     await interaction.response.send_message(
         emotive_message(f"Character {character.identifier} Updated"), ephemeral=True)
-
-

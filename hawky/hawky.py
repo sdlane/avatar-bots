@@ -13,7 +13,10 @@ from tasks.send_letter import handle_send_letter
 from tasks.remind_me import handle_remind_me
 from tasks.send_response import handle_send_response
 from herbalism import make_blend
+from handlers import create_character_with_channel
+from character_config import CharacterConfigManager
 import re
+import os
 
 load_dotenv()
 
@@ -748,89 +751,89 @@ async def create_character(interaction: discord.Interaction, identifier: str):
             ephemeral=True)
         return
 
-    # Use the category ID from server settings to get the actual category object
-    category = None
-    if server_config.category_id is not None:
-        category = discord.utils.get(interaction.guild.categories, id=server_config.category_id)
-    else:
+    # Check category_id is configured
+    if server_config.category_id is None:
         await interaction.response.send_message(
             emotive_message("You need to set character channel in the server configuration before you can create a character"),
             ephemeral=True)
         return
 
+    # Get the category object
+    category = discord.utils.get(interaction.guild.categories, id=server_config.category_id)
+    if category is None:
+        await interaction.response.send_message(
+            emotive_message("The configured category no longer exists. Please update server configuration."),
+            ephemeral=True)
+        return
+
     # Check if the character already exists in the database
     async with db_pool.acquire() as conn:
-        character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
+        existing_character = await Character.fetch_by_identifier(conn, identifier, interaction.guild_id)
 
-    if character is not None:
+    if existing_character is not None:
         await interaction.response.send_message(
             emotive_message(f"A character with the identifier {identifier} already exists in the database, aborting."),
-            ephemeral = True
-        )
+            ephemeral=True)
         return
-    
-    # Check if there's already a channel with this identifier in the specified category
-    channel = discord.utils.get(category.channels, name=identifier)
 
+    # Check if there's already a channel with this identifier in the specified category
+    existing_channel = discord.utils.get(category.channels, name=identifier)
     sent_confirmation = False
 
-    if channel is None:
-        # If not, make the channel in alphabetical order
-        # Find the correct position based on alphabetical ordering
-        category_channels = sorted(category.channels, key=lambda c: c.name.lower())
-        position = 0
-        for i, ch in enumerate(category_channels):
-            if identifier.lower() < ch.name.lower():
-                position = ch.position - 1
-                break
-            position = ch.position
-
-        channel = await interaction.guild.create_text_channel(identifier, category=category, position=position)
-
-    else:
-        # If there is, send confirmation checking whether it should connect this character to that channel
+    if existing_channel is not None:
+        # Channel exists but character doesn't - ask for confirmation
         sent_confirmation = True
         view = Confirm()
         await interaction.response.send_message(
             emotive_message(f"A channel called {identifier} already exists in the configured category. Would you like to connect this character to it?"),
             view=view,
-            ephemeral = True)
+            ephemeral=True)
         await view.wait()
         interaction = view.interaction
 
         if view.value is None:
-            # If not confirmed, abort
             await interaction.response.edit_message(
                 content=emotive_message("Character Creation Timed Out"),
                 view=None)
             return
 
         elif not view.value:
-            # If not confirmed, abort
             await interaction.response.edit_message(
                 content=emotive_message("Canceled Create Character"),
                 view=None)
             return
 
-
-    # Create the character object
-    character = Character(identifier=identifier,
-                          name=identifier,
-                          channel_id = channel.id,
-                          letter_limit = server_config.default_limit,
-                          guild_id = interaction.guild_id)
-
-    # Write character to the database
+    # Use the shared handler to create the character with channel
     async with db_pool.acquire() as conn:
-        await character.upsert(conn)
+        success, message, character = await create_character_with_channel(
+            conn=conn,
+            guild=interaction.guild,
+            identifier=identifier,
+            name=identifier,
+            letter_limit=server_config.default_limit,
+            category_id=server_config.category_id
+        )
+
+    if not success:
+        if sent_confirmation:
+            await interaction.response.edit_message(
+                content=emotive_message(message),
+                view=None)
+        else:
+            await interaction.response.send_message(
+                content=emotive_message(message),
+                ephemeral=True)
+        return
 
     logger.info(f"Created character with identifier: {identifier}")
     if sent_confirmation:
         await interaction.response.edit_message(
-            content=emotive_message(f'Created character with identifier: {identifier}'), view=None)
+            content=emotive_message(f'Created character with identifier: {identifier}'),
+            view=None)
     else:
         await interaction.response.send_message(
-            content=emotive_message(f'Created character with identifier: {identifier}'), ephemeral=True)
+            content=emotive_message(f'Created character with identifier: {identifier}'),
+            ephemeral=True)
 
 @tree.command(
     name="remove-character",
@@ -1240,6 +1243,41 @@ async def add_alias(interaction: discord.Interaction, identifier: str, alias: st
         ephemeral=True)
 
 @tree.command(
+    name="list-aliases",
+    description="List all character aliases"
+)
+@app_commands.default_permissions(manage_guild=True)
+async def list_aliases(interaction: discord.Interaction):
+    async with db_pool.acquire() as conn:
+        aliases = await Alias.fetch_all_by_guild(conn, interaction.guild_id)
+
+        if not aliases:
+            await interaction.response.send_message(
+                emotive_message("No aliases found for this server"),
+                ephemeral=True)
+            return
+
+        # Group aliases by character
+        alias_by_char_id = {}
+        for alias in aliases:
+            if alias.character_id not in alias_by_char_id:
+                alias_by_char_id[alias.character_id] = []
+            alias_by_char_id[alias.character_id].append(alias.alias)
+
+        # Fetch character names
+        lines = []
+        for char_id, alias_list in alias_by_char_id.items():
+            character = await Character.fetch_by_id(conn, char_id)
+            char_name = character.identifier if character else f"Unknown ({char_id})"
+            aliases_str = ", ".join(alias_list)
+            lines.append(f"**{char_name}**: {aliases_str}")
+
+    message = "\n".join(sorted(lines))
+    await interaction.response.send_message(
+        emotive_message(f"**Aliases:**\n{message}"),
+        ephemeral=True)
+
+@tree.command(
     name="remove-alias",
     description="Remove an alias identifier"
 )
@@ -1268,5 +1306,130 @@ async def remove_alias(interaction: discord.Interaction, alias: str):
     await interaction.response.send_message(
         emotive_message(f"Removed alias '{alias}' from character '{character.name}'"),
         ephemeral=True)
+
+@tree.command(
+    name="clear-characters",
+    description="Delete all characters, aliases, and their channels"
+)
+@app_commands.default_permissions(manage_guild=True)
+async def clear_characters(interaction: discord.Interaction):
+    # Show confirmation dialog
+    view = Confirm()
+    await interaction.response.send_message(
+        emotive_message("**WARNING:** This will delete ALL characters, aliases, and their Discord channels. This action cannot be undone. Are you sure?"),
+        view=view,
+        ephemeral=True)
+    await view.wait()
+    interaction = view.interaction
+
+    if view.value is None:
+        await interaction.response.edit_message(
+            content=emotive_message("Clear characters timed out"),
+            view=None)
+        return
+
+    if not view.value:
+        await interaction.response.edit_message(
+            content=emotive_message("Canceled clear characters"),
+            view=None)
+        return
+
+    # User confirmed - proceed with deletion
+    await interaction.response.edit_message(
+        content=emotive_message("Clearing characters..."),
+        view=None)
+
+    async with db_pool.acquire() as conn:
+        # Get all characters to find their channel IDs
+        characters = await Character.fetch_all(conn, interaction.guild_id)
+
+        # Delete all aliases first (foreign key constraint)
+        aliases_deleted = await Alias.delete_all_by_guild(conn, interaction.guild_id)
+
+        # Delete all characters from database
+        characters_deleted = await Character.delete_all_by_guild(conn, interaction.guild_id)
+
+    # Delete Discord channels
+    channels_deleted = 0
+    channels_failed = 0
+    for character in characters:
+        if character.channel_id:
+            try:
+                channel = interaction.guild.get_channel(character.channel_id)
+                if channel:
+                    await channel.delete()
+                    channels_deleted += 1
+            except Exception as e:
+                logger.error(f"Failed to delete channel {character.channel_id}: {e}")
+                channels_failed += 1
+
+    # Build summary
+    summary_parts = [f"{characters_deleted} character(s) deleted"]
+    if aliases_deleted > 0:
+        summary_parts.append(f"{aliases_deleted} alias(es) deleted")
+    if channels_deleted > 0:
+        summary_parts.append(f"{channels_deleted} channel(s) deleted")
+    if channels_failed > 0:
+        summary_parts.append(f"{channels_failed} channel(s) failed to delete")
+
+    summary = ", ".join(summary_parts)
+    logger.warning(f"clear-characters for guild {interaction.guild_id}: {summary}")
+
+    await interaction.edit_original_response(
+        content=emotive_message(f"Clear complete: {summary}"))
+
+@tree.command(
+    name="load-characters-config",
+    description="Load characters and aliases from a YAML configuration file"
+)
+@app_commands.describe(
+    config_file="Path to the config file (default: characters_config.yaml)"
+)
+@app_commands.default_permissions(manage_guild=True)
+async def load_characters_config(interaction: discord.Interaction, config_file: str = "characters_config.yaml"):
+    # Defer response since this may take time for many characters
+    await interaction.response.defer(ephemeral=True)
+
+    # Resolve the config file path relative to the hawky directory
+    hawky_dir = os.path.dirname(os.path.abspath(__file__))
+    config_path = os.path.join(hawky_dir, config_file)
+
+    # Check if file exists
+    if not os.path.exists(config_path):
+        await interaction.followup.send(
+            emotive_message(f"Configuration file not found: {config_file}"),
+            ephemeral=True)
+        return
+
+    # Read the YAML file
+    try:
+        with open(config_path, 'r') as f:
+            config_yaml = f.read()
+    except Exception as e:
+        await interaction.followup.send(
+            emotive_message(f"Error reading configuration file: {e}"),
+            ephemeral=True)
+        return
+
+    # Import the configuration
+    async with db_pool.acquire() as conn:
+        success, message, stats = await CharacterConfigManager.import_config(
+            conn=conn,
+            guild_id=interaction.guild_id,
+            config_yaml=config_yaml,
+            guild=interaction.guild
+        )
+
+    if success:
+        logger.info(f"Config import for guild {interaction.guild_id}: {stats.characters_created} created, "
+                    f"{stats.characters_skipped} skipped, {stats.aliases_created} aliases")
+        await interaction.followup.send(
+            emotive_message(f"Configuration imported successfully!\n\n{message}"),
+            ephemeral=True)
+    else:
+        logger.error(f"Config import failed for guild {interaction.guild_id}: {message}")
+        await interaction.followup.send(
+            emotive_message(f"Configuration import failed: {message}"),
+            ephemeral=True)
 
 client.run(BOT_TOKEN)

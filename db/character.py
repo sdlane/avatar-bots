@@ -226,6 +226,17 @@ class Character:
         result = await conn.execute("DELETE FROM Character;")
         logger.warning(f"⚠️ All entries deleted from Character table. Result: {result}")
 
+    @classmethod
+    async def delete_all_by_guild(cls, conn: asyncpg.Connection, guild_id: int) -> int:
+        """
+        Delete all characters for a given guild_id.
+        Returns the number of rows deleted.
+        """
+        result = await conn.execute("DELETE FROM Character WHERE guild_id = $1;", guild_id)
+        deleted_count = int(result.split()[-1]) if result.startswith("DELETE") else 0
+        logger.warning(f"⚠️ Deleted {deleted_count} characters for guild {guild_id}")
+        return deleted_count
+
     def verify(self) -> tuple[bool, str]:
         """
         Verify that no numeric field that can be None is less than 0.

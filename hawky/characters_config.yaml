@@ -1,0 +1,187 @@
+# Character Configuration File for Hawky
+# This file defines characters and their aliases for bulk import.
+#
+# Usage: /load-characters-config [config_file]
+#
+# Each character entry requires:
+#   - identifier: Unique ID used as the channel name (must be Discord-channel-name compatible)
+#   - name: Display name for the character
+#
+# Optional fields:
+#   - letter_limit: Daily letter limit (omit to use server default, set to null for unlimited)
+#   - aliases: List of alternative identifiers that resolve to this character
+
+characters:
+  # Existing test characters
+  - identifier: "test-leader"
+  - identifier: "test-member"
+  - identifier: "test-character"
+  - identifier: "test-zuko"
+  - identifier: "test-toph"
+  - identifier: "test-sokka"
+  - identifier: "test-azula"
+  - identifier: "test-boulder"
+  - identifier: "test-korra"
+
+  # Fire Nation
+  - identifier: "taiso"
+    name: "Fire Lord Taiso"
+  - identifier: "hazei"
+    name: "Fire Lady Hazei"
+  - identifier: "zaisa"
+    name: "Princess Zeisa"
+  - identifier: "ilah"
+    name: "Ilah"
+  - identifier: "aiku"
+    name: "Aiku"
+  - identifier: "rozun"
+    name: "Rozun"
+  - identifier: "kaisha"
+    name: "Kaisha Sato"
+  - identifier: "jezom"
+    name: "Jezom"
+  - identifier: "zairah"
+    name: "Zairah"
+  - identifier: "sizah"
+    name: "Sizah"
+  - identifier: "izeshi"
+    name: "Izeshi"
+  - identifier: "tinoh"
+    name: "Tinoh"
+  - identifier: "ashru"
+    name: "Ashru"
+
+  # Earth Kingdom - Upper Ring
+  - identifier: "wuneng"
+    name: "Earth King Wuneng"
+  - identifier: "jialun"
+    name: "Prince Jialun"
+  - identifier: "seshoph"
+    name: "Seshoph"
+  - identifier: "ailong"
+    name: "Ailong Beifong"
+  - identifier: "xiang"
+    name: "Xiang Beifong"
+  - identifier: "lomaang"
+    name: "Lomaang Beifong"
+  - identifier: "chani"
+    name: "Chani"
+  - identifier: "guo-xun"
+    name: "Queen Guo Xun"
+  - identifier: "gomong"
+    name: "Gomong"
+  - identifier: "chenmo"
+    name: "Chenmo Ai"
+
+  # Earth Kingdom - Other/Kyoshi
+  - identifier: "koko"
+    name: "Koko"
+  - identifier: "kiyo"
+    name: "Kiyo"
+  - identifier: "saku"
+    name: "Saku"
+
+  # Earth Kingdom - Middle Ring
+  - identifier: "hokua"
+    name: "Hokua"
+  - identifier: "bahung"
+    name: "Bahung"
+  - identifier: "ruoshan"
+    name: "Ruoshan"
+  - identifier: "sud"
+    name: "Sud"
+
+  # Earth Kingdom - Lower Ring
+  - identifier: "junyi"
+    name: "Junyi"
+  - identifier: "boh"
+    name: "Boh"
+  - identifier: "go-shi"
+    name: "Go Shi"
+  - identifier: "cabbage-guy"
+    name: "Cai"
+  - identifier: "baoli"
+    name: "Baoli"
+  - identifier: "huo"
+    name: "Huo"
+  - identifier: "xuan-li"
+    name: "Xuan Li"
+  - identifier: "kani"
+    name: "Kani"
+  - identifier: "gume"
+    name: "Gume"
+  - identifier: "seere"
+    name: "Seere"
+  - identifier: "mesha"
+    name: "Mesha"
+  - identifier: "aninnaq"
+    name: "Aninnaq"
+
+  # Air Nomads
+  - identifier: "ketu"
+    name: "Monk Ketu"
+  - identifier: "lakshmi"
+    name: "Nun Lakshmi"
+  - identifier: "disha"
+    name: "Sister Disha"
+  - identifier: "choden"
+    name: "Guru Choden"
+  - identifier: "rinzen"
+    name: "Abbot Rinzen"
+  - identifier: "rabta"
+    name: "Master Rabta"
+  - identifier: "kipu"
+    name: "Kipu"
+
+  # Water Tribes - North
+  - identifier: "karliq"
+    name: "Chief Karliq"
+  - identifier: "salak"
+    name: "Princess Salak"
+  - identifier: "rarrak"
+    name: "Rarrak"
+  - identifier: "taqukaq"
+    name: "Taqukaq"
+  - identifier: "nai"
+    name: "Nai"
+
+  # Water Tribes - South
+  - identifier: "noarro"
+    name: "Noarro"
+  - identifier: "nerroya"
+    name: "Nerroya"
+  - identifier: "kiaya"
+    name: "Kiaya"
+  - identifier: "korrik"
+    name: "Korrik"
+
+  # Fifth Nation / Pirates
+  - identifier: "nerrivik"
+    name: "Nerrivik"
+  - identifier: "sinniqi"
+    name: "Sinniqi"
+  - identifier: "kaujuk"
+    name: "Kaujuk"
+  - identifier: "mizah"
+    name: "Mizah"
+  - identifier: "kyetaro"
+    name: "Kyetaro"
+  - identifier: "sengemo"
+    name: "Sengemo"
+  - identifier: "huang"
+    name: "Huang"
+
+  # NPCs
+  - identifier: "kyoshi"
+    name: "Avatar Kyoshi"
+  - identifier: "game-mommy"
+    name: "Gihon Wan"
+  - identifier: "editor"
+    name: "Biani"
+
+# Optional: Add aliases to existing characters
+# Use this section to add aliases to characters that were created separately
+# or to organize aliases separately from character definitions
+standalone_aliases:
+  - character_identifier: "test-leader"
+    alias: "test-goat"

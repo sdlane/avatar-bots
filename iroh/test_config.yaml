@@ -5,22 +5,22 @@ wargame:
 factions:
   - faction_id: "fire-nation"
     name: "Fire Nation"
-    leader: "zuko"
-    members: ["zuko", "taiso"]
+    leader: "test-zuko"
+    members: ["test-zuko", "test-azula"]
 
   - faction_id: "earth-kingdom"
     name: "Earth Kingdom"
-    leader: "toph"
-    members: ["toph", "jialun"]
+    leader: "test-toph"
+    members: ["test-toph", "test-boulder"]
 
   - faction_id: "water-tribe"
     name: "Water Tribe"
-    leader: "karliq"
-    members: ["karliq", "nai"]
+    leader: "test-sokka"
+    members: ["test-sokka", "test-korra"]
 
 # Character production and victory points
 characters:
-  - character: "taiso"
+  - character: "test-azula"
     production:
       ore: 0
       lumber: 0
@@ -29,10 +29,10 @@ characters:
       cloth: 0
       platinum: 2
 
-  - character: "zuko"
+  - character: "test-zuko"
     victory_points: 5
 
-  - character: "toph"
+  - character: "test-toph"
     production:
       ore: 3
       lumber: 0
@@ -47,7 +47,7 @@ territories:
     name: "Fire Nation Capital"
     terrain_type: "plains"
     original_nation: "fire-nation"
-    controller_character_identifier: "zuko"
+    controller_character_identifier: "test-zuko"
     victory_points: 3
     production:
       ore: 5
@@ -62,7 +62,7 @@ territories:
     name: "Earth Kingdom Territory"
     terrain_type: "mountain"
     original_nation: "earth-kingdom"
-    controller_character_identifier: "toph"
+    controller_character_identifier: "test-toph"
     victory_points: 2
     production:
       ore: 10
@@ -77,7 +77,7 @@ territories:
     name: "Northern Water Tribe"
     terrain_type: "tundra"
     original_nation: "water-tribe"
-    controller_character_identifier: "karliq"
+    controller_character_identifier: "test-sokka"
     victory_points: 2
     production:
       ore: 2
@@ -234,54 +234,54 @@ units:
   - unit_id: "fire-1st-infantry"
     name: "1st Fire Infantry"
     type: "infantry"
-    owner: "zuko"
+    owner: "test-zuko"
     current_territory_id: 1
 
   - unit_id: "fire-2nd-infantry"
     name: "2nd Fire Infantry"
     type: "infantry"
-    owner: "zuko"
+    owner: "test-zuko"
     current_territory_id: 1
 
   # Unit with different owner and commander for testing commander notifications
   - unit_id: "fire-commanded-unit"
     name: "Fire Commanded Unit"
     type: "infantry"
-    owner: "zuko"
-    commander: "taiso"
+    owner: "test-zuko"
+    commander: "test-azula"
     current_territory_id: 1
 
   # Toph's units - Earth Kingdom
   - unit_id: "earth-1st-cavalry"
     name: "1st Earth Cavalry"
     type: "cavalry"
-    owner: "toph"
+    owner: "test-toph"
     current_territory_id: 2
 
   - unit_id: "earth-2nd-cavalry"
     name: "2nd Earth Cavalry"
     type: "cavalry"
-    owner: "toph"
+    owner: "test-toph"
     current_territory_id: 2
 
   - unit_id: "earth-3rd-cavalry"
     name: "3rd Earth Cavalry"
     type: "cavalry"
-    owner: "toph"
+    owner: "test-toph"
     current_territory_id: 2
 
   # Unit with different owner and commander for testing commander notifications
   - unit_id: "earth-commanded-unit"
     name: "Earth Commanded Unit"
     type: "cavalry"
-    owner: "toph"
-    commander: "jialun"
+    owner: "test-toph"
+    commander: "test-boulder"
     current_territory_id: 2
 
   # Water Tribe units
   - unit_id: "water-1st-waterbenders"
     name: "1st Waterbender Corps"
     type: "waterbenders"
-    owner: "karliq"
-    commander: "nai"
+    owner: "test-sokka"
+    commander: "test-korra"
     current_territory_id: 3

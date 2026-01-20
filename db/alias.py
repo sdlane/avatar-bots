@@ -72,3 +72,27 @@ class Alias:
             SELECT 1 FROM Alias WHERE alias = $1 AND guild_id = $2;
         """, alias, guild_id)
         return row is not None
+
+    @classmethod
+    async def fetch_all_by_guild(cls, conn: asyncpg.Connection, guild_id: int) -> List["Alias"]:
+        """
+        Fetch all aliases for a given guild_id.
+        """
+        rows = await conn.fetch("""
+            SELECT id, character_id, alias, guild_id
+            FROM Alias
+            WHERE guild_id = $1
+            ORDER BY alias;
+        """, guild_id)
+        return [cls(**row) for row in rows]
+
+    @classmethod
+    async def delete_all_by_guild(cls, conn: asyncpg.Connection, guild_id: int) -> int:
+        """
+        Delete all aliases for a given guild_id.
+        Returns the number of rows deleted.
+        """
+        result = await conn.execute("DELETE FROM Alias WHERE guild_id = $1;", guild_id)
+        deleted_count = int(result.split()[-1]) if result.startswith("DELETE") else 0
+        logger.info(f"Deleted {deleted_count} aliases for guild {guild_id}")
+        return deleted_count
