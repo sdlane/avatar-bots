@@ -178,6 +178,10 @@ characters:
     name: "Gihon Wan"
   - identifier: "editor"
     name: "Biani"
+  - identifier: "police"
+    name: "Ba Sing Se Police Headquarters"
+  - identifier: "newspaper"
+    name: "Ba Sing Se Times"
 
 # Optional: Add aliases to existing characters
 # Use this section to add aliases to characters that were created separately
