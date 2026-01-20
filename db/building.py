@@ -105,6 +105,22 @@ class Building:
         return [cls(**dict(row)) for row in rows]
 
     @classmethod
+    async def fetch_active_for_upkeep(cls, conn: asyncpg.Connection, guild_id: int) -> List["Building"]:
+        """
+        Fetch all ACTIVE buildings for upkeep processing.
+        Sorted by: durability (lowest first), territory_id (ascending), id (oldest first).
+        """
+        rows = await conn.fetch("""
+            SELECT id, building_id, name, building_type, territory_id, durability, status,
+                   upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
+                   guild_id
+            FROM Building
+            WHERE guild_id = $1 AND status = 'ACTIVE'
+            ORDER BY durability ASC, territory_id ASC, id ASC;
+        """, guild_id)
+        return [cls(**dict(row)) for row in rows]
+
+    @classmethod
     async def fetch_by_territory(cls, conn: asyncpg.Connection, territory_id: str, guild_id: int) -> List["Building"]:
         """
         Fetch all Buildings in a specific territory.

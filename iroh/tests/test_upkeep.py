@@ -192,8 +192,9 @@ async def test_upkeep_partial_payment_single_resource_short(db_conn, test_server
     assert deficit_event.entity_id == unit.id
     assert deficit_event.event_data['unit_id'] == 'unit-partial'
     assert deficit_event.event_data['resources_deficit'] == {'ore': 3}
-    assert deficit_event.event_data['organization_penalty'] == 3
-    assert deficit_event.event_data['new_organization'] == 7  # 10 - 3
+    # Penalty is count of missing resource TYPES (1 type: ore), not sum of amounts
+    assert deficit_event.event_data['organization_penalty'] == 1
+    assert deficit_event.event_data['new_organization'] == 9  # 10 - 1
     assert deficit_event.event_data['affected_character_ids'] == [character.id]
 
     # Verify UPKEEP_SUMMARY event also generated
@@ -207,9 +208,9 @@ async def test_upkeep_partial_payment_single_resource_short(db_conn, test_server
     assert updated_resources.ore == 0
     assert updated_resources.lumber == 5
 
-    # Verify unit organization reduced
+    # Verify unit organization reduced (1 per missing type, not sum of amounts)
     updated_unit = await Unit.fetch_by_unit_id(db_conn, "unit-partial", TEST_GUILD_ID)
-    assert updated_unit.organization == 7  # 10 - 3
+    assert updated_unit.organization == 9  # 10 - 1 (1 type missing: ore)
 
 
 @pytest.mark.asyncio
@@ -250,8 +251,9 @@ async def test_upkeep_partial_payment_multiple_resources_short(db_conn, test_ser
     assert len(deficit_events) == 1
     deficit_event = deficit_events[0]
     assert deficit_event.event_data['resources_deficit'] == {'ore': 2, 'lumber': 1}
-    assert deficit_event.event_data['organization_penalty'] == 3  # 2 + 1
-    assert deficit_event.event_data['new_organization'] == 7  # 10 - 3
+    # Penalty is count of missing resource TYPES (2 types: ore, lumber), not sum of amounts
+    assert deficit_event.event_data['organization_penalty'] == 2
+    assert deficit_event.event_data['new_organization'] == 8  # 10 - 2
 
     # Verify resources consumed
     updated_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
@@ -259,9 +261,9 @@ async def test_upkeep_partial_payment_multiple_resources_short(db_conn, test_ser
     assert updated_resources.lumber == 0
     assert updated_resources.coal == 5  # 10 - 5
 
-    # Verify unit organization reduced
+    # Verify unit organization reduced (1 per missing type)
     updated_unit = await Unit.fetch_by_unit_id(db_conn, "unit-multi-short", TEST_GUILD_ID)
-    assert updated_unit.organization == 7
+    assert updated_unit.organization == 8  # 10 - 2 (2 types missing: ore, lumber)
 
 
 @pytest.mark.asyncio
@@ -303,12 +305,13 @@ async def test_upkeep_no_resources(db_conn, test_server):
     assert deficit_event.event_data['resources_deficit'] == {
         'ore': 2, 'lumber': 3, 'coal': 1, 'rations': 4
     }
-    assert deficit_event.event_data['organization_penalty'] == 10  # 2+3+1+4
-    assert deficit_event.event_data['new_organization'] == 0  # 10 - 10
+    # Penalty is count of missing resource TYPES (4 types), not sum of amounts
+    assert deficit_event.event_data['organization_penalty'] == 4
+    assert deficit_event.event_data['new_organization'] == 6  # 10 - 4
 
-    # Verify unit organization reduced to 0
+    # Verify unit organization reduced (1 per missing type)
     updated_unit = await Unit.fetch_by_unit_id(db_conn, "unit-no-res", TEST_GUILD_ID)
-    assert updated_unit.organization == 0
+    assert updated_unit.organization == 6  # 10 - 4 (4 types missing)
 
 
 @pytest.mark.asyncio
@@ -338,14 +341,14 @@ async def test_upkeep_organization_can_go_negative(db_conn, test_server):
     # Execute upkeep phase
     events = await execute_upkeep_phase(db_conn, TEST_GUILD_ID, 1)
 
-    # Verify deficit event
+    # Verify deficit event - penalty is count of missing types (3 types), not sum
     deficit_event = events[0]
-    assert deficit_event.event_data['organization_penalty'] == 15  # 5+5+5
-    assert deficit_event.event_data['new_organization'] == -12  # 3 - 15
+    assert deficit_event.event_data['organization_penalty'] == 3  # 3 types missing: ore, lumber, coal
+    assert deficit_event.event_data['new_organization'] == 0  # 3 - 3
 
-    # Verify unit organization is negative
+    # Verify unit organization (1 per missing type)
     updated_unit = await Unit.fetch_by_unit_id(db_conn, "unit-neg-org", TEST_GUILD_ID)
-    assert updated_unit.organization == -12
+    assert updated_unit.organization == 0  # 3 - 3 (3 types missing)
 
 
 # Phase 3: Multiple owners and edge cases tests
@@ -424,9 +427,9 @@ async def test_upkeep_multiple_owners(db_conn, test_server):
     owner2_summary = next(e for e in summary_events if e.entity_id == char2.id)
     assert owner2_summary.event_data['resources_spent']['lumber'] == 5
 
-    # Verify Owner 2's deficit event
+    # Verify Owner 2's deficit event - penalty is count of types (1 type: lumber), not sum
     assert deficit_events[0].event_data['resources_deficit'] == {'lumber': 5}
-    assert deficit_events[0].event_data['organization_penalty'] == 5
+    assert deficit_events[0].event_data['organization_penalty'] == 1  # 1 type missing
 
     # Verify resources deducted independently
     updated_res1 = await PlayerResources.fetch_by_character(db_conn, char1.id, TEST_GUILD_ID)
@@ -434,11 +437,11 @@ async def test_upkeep_multiple_owners(db_conn, test_server):
     assert updated_res1.ore == 15  # 20 - 5
     assert updated_res2.lumber == 0  # 5 - 5
 
-    # Verify unit organizations
+    # Verify unit organizations (1 per missing type)
     updated_unit1 = await Unit.fetch_by_unit_id(db_conn, "owner1-unit", TEST_GUILD_ID)
     updated_unit2 = await Unit.fetch_by_unit_id(db_conn, "owner2-unit", TEST_GUILD_ID)
     assert updated_unit1.organization == 10  # Unchanged
-    assert updated_unit2.organization == 3  # 8 - 5
+    assert updated_unit2.organization == 7  # 8 - 1 (1 type missing: lumber)
 
 
 @pytest.mark.asyncio
@@ -532,23 +535,23 @@ async def test_upkeep_multiple_units_same_owner_resource_sharing(db_conn, test_s
     assert len(summary_events) == 1
     assert summary_events[0].event_data['resources_spent']['ore'] == 7
 
-    # Verify deficit event for second unit (missing 3 ore)
+    # Verify deficit event for second unit (missing 3 ore) - penalty is count of types
     deficit_events = [e for e in events if e.event_type == 'UPKEEP_DEFICIT']
     assert len(deficit_events) == 1
     assert deficit_events[0].event_data['resources_deficit'] == {'ore': 3}
-    assert deficit_events[0].event_data['organization_penalty'] == 3
+    assert deficit_events[0].event_data['organization_penalty'] == 1  # 1 type missing
 
     # Verify resources depleted
     updated_resources = await PlayerResources.fetch_by_character(db_conn, character.id, TEST_GUILD_ID)
     assert updated_resources.ore == 0
 
-    # Verify one unit ok, one penalized
+    # Verify one unit ok, one penalized (1 per missing type)
     # Note: order depends on fetch_all ordering (by unit_id)
     updated_unit1 = await Unit.fetch_by_unit_id(db_conn, "unit-share-1", TEST_GUILD_ID)
     updated_unit2 = await Unit.fetch_by_unit_id(db_conn, "unit-share-2", TEST_GUILD_ID)
     # First unit gets full payment, second unit gets partial
     assert updated_unit1.organization == 10  # Full payment
-    assert updated_unit2.organization == 7   # 10 - 3
+    assert updated_unit2.organization == 9   # 10 - 1 (1 type missing: ore)
 
 
 # Phase 4: Event formatting tests
@@ -619,8 +622,8 @@ def test_upkeep_deficit_character_line_format():
             'ore': 3,
             'lumber': 2
         },
-        'organization_penalty': 5,
-        'new_organization': 5,
+        'organization_penalty': 2,  # 2 types missing (ore, lumber)
+        'new_organization': 8,
         'affected_character_ids': [123]
     }
     line = upkeep_deficit_character_line(event_data)
@@ -628,8 +631,8 @@ def test_upkeep_deficit_character_line_format():
     assert 'Insufficient upkeep' in line
     assert 'ore:3' in line
     assert 'lumber:2' in line
-    assert '-5' in line
-    assert '5' in line  # new organization
+    assert '-2' in line
+    assert '8' in line  # new organization
 
 
 def test_upkeep_deficit_gm_line_format():
@@ -637,13 +640,13 @@ def test_upkeep_deficit_gm_line_format():
     event_data = {
         'unit_id': 'unit-test',
         'resources_deficit': {'ore': 3},
-        'organization_penalty': 3,
-        'new_organization': 7,
+        'organization_penalty': 1,  # 1 type missing (ore)
+        'new_organization': 9,
         'affected_character_ids': [123]
     }
     line = upkeep_deficit_gm_line(event_data)
     assert 'unit-test' in line
-    assert 'org -3' in line
+    assert 'org -1' in line
 
 
 def test_upkeep_total_deficit_character_line_format():
@@ -855,8 +858,8 @@ def test_upkeep_deficit_owner_view_format():
         'unit_id': 'unit-test',
         'unit_name': 'Test Unit',
         'resources_deficit': {'ore': 3},
-        'organization_penalty': 3,
-        'new_organization': 7,
+        'organization_penalty': 1,  # 1 type missing (ore)
+        'new_organization': 9,
         'owner_character_id': 123,
         'owner_name': 'Owner Name',
         'affected_character_ids': [123, 456]
@@ -874,8 +877,8 @@ def test_upkeep_deficit_commander_view_format():
         'unit_id': 'unit-test',
         'unit_name': 'Test Unit',
         'resources_deficit': {'ore': 3},
-        'organization_penalty': 3,
-        'new_organization': 7,
+        'organization_penalty': 1,  # 1 type missing (ore)
+        'new_organization': 9,
         'owner_character_id': 123,
         'owner_name': 'Owner Name',
         'affected_character_ids': [123, 456]

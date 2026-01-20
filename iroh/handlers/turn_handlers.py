@@ -7,7 +7,7 @@ from datetime import datetime
 from db import (
     Order, Unit, Character, Faction, FactionMember, Territory,
     PlayerResources, WargameConfig, TurnLog, FactionJoinRequest, War, WarParticipant,
-    FactionResources, FactionPermission
+    FactionResources, FactionPermission, Building
 )
 from order_types import *
 from orders import *
@@ -925,6 +925,212 @@ async def execute_faction_spending(
     return events
 
 
+async def execute_building_upkeep(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Execute building upkeep. Buildings are processed:
+    - Lowest durability first
+    - Then by territory_id (ascending)
+    - Then by id (oldest first)
+
+    Durability penalty = count of different resource TYPES missing (not amounts).
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog events
+    """
+    events = []
+    logger.info(f"Building upkeep: starting for guild {guild_id}, turn {turn_number}")
+
+    # Fetch all active buildings sorted for upkeep processing
+    buildings = await Building.fetch_active_for_upkeep(conn, guild_id)
+    if not buildings:
+        logger.info(f"Building upkeep: no active buildings found for guild {guild_id}")
+        return events
+
+    resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum']
+
+    for building in buildings:
+        # Skip buildings with no upkeep
+        total_upkeep = (
+            building.upkeep_ore + building.upkeep_lumber + building.upkeep_coal +
+            building.upkeep_rations + building.upkeep_cloth + building.upkeep_platinum
+        )
+        if total_upkeep == 0:
+            continue
+
+        # Find the territory to determine controller
+        territory = await Territory.fetch_by_territory_id(conn, building.territory_id, guild_id)
+        if not territory:
+            logger.warning(f"Building upkeep: territory {building.territory_id} not found for building {building.building_id}")
+            # Building in nonexistent territory - all upkeep is deficit
+            deficit_types = []
+            for rt in resource_types:
+                if getattr(building, f'upkeep_{rt}') > 0:
+                    deficit_types.append(rt)
+
+            if deficit_types:
+                durability_penalty = len(deficit_types)
+                building.durability -= durability_penalty
+                await building.upsert(conn)
+
+                events.append(TurnLog(
+                    turn_number=turn_number,
+                    phase=TurnPhase.UPKEEP.value,
+                    event_type='BUILDING_UPKEEP_DEFICIT',
+                    entity_type='building',
+                    entity_id=building.id,
+                    event_data={
+                        'building_id': building.building_id,
+                        'building_name': building.name,
+                        'territory_id': building.territory_id,
+                        'deficit_types': deficit_types,
+                        'durability_penalty': durability_penalty,
+                        'new_durability': building.durability,
+                        'affected_character_ids': []
+                    },
+                    guild_id=guild_id
+                ))
+            continue
+
+        # Determine controller (character or faction)
+        owner_type = territory.get_owner_type()
+        resources = None
+        affected_character_ids = []
+
+        if owner_type == 'character':
+            controller_id = territory.controller_character_id
+            resources = await PlayerResources.fetch_by_character(conn, controller_id, guild_id)
+            if not resources:
+                resources = PlayerResources(
+                    character_id=controller_id,
+                    ore=0, lumber=0, coal=0, rations=0, cloth=0, platinum=0,
+                    guild_id=guild_id
+                )
+            affected_character_ids = [controller_id]
+
+        elif owner_type == 'faction':
+            faction_id = territory.controller_faction_id
+            resources = await FactionResources.fetch_by_faction(conn, faction_id, guild_id)
+            if not resources:
+                resources = FactionResources(
+                    faction_id=faction_id,
+                    ore=0, lumber=0, coal=0, rations=0, cloth=0, platinum=0,
+                    guild_id=guild_id
+                )
+            # Get characters with FINANCIAL permission for notifications
+            affected_character_ids = await FactionPermission.fetch_characters_with_permission(
+                conn, faction_id, "FINANCIAL", guild_id
+            )
+
+        else:
+            # Uncontrolled territory - all upkeep is deficit
+            deficit_types = []
+            for rt in resource_types:
+                if getattr(building, f'upkeep_{rt}') > 0:
+                    deficit_types.append(rt)
+
+            if deficit_types:
+                durability_penalty = len(deficit_types)
+                building.durability -= durability_penalty
+                await building.upsert(conn)
+
+                events.append(TurnLog(
+                    turn_number=turn_number,
+                    phase=TurnPhase.UPKEEP.value,
+                    event_type='BUILDING_UPKEEP_DEFICIT',
+                    entity_type='building',
+                    entity_id=building.id,
+                    event_data={
+                        'building_id': building.building_id,
+                        'building_name': building.name,
+                        'territory_id': building.territory_id,
+                        'deficit_types': deficit_types,
+                        'durability_penalty': durability_penalty,
+                        'new_durability': building.durability,
+                        'affected_character_ids': []
+                    },
+                    guild_id=guild_id
+                ))
+            continue
+
+        # Process upkeep payment
+        resources_paid = {}
+        deficit_types = []
+
+        for rt in resource_types:
+            needed = getattr(building, f'upkeep_{rt}')
+            if needed == 0:
+                continue
+
+            available = getattr(resources, rt)
+            deducted = min(needed, available)
+            setattr(resources, rt, available - deducted)
+
+            if deducted > 0:
+                resources_paid[rt] = deducted
+
+            if deducted < needed:
+                deficit_types.append(rt)
+
+        # Save updated resources
+        await resources.upsert(conn)
+
+        # Generate appropriate event
+        if deficit_types:
+            durability_penalty = len(deficit_types)
+            building.durability -= durability_penalty
+            await building.upsert(conn)
+
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.UPKEEP.value,
+                event_type='BUILDING_UPKEEP_DEFICIT',
+                entity_type='building',
+                entity_id=building.id,
+                event_data={
+                    'building_id': building.building_id,
+                    'building_name': building.name,
+                    'territory_id': building.territory_id,
+                    'resources_paid': resources_paid,
+                    'deficit_types': deficit_types,
+                    'durability_penalty': durability_penalty,
+                    'new_durability': building.durability,
+                    'affected_character_ids': affected_character_ids
+                },
+                guild_id=guild_id
+            ))
+            logger.info(f"Building upkeep: {building.building_id} deficit types {deficit_types}, durability -{durability_penalty} -> {building.durability}")
+
+        elif resources_paid:
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.UPKEEP.value,
+                event_type='BUILDING_UPKEEP_PAID',
+                entity_type='building',
+                entity_id=building.id,
+                event_data={
+                    'building_id': building.building_id,
+                    'building_name': building.name,
+                    'territory_id': building.territory_id,
+                    'resources_paid': resources_paid,
+                    'affected_character_ids': affected_character_ids
+                },
+                guild_id=guild_id
+            ))
+            logger.info(f"Building upkeep: {building.building_id} paid {resources_paid}")
+
+    logger.info(f"Building upkeep: finished for guild {guild_id}, turn {turn_number}")
+    return events
+
+
 async def execute_upkeep_phase(
     conn: asyncpg.Connection,
     guild_id: int,
@@ -953,6 +1159,10 @@ async def execute_upkeep_phase(
     # Process faction spending first, before unit upkeep
     spending_events = await execute_faction_spending(conn, guild_id, turn_number)
     events.extend(spending_events)
+
+    # Process building upkeep before unit upkeep
+    building_events = await execute_building_upkeep(conn, guild_id, turn_number)
+    events.extend(building_events)
 
     # Fetch all units for the guild
     all_units = await Unit.fetch_all(conn, guild_id)
@@ -1025,7 +1235,7 @@ async def execute_upkeep_phase(
 
             if unit_deficit:
                 units_with_deficit += 1
-                penalty = sum(unit_deficit.values())
+                penalty = len(unit_deficit)  # Count of different resource TYPES missing (1 per type)
                 unit.organization -= penalty
                 await unit.upsert(conn)
 
@@ -1135,7 +1345,7 @@ async def execute_upkeep_phase(
 
             if unit_deficit:
                 units_with_deficit += 1
-                penalty = sum(unit_deficit.values())
+                penalty = len(unit_deficit)  # Count of different resource TYPES missing (1 per type)
                 unit.organization -= penalty
                 await unit.upsert(conn)
 
@@ -1270,6 +1480,67 @@ async def disband_low_organization_units(
     return events
 
 
+async def destroy_low_durability_buildings(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Destroy all buildings with durability <= 0 by setting status to DESTROYED.
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog events for destroyed buildings
+    """
+    events = []
+
+    # Fetch all active buildings and filter for those with durability <= 0
+    all_buildings = await Building.fetch_all(conn, guild_id)
+    buildings_to_destroy = [b for b in all_buildings if b.durability <= 0 and b.status == 'ACTIVE']
+
+    for building in buildings_to_destroy:
+        # Set status to DESTROYED
+        building.status = 'DESTROYED'
+        await building.upsert(conn)
+
+        # Find the territory to get affected character IDs
+        affected_ids = []
+        territory = await Territory.fetch_by_territory_id(conn, building.territory_id, guild_id)
+        if territory:
+            owner_type = territory.get_owner_type()
+            if owner_type == 'character':
+                affected_ids = [territory.controller_character_id]
+            elif owner_type == 'faction':
+                affected_ids = await FactionPermission.fetch_characters_with_permission(
+                    conn, territory.controller_faction_id, "FINANCIAL", guild_id
+                )
+
+        # Create BUILDING_DESTROYED event
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.ORGANIZATION.value,
+            event_type='BUILDING_DESTROYED',
+            entity_type='building',
+            entity_id=building.id,
+            event_data={
+                'building_id': building.building_id,
+                'building_name': building.name,
+                'territory_id': building.territory_id,
+                'final_durability': building.durability,
+                'affected_character_ids': affected_ids
+            },
+            guild_id=guild_id
+        ))
+
+        logger.info(f"Organization phase: Destroyed building {building.building_id} (durability={building.durability})")
+
+    return events
+
+
 async def recover_organization_in_friendly_territory(
     conn: asyncpg.Connection,
     guild_id: int,
@@ -1352,7 +1623,8 @@ async def execute_organization_phase(
     Execute the Organization phase.
 
     1. Disband units with organization <= 0
-    2. Recover organization for units in friendly territory
+    2. Destroy buildings with durability <= 0
+    3. Recover organization for units in friendly territory
 
     Args:
         conn: Database connection
@@ -1371,14 +1643,21 @@ async def execute_organization_phase(
     )
     events.extend(disband_events)
 
-    # Step 2: Recover organization for units in friendly territory
+    # Step 2: Destroy buildings with durability <= 0
+    building_destroy_events = await destroy_low_durability_buildings(
+        conn, guild_id, turn_number
+    )
+    events.extend(building_destroy_events)
+
+    # Step 3: Recover organization for units in friendly territory
     recovery_events = await recover_organization_in_friendly_territory(
         conn, guild_id, turn_number
     )
     events.extend(recovery_events)
 
     logger.info(f"Organization phase: finished organization phase for guild {guild_id}, turn {turn_number}. "
-                f"Disbanded {len(disband_events)} units, recovered {len(recovery_events)} units.")
+                f"Disbanded {len(disband_events)} units, destroyed {len(building_destroy_events)} buildings, "
+                f"recovered {len(recovery_events)} units.")
     return events
 
 

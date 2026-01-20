@@ -106,6 +106,15 @@ from .construction_events import (
     construction_failed_gm_line,
 )
 
+from .building_upkeep_events import (
+    building_upkeep_paid_character_line,
+    building_upkeep_paid_gm_line,
+    building_upkeep_deficit_character_line,
+    building_upkeep_deficit_gm_line,
+    building_destroyed_character_line,
+    building_destroyed_gm_line,
+)
+
 
 @dataclass
 class EventHandler:
@@ -296,6 +305,20 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'CONSTRUCTION_FAILED': EventHandler(
         get_character_line=construction_failed_character_line,
         get_gm_line=construction_failed_gm_line
+    ),
+
+    # Building upkeep events
+    'BUILDING_UPKEEP_PAID': EventHandler(
+        get_character_line=building_upkeep_paid_character_line,
+        get_gm_line=building_upkeep_paid_gm_line
+    ),
+    'BUILDING_UPKEEP_DEFICIT': EventHandler(
+        get_character_line=building_upkeep_deficit_character_line,
+        get_gm_line=building_upkeep_deficit_gm_line
+    ),
+    'BUILDING_DESTROYED': EventHandler(
+        get_character_line=building_destroyed_character_line,
+        get_gm_line=building_destroyed_gm_line
     ),
 }
 
