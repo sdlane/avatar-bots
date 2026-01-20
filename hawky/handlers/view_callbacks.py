@@ -30,6 +30,13 @@ async def assign_character_callback(interaction: discord.Interaction,
                                                                 new_identifier,
                                                                 interaction.guild_id)
 
+            if new_character is None:
+                await conn.close()
+                await interaction.response.send_message(
+                    emotive_message(f"Character '{new_identifier}' not found"),
+                    ephemeral=True)
+                return
+
             # Add them to the new channel
             overwrite = discord.PermissionOverwrite()
             overwrite.send_messages = True
@@ -46,13 +53,15 @@ async def assign_character_callback(interaction: discord.Interaction,
         await conn.close()
 
 
-    # Send confirmation by editing the original message
+    # Send confirmation
     if new_identifier == "None":
-        await interaction.response.edit_message(content=f"Removed character assignment",
-                                                view=None)
+        await interaction.response.send_message(
+            content=f"Removed character assignment",
+            ephemeral=True)
     else:
-        await interaction.response.edit_message(content=f"Assigned character with identifer: {new_identifier}",
-                                            view=None)
+        await interaction.response.send_message(
+            content=f"Assigned character with identifier: {new_identifier}",
+            ephemeral=True)
 
 
 async def config_character_callback(interaction: discord.Interaction,

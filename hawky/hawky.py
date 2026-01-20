@@ -920,16 +920,9 @@ async def config_character(interaction: discord.Interaction, identifier: str):
 async def assign_character(interaction: discord.Interaction, member: discord.Member):
     async with db_pool.acquire() as conn:
         # Get the user's previous character
-        old_character = Character.fetch_by_user(conn, member.id, interaction.guild_id)
-        
-        # Send menu with dropdown to select un-selected characters
-        unowned_characters = Character.fetch_unowned(conn, interaction.guild_id)
+        old_character = await Character.fetch_by_user(conn, member.id, interaction.guild_id)
 
-        old_character = await old_character
-        unowned_characters = await unowned_characters
-
-    view = AssignCharacterView(old_character, unowned_characters, member.id)
-    await interaction.response.send_message("Select a character", view=view, ephemeral=True)    
+    await interaction.response.send_modal(AssignCharacterModal(old_character, member.id))    
 
 @tree.context_menu(name='View Character')
 async def view_character(interaction: discord.Interaction, member: discord.Member):

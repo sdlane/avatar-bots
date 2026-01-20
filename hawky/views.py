@@ -29,33 +29,28 @@ class Confirm(ui.View):
         self.interaction = interaction
         self.stop()
 
-class AssignCharacterDropdown(discord.ui.Select):
-    def __init__(self, old_character: Character, unowned_characters: List[Character], user_id: int):
-        options = []
+class AssignCharacterModal(ui.Modal, title="Assign Character"):
+    identifier = ui.TextInput(
+        label='Character Identifier',
+        style=discord.TextStyle.short,
+        placeholder='Enter identifier or "None" to unassign',
+        required=True
+    )
+
+    def __init__(self, old_character: Optional[Character], user_id: int):
+        super().__init__()
         self.old_character = old_character
         self.user_id = user_id
         if old_character is not None:
-            options.append(discord.SelectOption(label=old_character.identifier, default = True))
-            options.append(discord.SelectOption(label="None"))
-        else:
-            options.append(discord.SelectOption(label="None", default = True))
+            self.identifier.default = old_character.identifier
 
-        for character in unowned_characters:
-            options.append(discord.SelectOption(label=character.identifier))
-        
-        super().__init__(min_values=1, max_values=1, options=options)
-
-    async def callback(self, interaction: discord.Interaction):
-        await handlers.assign_character_callback(interaction,
-                                                 self.values[0],
-                                                 self.old_character,
-                                                 self.user_id)
-
-class AssignCharacterView(ui.View):
-    def __init__(self, old_character: Character, unowned_characters: List[Character], user_id: int):        
-        super().__init__()
-
-        self.add_item(AssignCharacterDropdown(old_character, unowned_characters, user_id))
+    async def on_submit(self, interaction: discord.Interaction):
+        await handlers.assign_character_callback(
+            interaction,
+            self.identifier.value,
+            self.old_character,
+            self.user_id
+        )
 
 class SendLetterDropdown(discord.ui.Select):
     def __init__(self,
