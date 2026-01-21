@@ -2738,6 +2738,141 @@ STEPS:
 
 
 ================================================================================
+SECTION 15: UNIT OBSERVATION EVENTS
+================================================================================
+
+Unit observation events are generated during the movement phase. Units can observe
+other units in their territory (distance 0), adjacent territories (distance 1),
+and for scouts, territories at distance 2.
+
+Infiltrators cannot be observed by anyone, but can observe others.
+
+--------------------------------------------------------------------------------
+TEST 15.1: Basic Observation Setup
+--------------------------------------------------------------------------------
+PURPOSE: Set up units for observation testing
+
+STEPS:
+15.1.1 Create test config:
+    /create-test-config
+
+    EXPECTED: Test configuration created including scout and infiltrator units
+
+15.1.2 Verify scout unit exists:
+    /view-unit unit_id:FN-SCOUT-001
+
+    EXPECTED: Fire Nation Scout unit visible with scout keyword
+
+15.1.3 Verify infiltrator unit exists:
+    /view-unit unit_id:EK-INF-001
+
+    EXPECTED: Earth Kingdom Infiltrator unit visible with infiltrator keyword
+
+
+--------------------------------------------------------------------------------
+TEST 15.2: Adjacent Territory Observation
+--------------------------------------------------------------------------------
+PURPOSE: Test that units observe other units in adjacent territories
+
+SETUP:
+- FN-001 in territory 1
+- EK-001 in territory 2
+- Territories 1 and 2 are adjacent
+
+STEPS:
+15.2.1 Resolve turn with no movement orders:
+    /resolve-turn
+
+    EXPECTED: Turn report shows UNIT_OBSERVED events where:
+    - FN-001 owner sees EK-001 (adjacent)
+    - EK-001 owner sees FN-001 (adjacent)
+
+15.2.2 Check test-zuko's turn report:
+    Switch to test-zuko
+    /my-turn-report
+
+    EXPECTED: Shows observation of Earth Kingdom units in adjacent territory 2
+
+
+--------------------------------------------------------------------------------
+TEST 15.3: Scout Extended Range (Distance 2)
+--------------------------------------------------------------------------------
+PURPOSE: Test that scouts can observe units 2 territories away
+
+SETUP:
+- FN-SCOUT-001 (scout) in territory 1
+- Territory 1 -> Territory 2 -> CITY (Ba Sing Se) adjacency chain
+
+STEPS:
+15.3.1 Move an enemy unit to CITY:
+    [Use admin commands to place a unit in CITY territory]
+
+15.3.2 Resolve turn:
+    /resolve-turn
+
+    EXPECTED: Scout owner (test-zuko) sees unit in CITY at distance 2
+
+
+--------------------------------------------------------------------------------
+TEST 15.4: Infiltrator Invisibility
+--------------------------------------------------------------------------------
+PURPOSE: Test that infiltrators cannot be observed
+
+SETUP:
+- EK-INF-001 (infiltrator) in territory 2
+- FN-001 in territory 1 (adjacent to territory 2)
+
+STEPS:
+15.4.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - FN-001 owner does NOT see EK-INF-001 in turn report
+    - EK-INF-001 owner (test-toph) DOES see FN-001 in turn report
+    (Infiltrators are invisible but can still observe)
+
+
+--------------------------------------------------------------------------------
+TEST 15.5: Observation During Movement
+--------------------------------------------------------------------------------
+PURPOSE: Test that observation events are generated as units move
+
+SETUP:
+- FN-001 in territory 1
+- EK-001 in territory 3 (adjacent to territory 2 but not territory 1)
+
+STEPS:
+15.5.1 Order FN-001 to transit through territory 2:
+    /order-unit action:transit path:1,2,3
+
+15.5.2 Resolve turn:
+    /resolve-turn
+
+    EXPECTED: Turn report shows:
+    - FN-001 observed EK-001 when entering territory 2 (if adjacent)
+    - Or when arriving at territory 3 (same territory)
+
+
+--------------------------------------------------------------------------------
+TEST 15.6: Owner Exclusion
+--------------------------------------------------------------------------------
+PURPOSE: Test that unit owners don't receive observations of their own units
+
+SETUP:
+- test-zuko owns FN-001 and FN-002
+- Both units in territory 1
+
+STEPS:
+15.6.1 Resolve turn:
+    /resolve-turn
+
+15.6.2 Check test-zuko's turn report:
+    /my-turn-report
+
+    EXPECTED: test-zuko does NOT see observations of their own units
+
+
+================================================================================
 CLEANUP
 ================================================================================
 

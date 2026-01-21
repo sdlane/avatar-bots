@@ -10,7 +10,7 @@ from datetime import datetime
 import logging
 from collections import defaultdict
 
-from db import Order, Unit, Territory, TurnLog, FactionPermission, Character, Alliance, WarParticipant
+from db import Order, Unit, Territory, TurnLog, FactionPermission, Character, Alliance, WarParticipant, TerritoryAdjacency, Faction
 from order_types import OrderType, OrderStatus, TurnPhase
 from orders.movement_state import MovementUnitState, MovementStatus, MovementAction
 
@@ -880,28 +880,271 @@ async def check_engagement(
     return events
 
 
+def unit_has_keyword(unit: Unit, keyword: str) -> bool:
+    """
+    Check if a unit has a specific keyword (case-insensitive).
+
+    Args:
+        unit: The unit to check
+        keyword: The keyword to look for
+
+    Returns:
+        True if the unit has the keyword, False otherwise
+    """
+    if not unit.keywords:
+        return False
+    keyword_lower = keyword.lower()
+    return any(k.lower() == keyword_lower for k in unit.keywords)
+
+
+async def get_territories_in_range(
+    conn: asyncpg.Connection,
+    territory_id: str,
+    range_distance: int,
+    guild_id: int
+) -> Dict[int, List[str]]:
+    """
+    Get all territories within range, organized by distance.
+
+    Args:
+        conn: Database connection
+        territory_id: Starting territory ID
+        range_distance: Maximum distance (1 or 2)
+        guild_id: Guild ID
+
+    Returns:
+        Dict mapping distance to list of territory IDs.
+        {0: [origin], 1: [adjacent], 2: [2-step territories]}
+    """
+    result: Dict[int, List[str]] = {}
+
+    # Distance 0 is the same territory
+    result[0] = [territory_id]
+
+    # Distance 1 is adjacent territories
+    adjacent = await TerritoryAdjacency.fetch_adjacent(conn, territory_id, guild_id)
+    result[1] = adjacent
+
+    if range_distance >= 2:
+        # Distance 2 is territories adjacent to distance-1 territories
+        distance_2 = set()
+        for adj_territory in adjacent:
+            adj_adjacent = await TerritoryAdjacency.fetch_adjacent(conn, adj_territory, guild_id)
+            distance_2.update(adj_adjacent)
+
+        # Remove origin and distance-1 territories
+        distance_2.discard(territory_id)
+        distance_2 -= set(adjacent)
+        result[2] = list(distance_2)
+
+    return result
+
+
+async def recipient_should_see_observation(
+    conn: asyncpg.Connection,
+    recipient_character_id: int,
+    observed: Unit,
+    guild_id: int
+) -> bool:
+    """
+    Check if a recipient should receive an observation event for observed unit.
+
+    Returns False (skip event) if recipient:
+    - Owns the observed unit (owner_character_id == recipient)
+    - Commands the observed unit (commander_character_id == recipient)
+    - For faction-owned observed unit: recipient has COMMAND permission for that faction
+
+    Returns True otherwise.
+
+    Args:
+        conn: Database connection
+        recipient_character_id: The character who would receive the event
+        observed: The unit being observed
+        guild_id: Guild ID
+
+    Returns:
+        True if the recipient should see the observation, False otherwise
+    """
+    # Character-owned unit checks
+    if observed.owner_character_id == recipient_character_id:
+        return False
+    if observed.commander_character_id == recipient_character_id:
+        return False
+
+    # Faction-owned unit check
+    if observed.owner_faction_id:
+        has_command = await FactionPermission.has_permission(
+            conn, observed.owner_faction_id, recipient_character_id, "COMMAND", guild_id
+        )
+        if has_command:
+            return False
+
+    return True
+
+
+async def get_observation_recipients(
+    conn: asyncpg.Connection,
+    observer: Unit,
+    guild_id: int
+) -> List[int]:
+    """
+    Get character IDs that should receive observation events from this observer.
+
+    Character-owned: owner + commander (if different)
+    Faction-owned: all characters with COMMAND permission
+
+    Args:
+        conn: Database connection
+        observer: The observing unit
+        guild_id: Guild ID
+
+    Returns:
+        List of character IDs to notify
+    """
+    if observer.owner_character_id is not None:
+        # Character-owned unit
+        recipients = [observer.owner_character_id]
+        if observer.commander_character_id and observer.commander_character_id != observer.owner_character_id:
+            recipients.append(observer.commander_character_id)
+        return recipients
+    elif observer.owner_faction_id is not None:
+        # Faction-owned unit
+        return await FactionPermission.fetch_characters_with_permission(
+            conn, observer.owner_faction_id, "COMMAND", guild_id
+        )
+    return []
+
+
 async def generate_observation_reports(
     conn: asyncpg.Connection,
     states: List[MovementUnitState],
     guild_id: int,
-    turn_number: int
-) -> List[TurnLog]:
+    turn_number: int,
+    tick: Optional[int] = None,
+    observation_tracker: Optional[Dict[Tuple[int, int], int]] = None
+) -> Tuple[List[TurnLog], Dict[Tuple[int, int], int]]:
     """
-    Generate observation reports for units seeing other units move.
+    Generate observation events for all units seeing other units.
 
-    PLACEHOLDER - Will be implemented with observation system.
+    Units observe other units at:
+    - Distance 0 (same territory)
+    - Distance 1 (adjacent territory)
+    - Distance 2 (for scouts only)
+
+    Infiltrators cannot be observed by anyone.
 
     Args:
         conn: Database connection
-        states: List of MovementUnitState objects
+        states: List of MovementUnitState objects (for moving unit positions)
         guild_id: Guild ID
         turn_number: Current turn number
+        tick: Current tick number (for deduplication tracking)
+        observation_tracker: Dict tracking (recipient_char_id, observed_unit_id) -> tick
 
     Returns:
-        List of events (empty for now)
+        (events, updated_tracker): Tuple of events and updated tracker dict
     """
-    # Placeholder for observation reports
-    return []
+    if observation_tracker is None:
+        observation_tracker = {}
+
+    events: List[TurnLog] = []
+
+    # Get all active units in guild
+    all_units = await Unit.fetch_all(conn, guild_id)
+    active_units = [u for u in all_units if u.status == 'ACTIVE' and u.current_territory_id]
+
+    # Build unit_id -> MovementUnitState mapping for moving units
+    # This lets us use current tick positions instead of database positions
+    moving_unit_positions: Dict[str, str] = {}
+    for state in states:
+        for unit in state.units:
+            moving_unit_positions[unit.unit_id] = state.current_territory_id
+
+    def get_unit_current_territory(unit: Unit) -> str:
+        """Get unit's current territory (from movement state if moving, else from db)."""
+        if unit.unit_id in moving_unit_positions:
+            return moving_unit_positions[unit.unit_id]
+        return unit.current_territory_id
+
+    # Build territory -> units mapping (using current tick positions)
+    units_by_territory: Dict[str, List[Unit]] = defaultdict(list)
+    for unit in active_units:
+        current_territory = get_unit_current_territory(unit)
+        if current_territory:
+            units_by_territory[current_territory].append(unit)
+
+    # Process each potential observer
+    for observer in active_units:
+        # Get observer's current position
+        observer_territory = get_unit_current_territory(observer)
+        if not observer_territory:
+            continue
+
+        # Determine observation range
+        is_scout = unit_has_keyword(observer, 'scout')
+        observation_range = 2 if is_scout else 1
+
+        # Get territories in range (includes distance 0 = same territory)
+        territories_in_range = await get_territories_in_range(
+            conn, observer_territory, observation_range, guild_id
+        )
+
+        # Get recipient character IDs for this observer
+        recipient_ids = await get_observation_recipients(conn, observer, guild_id)
+
+        if not recipient_ids:
+            continue
+
+        # Check each territory in range
+        for distance, territory_list in territories_in_range.items():
+            for territory_id in territory_list:
+                for observed in units_by_territory.get(territory_id, []):
+                    # Skip self
+                    if observed.id == observer.id:
+                        continue
+
+                    # Skip infiltrators (invisible to everyone)
+                    if unit_has_keyword(observed, 'infiltrator'):
+                        continue
+
+                    # Get observed unit's faction info
+                    observed_faction_id = await get_unit_group_faction_id(conn, [observed], guild_id)
+                    observed_faction = None
+                    if observed_faction_id:
+                        observed_faction = await Faction.fetch_by_id(conn, observed_faction_id)
+
+                    # Create ONE event per recipient character
+                    for recipient_id in recipient_ids:
+                        # Skip if recipient owns/commands the observed unit
+                        if not await recipient_should_see_observation(conn, recipient_id, observed, guild_id):
+                            continue
+
+                        # Track observation per (recipient, observed_unit)
+                        key = (recipient_id, observed.id)
+                        observation_tracker[key] = tick if tick is not None else 0
+
+                        events.append(TurnLog(
+                            turn_number=turn_number,
+                            phase=TurnPhase.MOVEMENT.value,
+                            event_type='UNIT_OBSERVED',
+                            entity_type='unit',
+                            entity_id=observed.id,
+                            event_data={
+                                'observer_unit_id': observer.unit_id,
+                                'observer_territory': observer_territory,
+                                'observed_unit_id': observed.unit_id,
+                                'observed_unit_type': observed.unit_type,
+                                'observed_faction_id': observed_faction.faction_id if observed_faction else None,
+                                'observed_faction_name': observed_faction.name if observed_faction else 'Unaffiliated',
+                                'observed_territory': territory_id,
+                                'distance': distance,
+                                'tick': tick,
+                                'affected_character_ids': [recipient_id]
+                            },
+                            guild_id=guild_id
+                        ))
+
+    return events, observation_tracker
 
 
 async def finalize_movement_order(

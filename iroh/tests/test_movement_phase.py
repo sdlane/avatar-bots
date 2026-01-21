@@ -1825,3 +1825,661 @@ def test_engagement_detected_gm_line_format():
     assert 'T5' in line
     assert 'enemy-1' in line
     assert 'raid_defense' in line
+
+
+# ============================================================================
+# Observation Tests
+# ============================================================================
+
+from handlers.movement_handlers import (
+    unit_has_keyword,
+    get_territories_in_range,
+    recipient_should_see_observation,
+    get_observation_recipients,
+    generate_observation_reports,
+)
+from db import TerritoryAdjacency
+from event_logging.movement_events import unit_observed_character_line
+
+
+def test_unit_has_keyword_with_keyword():
+    """Test unit_has_keyword returns True when unit has the keyword."""
+    unit = Unit(unit_id="test", unit_type="scout", keywords=["scout", "fast"], guild_id=TEST_GUILD_ID)
+    assert unit_has_keyword(unit, "scout") is True
+    assert unit_has_keyword(unit, "fast") is True
+
+
+def test_unit_has_keyword_without_keyword():
+    """Test unit_has_keyword returns False when unit doesn't have the keyword."""
+    unit = Unit(unit_id="test", unit_type="infantry", keywords=["heavy"], guild_id=TEST_GUILD_ID)
+    assert unit_has_keyword(unit, "scout") is False
+
+
+def test_unit_has_keyword_case_insensitive():
+    """Test unit_has_keyword is case insensitive."""
+    unit = Unit(unit_id="test", unit_type="scout", keywords=["Scout"], guild_id=TEST_GUILD_ID)
+    assert unit_has_keyword(unit, "scout") is True
+    assert unit_has_keyword(unit, "SCOUT") is True
+
+
+def test_unit_has_keyword_no_keywords():
+    """Test unit_has_keyword returns False when unit has no keywords."""
+    unit = Unit(unit_id="test", unit_type="infantry", keywords=None, guild_id=TEST_GUILD_ID)
+    assert unit_has_keyword(unit, "scout") is False
+
+    unit2 = Unit(unit_id="test2", unit_type="infantry", keywords=[], guild_id=TEST_GUILD_ID)
+    assert unit_has_keyword(unit2, "scout") is False
+
+
+@pytest.mark.asyncio
+async def test_get_territories_in_range_distance_1(db_conn, test_server):
+    """Test get_territories_in_range returns distance 0 and 1 territories."""
+    # Create territories
+    t1 = Territory(territory_id="OBS1", name="Obs 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="OBS2", name="Obs 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t3 = Territory(territory_id="OBS3", name="Obs 3", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+    await t3.upsert(db_conn)
+
+    # Create adjacencies: OBS1 - OBS2 - OBS3
+    adj1 = TerritoryAdjacency(territory_a_id="OBS1", territory_b_id="OBS2", guild_id=TEST_GUILD_ID)
+    adj2 = TerritoryAdjacency(territory_a_id="OBS2", territory_b_id="OBS3", guild_id=TEST_GUILD_ID)
+    await adj1.upsert(db_conn)
+    await adj2.upsert(db_conn)
+
+    # Get territories in range 1 from OBS1
+    result = await get_territories_in_range(db_conn, "OBS1", 1, TEST_GUILD_ID)
+
+    assert "OBS1" in result[0]  # Distance 0 = same territory
+    assert "OBS2" in result[1]  # Distance 1 = adjacent
+    assert 2 not in result or len(result.get(2, [])) == 0  # No distance 2 for range 1
+
+
+@pytest.mark.asyncio
+async def test_get_territories_in_range_distance_2(db_conn, test_server):
+    """Test get_territories_in_range returns distance 0, 1, and 2 territories for scouts."""
+    # Create territories
+    for i in range(1, 5):
+        t = Territory(territory_id=f"OBS2R{i}", name=f"Obs 2R {i}", terrain_type="plains", guild_id=TEST_GUILD_ID)
+        await t.upsert(db_conn)
+
+    # Create linear adjacencies: OBS2R1 - OBS2R2 - OBS2R3 - OBS2R4
+    adj1 = TerritoryAdjacency(territory_a_id="OBS2R1", territory_b_id="OBS2R2", guild_id=TEST_GUILD_ID)
+    adj2 = TerritoryAdjacency(territory_a_id="OBS2R2", territory_b_id="OBS2R3", guild_id=TEST_GUILD_ID)
+    adj3 = TerritoryAdjacency(territory_a_id="OBS2R3", territory_b_id="OBS2R4", guild_id=TEST_GUILD_ID)
+    await adj1.upsert(db_conn)
+    await adj2.upsert(db_conn)
+    await adj3.upsert(db_conn)
+
+    # Get territories in range 2 from OBS2R1
+    result = await get_territories_in_range(db_conn, "OBS2R1", 2, TEST_GUILD_ID)
+
+    assert "OBS2R1" in result[0]  # Distance 0
+    assert "OBS2R2" in result[1]  # Distance 1
+    assert "OBS2R3" in result[2]  # Distance 2
+    assert "OBS2R4" not in result[2]  # OBS2R4 is distance 3
+    # Make sure origin is not in distance 2
+    assert "OBS2R1" not in result[2]
+
+
+@pytest.mark.asyncio
+async def test_recipient_should_see_observation_own_unit(db_conn, test_server):
+    """Test recipient_should_see_observation returns False for own units."""
+    # Create character and unit they own
+    char = Character(identifier="obs-owner", name="Obs Owner", channel_id=999000000000000201, guild_id=TEST_GUILD_ID)
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "obs-owner", TEST_GUILD_ID)
+
+    unit = Unit(
+        unit_id="obs-owned", unit_type="infantry",
+        owner_character_id=char.id, movement=2,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "obs-owned", TEST_GUILD_ID)
+
+    # Recipient owns the unit - should NOT see observation
+    result = await recipient_should_see_observation(db_conn, char.id, unit, TEST_GUILD_ID)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_recipient_should_see_observation_commanded_unit(db_conn, test_server):
+    """Test recipient_should_see_observation returns False for commanded units."""
+    # Create owner and commander characters
+    owner = Character(identifier="obs-unit-owner", name="Unit Owner", channel_id=999000000000000202, guild_id=TEST_GUILD_ID)
+    commander = Character(identifier="obs-commander", name="Commander", channel_id=999000000000000203, guild_id=TEST_GUILD_ID)
+    await owner.upsert(db_conn)
+    await commander.upsert(db_conn)
+    owner = await Character.fetch_by_identifier(db_conn, "obs-unit-owner", TEST_GUILD_ID)
+    commander = await Character.fetch_by_identifier(db_conn, "obs-commander", TEST_GUILD_ID)
+
+    unit = Unit(
+        unit_id="obs-commanded", unit_type="infantry",
+        owner_character_id=owner.id, commander_character_id=commander.id,
+        movement=2, guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "obs-commanded", TEST_GUILD_ID)
+
+    # Commander should NOT see observation of unit they command
+    result = await recipient_should_see_observation(db_conn, commander.id, unit, TEST_GUILD_ID)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_recipient_should_see_observation_unrelated_unit(db_conn, test_server):
+    """Test recipient_should_see_observation returns True for unrelated units."""
+    # Create two characters
+    char1 = Character(identifier="obs-char1", name="Char 1", channel_id=999000000000000204, guild_id=TEST_GUILD_ID)
+    char2 = Character(identifier="obs-char2", name="Char 2", channel_id=999000000000000205, guild_id=TEST_GUILD_ID)
+    await char1.upsert(db_conn)
+    await char2.upsert(db_conn)
+    char1 = await Character.fetch_by_identifier(db_conn, "obs-char1", TEST_GUILD_ID)
+    char2 = await Character.fetch_by_identifier(db_conn, "obs-char2", TEST_GUILD_ID)
+
+    # Unit owned by char1
+    unit = Unit(
+        unit_id="obs-unrelated", unit_type="infantry",
+        owner_character_id=char1.id, movement=2, guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "obs-unrelated", TEST_GUILD_ID)
+
+    # char2 should see observation of char1's unit
+    result = await recipient_should_see_observation(db_conn, char2.id, unit, TEST_GUILD_ID)
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_get_observation_recipients_character_owned(db_conn, test_server):
+    """Test get_observation_recipients for character-owned units."""
+    owner = Character(identifier="obs-recip-owner", name="Owner", channel_id=999000000000000206, guild_id=TEST_GUILD_ID)
+    commander = Character(identifier="obs-recip-cmdr", name="Commander", channel_id=999000000000000207, guild_id=TEST_GUILD_ID)
+    await owner.upsert(db_conn)
+    await commander.upsert(db_conn)
+    owner = await Character.fetch_by_identifier(db_conn, "obs-recip-owner", TEST_GUILD_ID)
+    commander = await Character.fetch_by_identifier(db_conn, "obs-recip-cmdr", TEST_GUILD_ID)
+
+    unit = Unit(
+        unit_id="obs-recip-unit", unit_type="infantry",
+        owner_character_id=owner.id, commander_character_id=commander.id,
+        movement=2, guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "obs-recip-unit", TEST_GUILD_ID)
+
+    recipients = await get_observation_recipients(db_conn, unit, TEST_GUILD_ID)
+
+    assert owner.id in recipients
+    assert commander.id in recipients
+    assert len(recipients) == 2
+
+
+@pytest.mark.asyncio
+async def test_observation_same_territory(db_conn, test_server):
+    """Test that units in the same territory observe each other."""
+    # Create two characters from different factions
+    faction_a = Faction(faction_id="obs-same-a", name="Obs Same A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="obs-same-b", name="Obs Same B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "obs-same-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "obs-same-b", TEST_GUILD_ID)
+
+    char_a = Character(identifier="obs-same-char-a", name="Char A", channel_id=999000000000000208, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    char_b = Character(identifier="obs-same-char-b", name="Char B", channel_id=999000000000000209, represented_faction_id=faction_b.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    await char_b.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "obs-same-char-a", TEST_GUILD_ID)
+    char_b = await Character.fetch_by_identifier(db_conn, "obs-same-char-b", TEST_GUILD_ID)
+
+    # Create territory
+    t = Territory(territory_id="OBS-SAME", name="Same Territory", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t.upsert(db_conn)
+
+    # Create units in same territory
+    unit_a = Unit(
+        unit_id="obs-same-unit-a", unit_type="infantry", name="Unit A",
+        owner_character_id=char_a.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-SAME", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    unit_b = Unit(
+        unit_id="obs-same-unit-b", unit_type="cavalry", name="Unit B",
+        owner_character_id=char_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-SAME", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await unit_a.upsert(db_conn)
+    await unit_b.upsert(db_conn)
+
+    # Generate observation reports
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    events, tracker = await generate_observation_reports(db_conn, [], TEST_GUILD_ID, 1, tick=1)
+
+    # Filter to UNIT_OBSERVED events
+    obs_events = [e for e in events if e.event_type == 'UNIT_OBSERVED']
+
+    # char_a should observe unit_b
+    char_a_sees_b = [e for e in obs_events if e.event_data['affected_character_ids'] == [char_a.id] and e.event_data['observed_unit_id'] == 'obs-same-unit-b']
+    assert len(char_a_sees_b) == 1
+    assert char_a_sees_b[0].event_data['distance'] == 0  # Same territory
+
+    # char_b should observe unit_a
+    char_b_sees_a = [e for e in obs_events if e.event_data['affected_character_ids'] == [char_b.id] and e.event_data['observed_unit_id'] == 'obs-same-unit-a']
+    assert len(char_b_sees_a) == 1
+    assert char_b_sees_a[0].event_data['distance'] == 0
+
+
+@pytest.mark.asyncio
+async def test_observation_adjacent_territory(db_conn, test_server):
+    """Test that units observe units in adjacent territories."""
+    # Create characters
+    char_a = Character(identifier="obs-adj-char-a", name="Adj Char A", channel_id=999000000000000210, guild_id=TEST_GUILD_ID)
+    char_b = Character(identifier="obs-adj-char-b", name="Adj Char B", channel_id=999000000000000211, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    await char_b.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "obs-adj-char-a", TEST_GUILD_ID)
+    char_b = await Character.fetch_by_identifier(db_conn, "obs-adj-char-b", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="OBS-ADJ1", name="Adj 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="OBS-ADJ2", name="Adj 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    # Create adjacency
+    adj = TerritoryAdjacency(territory_a_id="OBS-ADJ1", territory_b_id="OBS-ADJ2", guild_id=TEST_GUILD_ID)
+    await adj.upsert(db_conn)
+
+    # Create units in adjacent territories
+    unit_a = Unit(
+        unit_id="obs-adj-unit-a", unit_type="infantry", name="Unit A",
+        owner_character_id=char_a.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-ADJ1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    unit_b = Unit(
+        unit_id="obs-adj-unit-b", unit_type="cavalry", name="Unit B",
+        owner_character_id=char_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-ADJ2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await unit_a.upsert(db_conn)
+    await unit_b.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    events, tracker = await generate_observation_reports(db_conn, [], TEST_GUILD_ID, 1, tick=1)
+
+    obs_events = [e for e in events if e.event_type == 'UNIT_OBSERVED']
+
+    # char_a should observe unit_b at distance 1
+    char_a_sees_b = [e for e in obs_events if e.event_data['affected_character_ids'] == [char_a.id] and e.event_data['observed_unit_id'] == 'obs-adj-unit-b']
+    assert len(char_a_sees_b) == 1
+    assert char_a_sees_b[0].event_data['distance'] == 1
+
+
+@pytest.mark.asyncio
+async def test_scout_extended_range(db_conn, test_server):
+    """Test that scouts can observe units at distance 2."""
+    # Create character
+    char = Character(identifier="obs-scout-char", name="Scout Char", channel_id=999000000000000212, guild_id=TEST_GUILD_ID)
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "obs-scout-char", TEST_GUILD_ID)
+
+    # Create territories in a line
+    for i in range(1, 4):
+        t = Territory(territory_id=f"OBS-SCT{i}", name=f"Scout {i}", terrain_type="plains", guild_id=TEST_GUILD_ID)
+        await t.upsert(db_conn)
+
+    # Create adjacencies: OBS-SCT1 - OBS-SCT2 - OBS-SCT3
+    adj1 = TerritoryAdjacency(territory_a_id="OBS-SCT1", territory_b_id="OBS-SCT2", guild_id=TEST_GUILD_ID)
+    adj2 = TerritoryAdjacency(territory_a_id="OBS-SCT2", territory_b_id="OBS-SCT3", guild_id=TEST_GUILD_ID)
+    await adj1.upsert(db_conn)
+    await adj2.upsert(db_conn)
+
+    # Create scout unit at OBS-SCT1
+    scout = Unit(
+        unit_id="obs-scout-unit", unit_type="scout", name="Scout Unit",
+        owner_character_id=char.id, movement=3, organization=5, max_organization=5,
+        current_territory_id="OBS-SCT1", is_naval=False, keywords=["scout"],
+        guild_id=TEST_GUILD_ID
+    )
+    await scout.upsert(db_conn)
+
+    # Create target unit at OBS-SCT3 (distance 2)
+    char_b = Character(identifier="obs-scout-target-char", name="Target Char", channel_id=999000000000000213, guild_id=TEST_GUILD_ID)
+    await char_b.upsert(db_conn)
+    char_b = await Character.fetch_by_identifier(db_conn, "obs-scout-target-char", TEST_GUILD_ID)
+
+    target = Unit(
+        unit_id="obs-scout-target", unit_type="infantry", name="Target Unit",
+        owner_character_id=char_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-SCT3", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await target.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    events, tracker = await generate_observation_reports(db_conn, [], TEST_GUILD_ID, 1, tick=1)
+
+    obs_events = [e for e in events if e.event_type == 'UNIT_OBSERVED']
+
+    # Scout should see target at distance 2
+    scout_sees_target = [e for e in obs_events if e.event_data['affected_character_ids'] == [char.id] and e.event_data['observed_unit_id'] == 'obs-scout-target']
+    assert len(scout_sees_target) == 1
+    assert scout_sees_target[0].event_data['distance'] == 2
+
+
+@pytest.mark.asyncio
+async def test_non_scout_cannot_see_distance_2(db_conn, test_server):
+    """Test that non-scouts cannot observe units at distance 2."""
+    # Create character
+    char = Character(identifier="obs-nonscout-char", name="Nonscout Char", channel_id=999000000000000214, guild_id=TEST_GUILD_ID)
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "obs-nonscout-char", TEST_GUILD_ID)
+
+    # Create territories in a line
+    for i in range(1, 4):
+        t = Territory(territory_id=f"OBS-NS{i}", name=f"Nonscout {i}", terrain_type="plains", guild_id=TEST_GUILD_ID)
+        await t.upsert(db_conn)
+
+    # Create adjacencies
+    adj1 = TerritoryAdjacency(territory_a_id="OBS-NS1", territory_b_id="OBS-NS2", guild_id=TEST_GUILD_ID)
+    adj2 = TerritoryAdjacency(territory_a_id="OBS-NS2", territory_b_id="OBS-NS3", guild_id=TEST_GUILD_ID)
+    await adj1.upsert(db_conn)
+    await adj2.upsert(db_conn)
+
+    # Create normal unit (no scout keyword) at OBS-NS1
+    normal = Unit(
+        unit_id="obs-normal-unit", unit_type="infantry", name="Normal Unit",
+        owner_character_id=char.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-NS1", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await normal.upsert(db_conn)
+
+    # Create target unit at OBS-NS3 (distance 2)
+    char_b = Character(identifier="obs-nonscout-target-char", name="Target Char", channel_id=999000000000000215, guild_id=TEST_GUILD_ID)
+    await char_b.upsert(db_conn)
+    char_b = await Character.fetch_by_identifier(db_conn, "obs-nonscout-target-char", TEST_GUILD_ID)
+
+    target = Unit(
+        unit_id="obs-nonscout-target", unit_type="infantry", name="Target Unit",
+        owner_character_id=char_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-NS3", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await target.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    events, tracker = await generate_observation_reports(db_conn, [], TEST_GUILD_ID, 1, tick=1)
+
+    obs_events = [e for e in events if e.event_type == 'UNIT_OBSERVED']
+
+    # Normal unit should NOT see target at distance 2
+    normal_sees_target = [e for e in obs_events if e.event_data['affected_character_ids'] == [char.id] and e.event_data['observed_unit_id'] == 'obs-nonscout-target']
+    assert len(normal_sees_target) == 0
+
+
+@pytest.mark.asyncio
+async def test_infiltrator_invisible(db_conn, test_server):
+    """Test that infiltrators cannot be observed by anyone."""
+    # Create characters
+    char_observer = Character(identifier="obs-inf-observer", name="Observer", channel_id=999000000000000216, guild_id=TEST_GUILD_ID)
+    char_infiltrator = Character(identifier="obs-inf-infiltrator", name="Infiltrator Owner", channel_id=999000000000000217, guild_id=TEST_GUILD_ID)
+    await char_observer.upsert(db_conn)
+    await char_infiltrator.upsert(db_conn)
+    char_observer = await Character.fetch_by_identifier(db_conn, "obs-inf-observer", TEST_GUILD_ID)
+    char_infiltrator = await Character.fetch_by_identifier(db_conn, "obs-inf-infiltrator", TEST_GUILD_ID)
+
+    # Create territory
+    t = Territory(territory_id="OBS-INF", name="Infiltrator Territory", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t.upsert(db_conn)
+
+    # Create observer unit
+    observer = Unit(
+        unit_id="obs-inf-observer-unit", unit_type="infantry", name="Observer Unit",
+        owner_character_id=char_observer.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-INF", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await observer.upsert(db_conn)
+
+    # Create infiltrator unit in same territory
+    infiltrator = Unit(
+        unit_id="obs-inf-infiltrator-unit", unit_type="infiltrator", name="Infiltrator Unit",
+        owner_character_id=char_infiltrator.id, movement=2, organization=3, max_organization=3,
+        current_territory_id="OBS-INF", is_naval=False, keywords=["infiltrator"],
+        guild_id=TEST_GUILD_ID
+    )
+    await infiltrator.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    events, tracker = await generate_observation_reports(db_conn, [], TEST_GUILD_ID, 1, tick=1)
+
+    obs_events = [e for e in events if e.event_type == 'UNIT_OBSERVED']
+
+    # Observer should NOT see infiltrator
+    observer_sees_infiltrator = [e for e in obs_events if e.event_data['observed_unit_id'] == 'obs-inf-infiltrator-unit']
+    assert len(observer_sees_infiltrator) == 0
+
+    # BUT infiltrator should see observer (infiltrators can observe)
+    infiltrator_sees_observer = [e for e in obs_events if e.event_data['affected_character_ids'] == [char_infiltrator.id] and e.event_data['observed_unit_id'] == 'obs-inf-observer-unit']
+    assert len(infiltrator_sees_observer) == 1
+
+
+@pytest.mark.asyncio
+async def test_infiltrators_cannot_see_each_other(db_conn, test_server):
+    """Test that infiltrators cannot observe other infiltrators."""
+    # Create characters
+    char_a = Character(identifier="obs-inf2-char-a", name="Inf Char A", channel_id=999000000000000218, guild_id=TEST_GUILD_ID)
+    char_b = Character(identifier="obs-inf2-char-b", name="Inf Char B", channel_id=999000000000000219, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    await char_b.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "obs-inf2-char-a", TEST_GUILD_ID)
+    char_b = await Character.fetch_by_identifier(db_conn, "obs-inf2-char-b", TEST_GUILD_ID)
+
+    # Create territory
+    t = Territory(territory_id="OBS-INF2", name="Infiltrator Territory 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t.upsert(db_conn)
+
+    # Create two infiltrators in same territory
+    inf_a = Unit(
+        unit_id="obs-inf2-unit-a", unit_type="infiltrator", name="Infiltrator A",
+        owner_character_id=char_a.id, movement=2, organization=3, max_organization=3,
+        current_territory_id="OBS-INF2", is_naval=False, keywords=["infiltrator"],
+        guild_id=TEST_GUILD_ID
+    )
+    inf_b = Unit(
+        unit_id="obs-inf2-unit-b", unit_type="infiltrator", name="Infiltrator B",
+        owner_character_id=char_b.id, movement=2, organization=3, max_organization=3,
+        current_territory_id="OBS-INF2", is_naval=False, keywords=["infiltrator"],
+        guild_id=TEST_GUILD_ID
+    )
+    await inf_a.upsert(db_conn)
+    await inf_b.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    events, tracker = await generate_observation_reports(db_conn, [], TEST_GUILD_ID, 1, tick=1)
+
+    obs_events = [e for e in events if e.event_type == 'UNIT_OBSERVED']
+
+    # Neither infiltrator should see the other
+    assert len(obs_events) == 0
+
+
+@pytest.mark.asyncio
+async def test_owner_exclusion_per_recipient(db_conn, test_server):
+    """Test that owners don't receive observations of their own units."""
+    # Alice owns Unit A and Unit B
+    # Bob commands Unit A
+    # Unit A observes Unit B
+    # Alice should NOT get observation (she owns B)
+    # Bob SHOULD get observation (he doesn't own/command B)
+
+    alice = Character(identifier="obs-excl-alice", name="Alice", channel_id=999000000000000220, guild_id=TEST_GUILD_ID)
+    bob = Character(identifier="obs-excl-bob", name="Bob", channel_id=999000000000000221, guild_id=TEST_GUILD_ID)
+    await alice.upsert(db_conn)
+    await bob.upsert(db_conn)
+    alice = await Character.fetch_by_identifier(db_conn, "obs-excl-alice", TEST_GUILD_ID)
+    bob = await Character.fetch_by_identifier(db_conn, "obs-excl-bob", TEST_GUILD_ID)
+
+    # Create territory
+    t = Territory(territory_id="OBS-EXCL", name="Exclusion Territory", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t.upsert(db_conn)
+
+    # Unit A - owned by Alice, commanded by Bob
+    unit_a = Unit(
+        unit_id="obs-excl-unit-a", unit_type="infantry", name="Unit A",
+        owner_character_id=alice.id, commander_character_id=bob.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-EXCL", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    # Unit B - owned by Alice
+    unit_b = Unit(
+        unit_id="obs-excl-unit-b", unit_type="cavalry", name="Unit B",
+        owner_character_id=alice.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-EXCL", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit_a.upsert(db_conn)
+    await unit_b.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    events, tracker = await generate_observation_reports(db_conn, [], TEST_GUILD_ID, 1, tick=1)
+
+    obs_events = [e for e in events if e.event_type == 'UNIT_OBSERVED']
+
+    # Alice should NOT see unit B observation (she owns it)
+    alice_sees_b = [e for e in obs_events if e.event_data['affected_character_ids'] == [alice.id] and e.event_data['observed_unit_id'] == 'obs-excl-unit-b']
+    assert len(alice_sees_b) == 0
+
+    # Bob SHOULD see unit B observation (he doesn't own/command it)
+    bob_sees_b = [e for e in obs_events if e.event_data['affected_character_ids'] == [bob.id] and e.event_data['observed_unit_id'] == 'obs-excl-unit-b']
+    assert len(bob_sees_b) == 1
+
+
+def test_unit_observed_character_line_format():
+    """Test UNIT_OBSERVED character line formatting."""
+    event_data = {
+        'observed_unit_id': 'EK-CAV-001',
+        'observed_unit_type': 'cavalry',
+        'observed_faction_name': 'Earth Kingdom',
+        'observed_territory': 'T2',
+        'distance': 1,
+        'affected_character_ids': [123]
+    }
+    line = unit_observed_character_line(event_data)
+    assert 'EK-CAV-001' in line
+    assert 'cavalry' in line
+    assert 'Earth Kingdom' in line
+    assert 'T2' in line
+    assert 'adjacent' in line
+
+
+def test_unit_observed_character_line_same_territory():
+    """Test UNIT_OBSERVED character line formatting for same territory."""
+    event_data = {
+        'observed_unit_id': 'FN-INF-001',
+        'observed_unit_type': 'infantry',
+        'observed_faction_name': 'Fire Nation',
+        'observed_territory': 'T1',
+        'distance': 0,
+        'affected_character_ids': [123]
+    }
+    line = unit_observed_character_line(event_data)
+    assert 'same territory' in line
+
+
+def test_unit_observed_character_line_distant():
+    """Test UNIT_OBSERVED character line formatting for distance 2."""
+    event_data = {
+        'observed_unit_id': 'WT-WB-001',
+        'observed_unit_type': 'waterbenders',
+        'observed_faction_name': 'Water Tribe',
+        'observed_territory': 'T3',
+        'distance': 2,
+        'affected_character_ids': [123]
+    }
+    line = unit_observed_character_line(event_data)
+    assert 'distant' in line
+
+
+@pytest.mark.asyncio
+async def test_observation_without_movement_orders(db_conn, test_server):
+    """Test that observation events are generated even when there are no movement orders."""
+    # Create two characters from different factions
+    faction_a = Faction(faction_id="obs-no-move-a", name="Obs No Move A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="obs-no-move-b", name="Obs No Move B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "obs-no-move-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "obs-no-move-b", TEST_GUILD_ID)
+
+    char_a = Character(identifier="obs-no-move-char-a", name="Char A", channel_id=999000000000000230, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    char_b = Character(identifier="obs-no-move-char-b", name="Char B", channel_id=999000000000000231, represented_faction_id=faction_b.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    await char_b.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "obs-no-move-char-a", TEST_GUILD_ID)
+    char_b = await Character.fetch_by_identifier(db_conn, "obs-no-move-char-b", TEST_GUILD_ID)
+
+    # Create adjacent territories
+    t1 = Territory(territory_id="OBS-NM1", name="No Move 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="OBS-NM2", name="No Move 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    # Create adjacency
+    adj = TerritoryAdjacency(territory_a_id="OBS-NM1", territory_b_id="OBS-NM2", guild_id=TEST_GUILD_ID)
+    await adj.upsert(db_conn)
+
+    # Create stationary units in adjacent territories (no movement orders)
+    unit_a = Unit(
+        unit_id="obs-no-move-unit-a", unit_type="infantry", name="Unit A",
+        owner_character_id=char_a.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-NM1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    unit_b = Unit(
+        unit_id="obs-no-move-unit-b", unit_type="cavalry", name="Unit B",
+        owner_character_id=char_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="OBS-NM2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await unit_a.upsert(db_conn)
+    await unit_b.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Execute movement phase with NO movement orders
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Filter to UNIT_OBSERVED events
+    obs_events = [e for e in events if e.event_type == 'UNIT_OBSERVED']
+
+    # Both units should observe each other even without movement orders
+    assert len(obs_events) >= 2
+
+    # char_a should observe unit_b
+    char_a_sees_b = [e for e in obs_events if e.event_data['affected_character_ids'] == [char_a.id] and e.event_data['observed_unit_id'] == 'obs-no-move-unit-b']
+    assert len(char_a_sees_b) == 1
+    assert char_a_sees_b[0].event_data['distance'] == 1  # Adjacent
+
+    # char_b should observe unit_a
+    char_b_sees_a = [e for e in obs_events if e.event_data['affected_character_ids'] == [char_b.id] and e.event_data['observed_unit_id'] == 'obs-no-move-unit-a']
+    assert len(char_b_sees_a) == 1
+    assert char_b_sees_a[0].event_data['distance'] == 1

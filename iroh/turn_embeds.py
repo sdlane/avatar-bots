@@ -186,7 +186,8 @@ def create_character_turn_report_embed(
         phase_events = phases[phase]
         lines = []
 
-        for event in phase_events:
+        # Limit events to avoid embed size limits (Discord field value max is 1024 chars)
+        for event in phase_events[:15]:
             event_type = event.event_type or 'UNKNOWN'
             event_data = event.event_data or {}
 
@@ -197,11 +198,18 @@ def create_character_turn_report_embed(
                 if line:  # Only add non-empty lines
                     lines.append(line)
 
+        if len(phase_events) > 15:
+            lines.append(f"... and {len(phase_events) - 15} more events")
+
         if lines:
             phase_name = phase.replace('_', ' ').title()
+            # Truncate value if it exceeds Discord's 1024 char limit
+            value = "\n".join(lines)
+            if len(value) > 1020:
+                value = value[:1017] + "..."
             embed.add_field(
                 name=f"📌 {phase_name} Phase",
-                value="\n".join(lines),
+                value=value,
                 inline=False
             )
 

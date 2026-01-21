@@ -28,6 +28,33 @@ from handlers.movement_handlers import (
     finalize_movement_order,
 )
 
+
+def deduplicate_observation_events(obs_events: List[TurnLog]) -> List[TurnLog]:
+    """
+    Deduplicate observation events - keep only one event per (recipient, observed_unit) pair.
+
+    When multiple observer units belonging to the same character see the same target,
+    we only want to report it once to that character.
+
+    Args:
+        obs_events: List of UNIT_OBSERVED TurnLog events
+
+    Returns:
+        Deduplicated list of events
+    """
+    final_obs_events = {}
+    for event in obs_events:
+        recipient_id = event.event_data['affected_character_ids'][0]
+        observed_unit_id = event.event_data['observed_unit_id']
+        tick = event.event_data.get('tick', 0) or 0
+        key = (recipient_id, observed_unit_id)
+
+        # Keep the event with the highest tick (most recent observation)
+        if key not in final_obs_events or tick >= final_obs_events[key].event_data.get('tick', 0):
+            final_obs_events[key] = event
+
+    return list(final_obs_events.values())
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -216,6 +243,9 @@ async def execute_movement_phase(
 
     if not unit_orders:
         logger.info(f"Movement phase: no unit orders to process for guild {guild_id}")
+        # Still generate observation reports for stationary units
+        obs_events, _ = await generate_observation_reports(conn, [], guild_id, turn_number, tick=0)
+        events.extend(deduplicate_observation_events(obs_events))
         logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}")
         return events
 
@@ -227,6 +257,9 @@ async def execute_movement_phase(
 
     if not states:
         logger.info(f"Movement phase: no valid movement states after validation")
+        # Still generate observation reports for stationary units
+        obs_events, _ = await generate_observation_reports(conn, [], guild_id, turn_number, tick=0)
+        events.extend(deduplicate_observation_events(obs_events))
         logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}")
         return events
 
@@ -236,6 +269,11 @@ async def execute_movement_phase(
     # Calculate max_ticks as the highest total_movement_points
     max_ticks = max(s.total_movement_points for s in states)
     logger.info(f"Movement phase: max_ticks={max_ticks}, processing {len(states)} states")
+
+    # Initialize observation tracker for deduplication
+    # Tracks (recipient_char_id, observed_unit_id) -> tick
+    observation_tracker = {}
+    all_obs_events = []
 
     # 2. TICK LOOP - From max_ticks down to 1
     for tick in range(max_ticks, 0, -1):
@@ -253,17 +291,24 @@ async def execute_movement_phase(
         engagement_events = await check_engagement(conn, states, turn_number, guild_id)
         events.extend(engagement_events)
 
-        # d. Generate observation reports (placeholder)
-        obs_events = await generate_observation_reports(conn, states, guild_id, turn_number)
-        events.extend(obs_events)
+        # d. Generate observation reports
+        obs_events, observation_tracker = await generate_observation_reports(
+            conn, states, guild_id, turn_number, tick, observation_tracker
+        )
+        all_obs_events.extend(obs_events)
 
     # 3. POST-LOOP - Run engagement and observation one more time
     patrol_events = await process_patrol_engagement(conn, states, guild_id, turn_number)
     events.extend(patrol_events)
     engagement_events = await check_engagement(conn, states, turn_number, guild_id)
     events.extend(engagement_events)
-    obs_events = await generate_observation_reports(conn, states, guild_id, turn_number)
-    events.extend(obs_events)
+    obs_events, observation_tracker = await generate_observation_reports(
+        conn, states, guild_id, turn_number, 0, observation_tracker
+    )
+    all_obs_events.extend(obs_events)
+
+    # Deduplicate observation events - keep only one per (recipient, observed_unit)
+    events.extend(deduplicate_observation_events(all_obs_events))
 
     # 4. FINALIZE - Update orders and generate completion events
     for state in states:

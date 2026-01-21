@@ -74,3 +74,31 @@ def engagement_detected_gm_line(event_data: Dict[str, Any]) -> str:
     reason = event_data.get('reason', 'unknown')
 
     return f"{', '.join(units)} engaged {', '.join(engaged_with)} at T{territory} ({reason})"
+
+
+def unit_observed_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """
+    Generate character report line for UNIT_OBSERVED event.
+
+    Format: 'Observed: EK-CAV-001 (cavalry) of Earth Kingdom in Territory 2 (adjacent)'
+    """
+    observed_unit_id = event_data.get('observed_unit_id', 'Unknown')
+    observed_unit_type = event_data.get('observed_unit_type', 'Unknown')
+    observed_faction_name = event_data.get('observed_faction_name', 'Unaffiliated')
+    observed_territory = event_data.get('observed_territory', 'Unknown')
+    distance = event_data.get('distance', 0)
+
+    distance_text = "same territory" if distance == 0 else "adjacent" if distance == 1 else "distant"
+
+    return (f"Observed: {observed_unit_id} ({observed_unit_type}) of {observed_faction_name} "
+            f"in Territory {observed_territory} ({distance_text})")
+
+
+def unit_observed_gm_line(event_data: Dict[str, Any]) -> str:
+    """
+    Generate GM report line for UNIT_OBSERVED event.
+
+    Returns empty string since UNIT_OBSERVED events should not appear in GM reports.
+    The GM has full visibility of all units and doesn't need observation reports.
+    """
+    return ""

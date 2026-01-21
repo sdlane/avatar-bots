@@ -262,6 +262,54 @@ unit_types:
       cloth: 1
       platinum: 0
 
+  # Scout unit type for observation testing
+  - type_id: "scout"
+    name: "Scout Unit"
+    nation: "fire-nation"
+    stats:
+      movement: 3
+      organization: 5
+      attack: 2
+      defense: 2
+      siege_attack: 0
+      siege_defense: 0
+      keywords:
+        - "scout"
+    cost:
+      ore: 2
+      lumber: 1
+      rations: 5
+      cloth: 2
+      platinum: 0
+    upkeep:
+      rations: 1
+      cloth: 0
+      platinum: 0
+
+  # Infiltrator unit type for observation testing
+  - type_id: "infiltrator"
+    name: "Infiltrator Unit"
+    nation: "earth-kingdom"
+    stats:
+      movement: 2
+      organization: 3
+      attack: 1
+      defense: 1
+      siege_attack: 0
+      siege_defense: 0
+      keywords:
+        - "infiltrator"
+    cost:
+      ore: 3
+      lumber: 1
+      rations: 5
+      cloth: 2
+      platinum: 0
+    upkeep:
+      rations: 1
+      cloth: 0
+      platinum: 0
+
 building_types:
   - type_id: "barracks"
     name: "Military Barracks"
@@ -414,3 +462,17 @@ units:
     type: "fire-warship"
     owner: "test-zuko"
     current_territory_id: "W2"
+
+  # Scout unit for observation testing
+  - unit_id: "FN-SCOUT-001"
+    name: "Fire Nation Scout"
+    type: "scout"
+    owner: "test-zuko"
+    current_territory_id: 1
+
+  # Infiltrator unit for observation testing
+  - unit_id: "EK-INF-001"
+    name: "Earth Kingdom Infiltrator"
+    type: "infiltrator"
+    owner: "test-toph"
+    current_territory_id: 2

@@ -51,6 +51,8 @@ from .movement_events import (
     movement_blocked_gm_line,
     engagement_detected_character_line,
     engagement_detected_gm_line,
+    unit_observed_character_line,
+    unit_observed_gm_line,
 )
 
 from .resource_events import (
@@ -215,6 +217,10 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'ENGAGEMENT_DETECTED': EventHandler(
         get_character_line=engagement_detected_character_line,
         get_gm_line=engagement_detected_gm_line
+    ),
+    'UNIT_OBSERVED': EventHandler(
+        get_character_line=unit_observed_character_line,
+        get_gm_line=unit_observed_gm_line
     ),
 
     # Resource events
