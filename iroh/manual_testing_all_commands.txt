@@ -2073,7 +2073,7 @@ PREREQUISITES:
 
 SETUP:
     # Create war between factions
-    /declare-war target_faction:EK objective:Test War
+    /order-declare-war target_faction_ids:test-ek objective:Test War
 
     # Create transit orders heading toward each other
     /order-unit unit_ids:FN-001 action:Transit (land) path:1,2,3

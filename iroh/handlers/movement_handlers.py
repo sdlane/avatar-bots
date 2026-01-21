@@ -135,22 +135,31 @@ async def get_unit_group_faction_id(
         The faction ID (internal) representing the unit group, or None if unaffiliated
     """
     if not units:
+        logger.debug("get_unit_group_faction_id: no units provided, returning None")
         return None
 
     # Use the first unit to determine the group's faction
     # (all units in a movement order should have the same owner)
     unit = units[0]
+    unit_ids = [u.unit_id for u in units]
+    logger.debug(f"get_unit_group_faction_id: checking units {unit_ids}, "
+                 f"owner_character_id={unit.owner_character_id}, owner_faction_id={unit.owner_faction_id}")
 
     if unit.owner_character_id is not None:
         # Character-owned unit: look up the character's represented faction
         character = await Character.fetch_by_id(conn, unit.owner_character_id)
         if character:
+            logger.debug(f"get_unit_group_faction_id: character {character.identifier} "
+                        f"represented_faction_id={character.represented_faction_id}")
             return character.represented_faction_id
+        logger.debug(f"get_unit_group_faction_id: character not found for id {unit.owner_character_id}")
         return None
     elif unit.owner_faction_id is not None:
         # Faction-owned unit: use owner_faction_id directly
+        logger.debug(f"get_unit_group_faction_id: faction-owned unit, returning owner_faction_id={unit.owner_faction_id}")
         return unit.owner_faction_id
 
+    logger.debug("get_unit_group_faction_id: no owner found, returning None")
     return None
 
 
@@ -172,12 +181,18 @@ async def are_factions_at_war(
     Returns:
         True if factions are on opposite sides of any war, False otherwise
     """
+    logger.debug(f"are_factions_at_war: checking faction_a_id={faction_a_id}, faction_b_id={faction_b_id}")
+
     if faction_a_id == faction_b_id:
+        logger.debug("are_factions_at_war: same faction, returning False")
         return False
 
     # Get all war participations for both factions
     a_participations = await WarParticipant.fetch_by_faction(conn, faction_a_id, guild_id)
     b_participations = await WarParticipant.fetch_by_faction(conn, faction_b_id, guild_id)
+
+    logger.debug(f"are_factions_at_war: faction_a participations: {[(p.war_id, p.side) for p in a_participations]}")
+    logger.debug(f"are_factions_at_war: faction_b participations: {[(p.war_id, p.side) for p in b_participations]}")
 
     # Build a dict of war_id -> side for faction_a
     a_wars: Dict[int, str] = {p.war_id: p.side for p in a_participations}
@@ -187,9 +202,12 @@ async def are_factions_at_war(
         if b_part.war_id in a_wars:
             a_side = a_wars[b_part.war_id]
             b_side = b_part.side
+            logger.debug(f"are_factions_at_war: shared war {b_part.war_id}, a_side={a_side}, b_side={b_side}")
             if a_side != b_side:
+                logger.debug(f"are_factions_at_war: factions on opposite sides of war {b_part.war_id}, returning True")
                 return True
 
+    logger.debug("are_factions_at_war: no opposing war participation found, returning False")
     return False
 
 
@@ -249,45 +267,65 @@ async def are_unit_groups_hostile(
     Returns:
         (is_hostile, reason): Tuple of boolean and reason string ("war" or "raid_defense")
     """
+    units_a_ids = [u.unit_id for u in units_a]
+    units_b_ids = [u.unit_id for u in units_b]
+    logger.debug(f"are_unit_groups_hostile: checking units_a={units_a_ids} (action={action_a}) "
+                 f"vs units_b={units_b_ids} (action={action_b}) in territory {territory_id}")
+
     faction_a_id = await get_unit_group_faction_id(conn, units_a, guild_id)
     faction_b_id = await get_unit_group_faction_id(conn, units_b, guild_id)
 
+    logger.debug(f"are_unit_groups_hostile: faction_a_id={faction_a_id}, faction_b_id={faction_b_id}")
+
     # Same faction or unaffiliated - not hostile
     if faction_a_id == faction_b_id:
+        logger.debug("are_unit_groups_hostile: same faction, not hostile")
         return False, None
     if faction_a_id is None or faction_b_id is None:
+        logger.debug("are_unit_groups_hostile: one or both factions unaffiliated, not hostile")
         return False, None
 
     # Check war hostility
-    if await are_factions_at_war(conn, faction_a_id, faction_b_id, guild_id):
+    at_war = await are_factions_at_war(conn, faction_a_id, faction_b_id, guild_id)
+    if at_war:
+        logger.info(f"are_unit_groups_hostile: factions {faction_a_id} and {faction_b_id} are at war - HOSTILE")
         return True, "war"
 
     # Check raid hostility
     territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
     if not territory:
+        logger.debug(f"are_unit_groups_hostile: territory {territory_id} not found")
         return False, None
 
     controller_faction_id = territory.controller_faction_id
+    logger.debug(f"are_unit_groups_hostile: territory controller_faction_id={controller_faction_id}")
 
     if controller_faction_id:
         # If group A is raiding
         if action_a == "raid":
+            logger.debug(f"are_unit_groups_hostile: group A is raiding")
             # Hostile to territory controller
             if faction_b_id == controller_faction_id:
+                logger.info(f"are_unit_groups_hostile: raider vs territory controller - HOSTILE")
                 return True, "raid_defense"
             # Hostile to allies of territory controller
             if await are_factions_allied(conn, faction_b_id, controller_faction_id, guild_id):
+                logger.info(f"are_unit_groups_hostile: raider vs ally of controller - HOSTILE")
                 return True, "raid_defense"
 
         # If group B is raiding
         if action_b == "raid":
+            logger.debug(f"are_unit_groups_hostile: group B is raiding")
             # Hostile to territory controller
             if faction_a_id == controller_faction_id:
+                logger.info(f"are_unit_groups_hostile: raider vs territory controller - HOSTILE")
                 return True, "raid_defense"
             # Hostile to allies of territory controller
             if await are_factions_allied(conn, faction_a_id, controller_faction_id, guild_id):
+                logger.info(f"are_unit_groups_hostile: raider vs ally of controller - HOSTILE")
                 return True, "raid_defense"
 
+    logger.debug("are_unit_groups_hostile: no hostility detected")
     return False, None
 
 
@@ -638,6 +676,7 @@ async def check_engagement(
     Returns:
         List of TurnLog events for engagements detected
     """
+    logger.info(f"check_engagement: starting engagement check for {len(states)} movement states")
     events: List[TurnLog] = []
 
     # Build set of unit IDs that are part of movement states
@@ -645,21 +684,34 @@ async def check_engagement(
     for state in states:
         for unit in state.units:
             moving_unit_ids.add(unit.id)
+    logger.debug(f"check_engagement: {len(moving_unit_ids)} units are part of movement states")
 
     # Group states by current territory
     states_by_territory: Dict[str, List[MovementUnitState]] = defaultdict(list)
     for state in states:
         states_by_territory[state.current_territory_id].append(state)
 
+    logger.debug(f"check_engagement: states grouped by territory: "
+                 f"{[(t, len(s)) for t, s in states_by_territory.items()]}")
+
     # Process each territory
     for territory_id, territory_states in states_by_territory.items():
+        logger.debug(f"check_engagement: processing territory {territory_id} with {len(territory_states)} states")
+
         # Get moving states (not already engaged)
         moving_states = [s for s in territory_states if s.status == MovementStatus.MOVING]
+        logger.debug(f"check_engagement: {len(moving_states)} states with MOVING status in territory {territory_id}")
+
+        for s in territory_states:
+            unit_ids = [u.unit_id for u in s.units]
+            logger.debug(f"check_engagement: state for units {unit_ids}, status={s.status}, action={s.action}")
 
         if not moving_states:
+            logger.debug(f"check_engagement: no moving states in territory {territory_id}, skipping")
             continue
 
         # Check moving vs moving
+        logger.debug(f"check_engagement: checking {len(moving_states)} moving states vs each other")
         for i, state_a in enumerate(moving_states):
             if state_a.status != MovementStatus.MOVING:
                 continue
@@ -668,12 +720,14 @@ async def check_engagement(
                 if state_b.status != MovementStatus.MOVING:
                     continue
 
+                logger.debug(f"check_engagement: checking moving vs moving hostility")
                 is_hostile, reason = await are_unit_groups_hostile(
                     conn, state_a.units, state_b.units, territory_id,
                     state_a.action, state_b.action, guild_id
                 )
 
                 if is_hostile:
+                    logger.info(f"check_engagement: ENGAGEMENT DETECTED (moving vs moving) in {territory_id}, reason={reason}")
                     # Both groups become engaged
                     state_a.status = MovementStatus.ENGAGED
                     state_b.status = MovementStatus.ENGAGED
@@ -725,11 +779,21 @@ async def check_engagement(
 
         # Check moving vs stationary
         # First, get all units in territory that aren't part of movement states
+        logger.debug(f"check_engagement: fetching stationary units in territory {territory_id}")
         all_units_in_territory = await Unit.fetch_by_territory(conn, territory_id, guild_id)
+        logger.debug(f"check_engagement: found {len(all_units_in_territory)} total units in territory {territory_id}")
+
         stationary_units = [u for u in all_units_in_territory
                            if u.id not in moving_unit_ids and u.status == 'ACTIVE']
+        logger.debug(f"check_engagement: {len(stationary_units)} stationary ACTIVE units in territory {territory_id}")
+
+        if stationary_units:
+            for u in stationary_units:
+                logger.debug(f"check_engagement: stationary unit {u.unit_id}, "
+                            f"owner_char={u.owner_character_id}, owner_faction={u.owner_faction_id}")
 
         if not stationary_units:
+            logger.debug(f"check_engagement: no stationary units in territory {territory_id}")
             continue
 
         # Group stationary units by faction
@@ -738,12 +802,23 @@ async def check_engagement(
             faction_id = await get_unit_group_faction_id(conn, [unit], guild_id)
             stationary_by_faction[faction_id].append(unit)
 
+        logger.debug(f"check_engagement: stationary units grouped by faction: "
+                     f"{[(f, [u.unit_id for u in units]) for f, units in stationary_by_faction.items()]}")
+
         # Check each moving state against stationary groups
         for state in moving_states:
             if state.status != MovementStatus.MOVING:
+                logger.debug(f"check_engagement: skipping state (not MOVING), status={state.status}")
                 continue
 
+            moving_unit_ids_str = [u.unit_id for u in state.units]
+            logger.debug(f"check_engagement: checking moving units {moving_unit_ids_str} vs stationary groups")
+
             for faction_id, faction_units in stationary_by_faction.items():
+                faction_unit_ids = [u.unit_id for u in faction_units]
+                logger.debug(f"check_engagement: checking against stationary faction {faction_id}, "
+                            f"units {faction_unit_ids}")
+
                 is_hostile, reason = await are_unit_groups_hostile(
                     conn, state.units, faction_units, territory_id,
                     state.action, None,  # Stationary units have no action
@@ -751,6 +826,7 @@ async def check_engagement(
                 )
 
                 if is_hostile:
+                    logger.info(f"check_engagement: ENGAGEMENT DETECTED (moving vs stationary) in {territory_id}, reason={reason}")
                     # Moving group becomes engaged
                     state.status = MovementStatus.ENGAGED
 
@@ -800,6 +876,7 @@ async def check_engagement(
 
                     break  # Only one engagement per moving state
 
+    logger.info(f"check_engagement: finished, generated {len(events)} engagement events")
     return events
 
 
