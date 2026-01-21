@@ -102,3 +102,42 @@ def unit_observed_gm_line(event_data: Dict[str, Any]) -> str:
     The GM has full visibility of all units and doesn't need observation reports.
     """
     return ""
+
+
+def patrol_engagement_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """
+    Generate character report line for PATROL_ENGAGEMENT event.
+
+    For the patrol (engaged_by_patrol=False): Shows the patrol moving to intercept.
+    For the intercepted (engaged_by_patrol=True): Shows being intercepted by patrol.
+    """
+    engaged_by_patrol = event_data.get('engaged_by_patrol', False)
+    units = ', '.join(event_data.get('units', []))
+    engaged_with = ', '.join(event_data.get('engaged_with', []))
+    from_territory = event_data.get('from_territory', 'Unknown')
+    to_territory = event_data.get('to_territory', 'Unknown')
+    reason = event_data.get('reason', 'unknown')
+
+    reason_text = "due to war" if reason == "war" else "defending against raid"
+
+    if engaged_by_patrol:
+        return (f"Engaged by patrol: {engaged_with} intercepted {units} "
+                f"in Territory {to_territory} ({reason_text})")
+    else:
+        return (f"Patrol engagement: {units} moved from Territory {from_territory} "
+                f"to Territory {to_territory} to engage {engaged_with} ({reason_text})")
+
+
+def patrol_engagement_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for PATROL_ENGAGEMENT event."""
+    engaged_by_patrol = event_data.get('engaged_by_patrol', False)
+    units = ', '.join(event_data.get('units', []))
+    engaged_with = ', '.join(event_data.get('engaged_with', []))
+    from_territory = event_data.get('from_territory', 'Unknown')
+    to_territory = event_data.get('to_territory', 'Unknown')
+    reason = event_data.get('reason', 'unknown')
+
+    if engaged_by_patrol:
+        return f"{engaged_with} intercepted {units} at T{to_territory} ({reason})"
+    else:
+        return f"{units} T{from_territory}->T{to_territory} engaged {engaged_with} ({reason})"

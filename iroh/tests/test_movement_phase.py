@@ -41,6 +41,8 @@ from event_logging.movement_events import (
     movement_blocked_gm_line,
     engagement_detected_character_line,
     engagement_detected_gm_line,
+    patrol_engagement_character_line,
+    patrol_engagement_gm_line,
 )
 
 
@@ -2483,3 +2485,526 @@ async def test_observation_without_movement_orders(db_conn, test_server):
     char_b_sees_a = [e for e in obs_events if e.event_data['affected_character_ids'] == [char_b.id] and e.event_data['observed_unit_id'] == 'obs-no-move-unit-a']
     assert len(char_b_sees_a) == 1
     assert char_b_sees_a[0].event_data['distance'] == 1
+
+
+# ============================================================================
+# Patrol Engagement Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_patrol_engages_hostile_in_adjacent_territory(db_conn, test_server):
+    """Test that patrol engages stationary hostile in adjacent territory."""
+    # Setup: Create two factions at war
+    faction_a = Faction(faction_id="patrol-eng-a", name="Patrol Eng A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="patrol-eng-b", name="Patrol Eng B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "patrol-eng-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "patrol-eng-b", TEST_GUILD_ID)
+
+    # Create war
+    war = War(war_id="WAR-PATROL-01", objective="Patrol Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-PATROL-01", TEST_GUILD_ID)
+
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    # Create characters
+    char_a = Character(identifier="patrol-eng-char-a", name="Patrol Char A", channel_id=999000000000000300, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "patrol-eng-char-a", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="PENG1", name="Patrol Eng 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="PENG2", name="Patrol Eng 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t3 = Territory(territory_id="PENG3", name="Patrol Eng 3", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+    await t3.upsert(db_conn)
+
+    # Create adjacencies (T1-T2, T2-T3)
+    await TerritoryAdjacency(territory_a_id="PENG1", territory_b_id="PENG2", guild_id=TEST_GUILD_ID).upsert(db_conn)
+    await TerritoryAdjacency(territory_a_id="PENG2", territory_b_id="PENG3", guild_id=TEST_GUILD_ID).upsert(db_conn)
+
+    # Create patrol unit (faction A) at T1
+    patrol_unit = Unit(
+        unit_id="unit-patrol-eng", name="Patrol Unit", unit_type="cavalry",
+        owner_character_id=char_a.id, movement=3, organization=10, max_organization=10,
+        current_territory_id="PENG1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await patrol_unit.upsert(db_conn)
+    patrol_unit = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-eng", TEST_GUILD_ID)
+
+    # Create hostile stationary unit (faction B) at T2
+    hostile_unit = Unit(
+        unit_id="unit-hostile-stat", name="Hostile Stationary", unit_type="infantry",
+        owner_faction_id=faction_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="PENG2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await hostile_unit.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create patrol order for faction A unit
+    patrol_order = Order(
+        order_id="order-patrol-eng", order_type=OrderType.UNIT.value,
+        unit_ids=[patrol_unit.id], character_id=char_a.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'patrol', 'path': ['PENG1', 'PENG2', 'PENG3'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await patrol_order.upsert(db_conn)
+
+    # Execute movement phase
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Check that PATROL_ENGAGEMENT events were generated
+    patrol_events = [e for e in events if e.event_type == 'PATROL_ENGAGEMENT']
+    assert len(patrol_events) == 2  # One for patrol, one for hostile
+
+    # Verify patrol moved to T2
+    updated_patrol = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-eng", TEST_GUILD_ID)
+    assert updated_patrol.current_territory_id == "PENG2"
+
+    # Verify the events contain correct data
+    patrol_side_event = [e for e in patrol_events if e.event_data.get('engaged_by_patrol') == False]
+    assert len(patrol_side_event) == 1
+    assert 'unit-patrol-eng' in patrol_side_event[0].event_data['units']
+    assert patrol_side_event[0].event_data['from_territory'] == 'PENG1'
+    assert patrol_side_event[0].event_data['to_territory'] == 'PENG2'
+
+
+@pytest.mark.asyncio
+async def test_patrol_engages_moving_hostile(db_conn, test_server):
+    """Test that patrol engages moving hostile in adjacent territory."""
+    # Setup: Create two factions at war
+    faction_a = Faction(faction_id="patrol-mov-a", name="Patrol Mov A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="patrol-mov-b", name="Patrol Mov B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "patrol-mov-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "patrol-mov-b", TEST_GUILD_ID)
+
+    war = War(war_id="WAR-PATROL-MOV", objective="Patrol Mov Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-PATROL-MOV", TEST_GUILD_ID)
+
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    char_a = Character(identifier="patrol-mov-char-a", name="Patrol Mov A", channel_id=999000000000000301, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    char_b = Character(identifier="patrol-mov-char-b", name="Patrol Mov B", channel_id=999000000000000302, represented_faction_id=faction_b.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    await char_b.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "patrol-mov-char-a", TEST_GUILD_ID)
+    char_b = await Character.fetch_by_identifier(db_conn, "patrol-mov-char-b", TEST_GUILD_ID)
+
+    t1 = Territory(territory_id="PMOV1", name="Patrol Mov 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="PMOV2", name="Patrol Mov 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t3 = Territory(territory_id="PMOV3", name="Patrol Mov 3", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+    await t3.upsert(db_conn)
+
+    await TerritoryAdjacency(territory_a_id="PMOV1", territory_b_id="PMOV2", guild_id=TEST_GUILD_ID).upsert(db_conn)
+    await TerritoryAdjacency(territory_a_id="PMOV2", territory_b_id="PMOV3", guild_id=TEST_GUILD_ID).upsert(db_conn)
+
+    # Patrol at T1, hostile moving unit at T2
+    patrol_unit = Unit(
+        unit_id="unit-patrol-mov", name="Patrol Mov Unit", unit_type="cavalry",
+        owner_character_id=char_a.id, movement=3, organization=10, max_organization=10,
+        current_territory_id="PMOV1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    hostile_unit = Unit(
+        unit_id="unit-hostile-mov", name="Hostile Mov Unit", unit_type="infantry",
+        owner_character_id=char_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="PMOV2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await patrol_unit.upsert(db_conn)
+    await hostile_unit.upsert(db_conn)
+    patrol_unit = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-mov", TEST_GUILD_ID)
+    hostile_unit = await Unit.fetch_by_unit_id(db_conn, "unit-hostile-mov", TEST_GUILD_ID)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create patrol order for A
+    patrol_order = Order(
+        order_id="order-patrol-mov", order_type=OrderType.UNIT.value,
+        unit_ids=[patrol_unit.id], character_id=char_a.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'patrol', 'path': ['PMOV1', 'PMOV2', 'PMOV3'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    # Create transit order for B (moving away)
+    transit_order = Order(
+        order_id="order-hostile-mov", order_type=OrderType.UNIT.value,
+        unit_ids=[hostile_unit.id], character_id=char_b.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'transit', 'path': ['PMOV2', 'PMOV3'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await patrol_order.upsert(db_conn)
+    await transit_order.upsert(db_conn)
+
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    patrol_events = [e for e in events if e.event_type == 'PATROL_ENGAGEMENT']
+    assert len(patrol_events) == 2
+
+    # Verify patrol intercepted the moving hostile
+    updated_patrol = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-mov", TEST_GUILD_ID)
+    assert updated_patrol.current_territory_id == "PMOV2"
+
+
+@pytest.mark.asyncio
+async def test_patrol_insufficient_mp_no_engagement(db_conn, test_server):
+    """Test that patrol does not engage if terrain cost exceeds remaining MP."""
+    faction_a = Faction(faction_id="patrol-insuf-a", name="Patrol Insuf A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="patrol-insuf-b", name="Patrol Insuf B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "patrol-insuf-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "patrol-insuf-b", TEST_GUILD_ID)
+
+    war = War(war_id="WAR-PATROL-INSUF", objective="Patrol Insuf Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-PATROL-INSUF", TEST_GUILD_ID)
+
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    char_a = Character(identifier="patrol-insuf-char", name="Patrol Insuf Char", channel_id=999000000000000303, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "patrol-insuf-char", TEST_GUILD_ID)
+
+    # T1 is plains, T2 is mountains (cost 3)
+    t1 = Territory(territory_id="PINS1", name="Patrol Insuf 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="PINS2", name="Patrol Insuf 2", terrain_type="mountains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    await TerritoryAdjacency(territory_a_id="PINS1", territory_b_id="PINS2", guild_id=TEST_GUILD_ID).upsert(db_conn)
+
+    # Patrol with only 2 MP (can't afford mountain terrain cost of 3)
+    patrol_unit = Unit(
+        unit_id="unit-patrol-insuf", name="Slow Patrol", unit_type="infantry",
+        owner_character_id=char_a.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="PINS1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await patrol_unit.upsert(db_conn)
+    patrol_unit = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-insuf", TEST_GUILD_ID)
+
+    hostile_unit = Unit(
+        unit_id="unit-hostile-insuf", name="Hostile Insuf", unit_type="infantry",
+        owner_faction_id=faction_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="PINS2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await hostile_unit.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    patrol_order = Order(
+        order_id="order-patrol-insuf", order_type=OrderType.UNIT.value,
+        unit_ids=[patrol_unit.id], character_id=char_a.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'patrol', 'path': ['PINS1', 'PINS2'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await patrol_order.upsert(db_conn)
+
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # No patrol engagement should occur (can't afford terrain cost)
+    patrol_events = [e for e in events if e.event_type == 'PATROL_ENGAGEMENT']
+    assert len(patrol_events) == 0
+
+    # Patrol should still be at T1
+    updated_patrol = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-insuf", TEST_GUILD_ID)
+    assert updated_patrol.current_territory_id == "PINS1"
+
+
+@pytest.mark.asyncio
+async def test_patrol_only_engages_hostile_factions(db_conn, test_server):
+    """Test that patrol units do not engage friendly units."""
+    faction = Faction(faction_id="patrol-friend", name="Patrol Friend", guild_id=TEST_GUILD_ID)
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "patrol-friend", TEST_GUILD_ID)
+
+    char = Character(identifier="patrol-friend-char", name="Patrol Friend Char", channel_id=999000000000000304, represented_faction_id=faction.id, guild_id=TEST_GUILD_ID)
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "patrol-friend-char", TEST_GUILD_ID)
+
+    t1 = Territory(territory_id="PFRI1", name="Patrol Friend 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="PFRI2", name="Patrol Friend 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    await TerritoryAdjacency(territory_a_id="PFRI1", territory_b_id="PFRI2", guild_id=TEST_GUILD_ID).upsert(db_conn)
+
+    patrol_unit = Unit(
+        unit_id="unit-patrol-friend", name="Friendly Patrol", unit_type="cavalry",
+        owner_character_id=char.id, movement=3, organization=10, max_organization=10,
+        current_territory_id="PFRI1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await patrol_unit.upsert(db_conn)
+    patrol_unit = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-friend", TEST_GUILD_ID)
+
+    # Friendly unit from same faction at T2
+    friendly_unit = Unit(
+        unit_id="unit-friend-stat", name="Friendly Stationary", unit_type="infantry",
+        owner_faction_id=faction.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="PFRI2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await friendly_unit.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    patrol_order = Order(
+        order_id="order-patrol-friend", order_type=OrderType.UNIT.value,
+        unit_ids=[patrol_unit.id], character_id=char.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'patrol', 'path': ['PFRI1', 'PFRI2'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await patrol_order.upsert(db_conn)
+
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # No patrol engagement (friendly unit)
+    patrol_events = [e for e in events if e.event_type == 'PATROL_ENGAGEMENT']
+    assert len(patrol_events) == 0
+
+
+@pytest.mark.asyncio
+async def test_patrol_tiebreak_alphabetical_after_mp_check(db_conn, test_server):
+    """Test that patrol picks alphabetically first territory when multiple hostiles exist."""
+    faction_a = Faction(faction_id="patrol-tie-a", name="Patrol Tie A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="patrol-tie-b", name="Patrol Tie B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "patrol-tie-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "patrol-tie-b", TEST_GUILD_ID)
+
+    war = War(war_id="WAR-PATROL-TIE", objective="Patrol Tie Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-PATROL-TIE", TEST_GUILD_ID)
+
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    char_a = Character(identifier="patrol-tie-char", name="Patrol Tie Char", channel_id=999000000000000305, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "patrol-tie-char", TEST_GUILD_ID)
+
+    # Patrol at T1, hostiles at T2 and T3 (both adjacent)
+    # T2 < T3 alphabetically, so patrol should engage at T2
+    t1 = Territory(territory_id="PTIE1", name="Patrol Tie 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="PTIE2", name="Patrol Tie 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t3 = Territory(territory_id="PTIE3", name="Patrol Tie 3", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+    await t3.upsert(db_conn)
+
+    await TerritoryAdjacency(territory_a_id="PTIE1", territory_b_id="PTIE2", guild_id=TEST_GUILD_ID).upsert(db_conn)
+    await TerritoryAdjacency(territory_a_id="PTIE1", territory_b_id="PTIE3", guild_id=TEST_GUILD_ID).upsert(db_conn)
+
+    patrol_unit = Unit(
+        unit_id="unit-patrol-tie", name="Tiebreak Patrol", unit_type="cavalry",
+        owner_character_id=char_a.id, movement=3, organization=10, max_organization=10,
+        current_territory_id="PTIE1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await patrol_unit.upsert(db_conn)
+    patrol_unit = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-tie", TEST_GUILD_ID)
+
+    hostile_unit_2 = Unit(
+        unit_id="unit-hostile-tie-2", name="Hostile at T2", unit_type="infantry",
+        owner_faction_id=faction_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="PTIE2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    hostile_unit_3 = Unit(
+        unit_id="unit-hostile-tie-3", name="Hostile at T3", unit_type="infantry",
+        owner_faction_id=faction_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="PTIE3", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await hostile_unit_2.upsert(db_conn)
+    await hostile_unit_3.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    patrol_order = Order(
+        order_id="order-patrol-tie", order_type=OrderType.UNIT.value,
+        unit_ids=[patrol_unit.id], character_id=char_a.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'patrol', 'path': ['PTIE1', 'PTIE2', 'PTIE3'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await patrol_order.upsert(db_conn)
+
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    patrol_events = [e for e in events if e.event_type == 'PATROL_ENGAGEMENT']
+    assert len(patrol_events) == 2
+
+    # Patrol should have engaged at PTIE2 (alphabetically first)
+    updated_patrol = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-tie", TEST_GUILD_ID)
+    assert updated_patrol.current_territory_id == "PTIE2"
+
+
+@pytest.mark.asyncio
+async def test_patrol_engagement_consumes_mp(db_conn, test_server):
+    """Test that patrol engagement correctly deducts MP."""
+    faction_a = Faction(faction_id="patrol-mp-a", name="Patrol MP A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="patrol-mp-b", name="Patrol MP B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "patrol-mp-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "patrol-mp-b", TEST_GUILD_ID)
+
+    war = War(war_id="WAR-PATROL-MP", objective="Patrol MP Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-PATROL-MP", TEST_GUILD_ID)
+
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    char_a = Character(identifier="patrol-mp-char", name="Patrol MP Char", channel_id=999000000000000306, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "patrol-mp-char", TEST_GUILD_ID)
+
+    # T1 plains, T2 desert (cost 2)
+    t1 = Territory(territory_id="PMP1", name="Patrol MP 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="PMP2", name="Patrol MP 2", terrain_type="desert", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    await TerritoryAdjacency(territory_a_id="PMP1", territory_b_id="PMP2", guild_id=TEST_GUILD_ID).upsert(db_conn)
+
+    # Patrol with 3 MP, desert costs 2
+    patrol_unit = Unit(
+        unit_id="unit-patrol-mp", name="MP Patrol", unit_type="cavalry",
+        owner_character_id=char_a.id, movement=3, organization=10, max_organization=10,
+        current_territory_id="PMP1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await patrol_unit.upsert(db_conn)
+    patrol_unit = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-mp", TEST_GUILD_ID)
+
+    hostile_unit = Unit(
+        unit_id="unit-hostile-mp", name="Hostile MP", unit_type="infantry",
+        owner_faction_id=faction_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="PMP2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await hostile_unit.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    patrol_order = Order(
+        order_id="order-patrol-mp", order_type=OrderType.UNIT.value,
+        unit_ids=[patrol_unit.id], character_id=char_a.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'patrol', 'path': ['PMP1', 'PMP2'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await patrol_order.upsert(db_conn)
+
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    patrol_events = [e for e in events if e.event_type == 'PATROL_ENGAGEMENT']
+    assert len(patrol_events) == 2
+
+    # Patrol should have moved to T2 (spent 2 MP on desert)
+    updated_patrol = await Unit.fetch_by_unit_id(db_conn, "unit-patrol-mp", TEST_GUILD_ID)
+    assert updated_patrol.current_territory_id == "PMP2"
+
+
+# ============================================================================
+# Patrol Engagement Event Formatting Tests
+# ============================================================================
+
+def test_patrol_engagement_character_line_patrol_side():
+    """Test PATROL_ENGAGEMENT character line for the patrol (intercepting) side."""
+    event_data = {
+        'units': ['EK-CAV-001'],
+        'engaged_with': ['FN-INF-001'],
+        'from_territory': 'T1',
+        'to_territory': 'T2',
+        'reason': 'war',
+        'engaged_by_patrol': False
+    }
+    line = patrol_engagement_character_line(event_data)
+    assert 'Patrol engagement' in line
+    assert 'EK-CAV-001' in line
+    assert 'FN-INF-001' in line
+    assert 'T1' in line
+    assert 'T2' in line
+    assert 'due to war' in line
+
+
+def test_patrol_engagement_character_line_intercepted_side():
+    """Test PATROL_ENGAGEMENT character line for the intercepted side."""
+    event_data = {
+        'units': ['FN-INF-001'],
+        'engaged_with': ['EK-CAV-001'],
+        'from_territory': 'T1',
+        'to_territory': 'T2',
+        'reason': 'raid_defense',
+        'engaged_by_patrol': True
+    }
+    line = patrol_engagement_character_line(event_data)
+    assert 'Engaged by patrol' in line
+    assert 'FN-INF-001' in line
+    assert 'EK-CAV-001' in line
+    assert 'defending against raid' in line
+
+
+def test_patrol_engagement_gm_line_patrol_side():
+    """Test PATROL_ENGAGEMENT GM line for the patrol (intercepting) side."""
+    event_data = {
+        'units': ['EK-CAV-001'],
+        'engaged_with': ['FN-INF-001'],
+        'from_territory': 'T1',
+        'to_territory': 'T2',
+        'reason': 'war',
+        'engaged_by_patrol': False
+    }
+    line = patrol_engagement_gm_line(event_data)
+    assert 'EK-CAV-001' in line
+    assert '->T' in line  # Format is "TT1->TT2" when territory IDs are "T1", "T2"
+    assert 'engaged' in line
+    assert 'FN-INF-001' in line
+
+
+def test_patrol_engagement_gm_line_intercepted_side():
+    """Test PATROL_ENGAGEMENT GM line for the intercepted side."""
+    event_data = {
+        'units': ['FN-INF-001'],
+        'engaged_with': ['EK-CAV-001'],
+        'from_territory': 'T1',
+        'to_territory': 'T2',
+        'reason': 'war',
+        'engaged_by_patrol': True
+    }
+    line = patrol_engagement_gm_line(event_data)
+    assert 'intercepted' in line
+    assert 'FN-INF-001' in line
+    assert 'EK-CAV-001' in line

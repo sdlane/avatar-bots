@@ -628,6 +628,177 @@ async def process_movement_tick(
     return events
 
 
+async def find_hostiles_in_territory(
+    conn: asyncpg.Connection,
+    patrol_state: MovementUnitState,
+    territory_id: str,
+    all_states: List[MovementUnitState],
+    moving_unit_ids: Set[int],
+    guild_id: int
+) -> Tuple[bool, List[Unit], Optional[MovementUnitState], Optional[str]]:
+    """
+    Find hostile units in a territory for patrol engagement.
+
+    Checks both moving units (other movement states) and stationary units.
+
+    Args:
+        conn: Database connection
+        patrol_state: The patrol MovementUnitState looking for hostiles
+        territory_id: Territory to check for hostiles
+        all_states: List of all MovementUnitState objects
+        moving_unit_ids: Set of unit internal IDs that are part of movement states
+        guild_id: Guild ID
+
+    Returns:
+        Tuple of (found, hostile_units, hostile_state_if_moving, reason)
+    """
+    logger.debug(f"find_hostiles_in_territory: patrol checking territory {territory_id}")
+
+    # Check moving units first (other movement states in target territory)
+    for state in all_states:
+        if state == patrol_state or state.status != MovementStatus.MOVING:
+            continue
+        if state.current_territory_id != territory_id:
+            continue
+
+        is_hostile, reason = await are_unit_groups_hostile(
+            conn, patrol_state.units, state.units, territory_id,
+            patrol_state.action, state.action, guild_id
+        )
+        if is_hostile:
+            logger.debug(f"find_hostiles_in_territory: found hostile moving units in {territory_id}")
+            return True, state.units, state, reason
+
+    # Check stationary units
+    all_units = await Unit.fetch_by_territory(conn, territory_id, guild_id)
+    stationary = [u for u in all_units
+                  if u.id not in moving_unit_ids and u.status == 'ACTIVE']
+
+    if stationary:
+        # Group by faction and check hostility
+        by_faction: Dict[Optional[int], List[Unit]] = defaultdict(list)
+        for unit in stationary:
+            faction_id = await get_unit_group_faction_id(conn, [unit], guild_id)
+            by_faction[faction_id].append(unit)
+
+        for faction_id, faction_units in by_faction.items():
+            is_hostile, reason = await are_unit_groups_hostile(
+                conn, patrol_state.units, faction_units, territory_id,
+                patrol_state.action, None, guild_id
+            )
+            if is_hostile:
+                logger.debug(f"find_hostiles_in_territory: found hostile stationary units in {territory_id}")
+                return True, faction_units, None, reason
+
+    logger.debug(f"find_hostiles_in_territory: no hostiles found in {territory_id}")
+    return False, [], None, None
+
+
+async def execute_patrol_engagement(
+    conn: asyncpg.Connection,
+    patrol_state: MovementUnitState,
+    hostile_units: List[Unit],
+    hostile_state: Optional[MovementUnitState],
+    target_territory: str,
+    terrain_cost: int,
+    reason: str,
+    turn_number: int,
+    guild_id: int
+) -> List[TurnLog]:
+    """
+    Execute patrol engagement - move patrol to territory and engage both groups.
+
+    Args:
+        conn: Database connection
+        patrol_state: The patrol MovementUnitState
+        hostile_units: List of hostile units being engaged
+        hostile_state: The hostile MovementUnitState if they are moving, None if stationary
+        target_territory: Territory where engagement occurs
+        terrain_cost: MP cost to enter the territory
+        reason: Reason for hostility ("war" or "raid_defense")
+        turn_number: Current turn number
+        guild_id: Guild ID
+
+    Returns:
+        List of TurnLog events for the engagement
+    """
+    events: List[TurnLog] = []
+    old_territory = patrol_state.current_territory_id
+
+    logger.info(f"execute_patrol_engagement: patrol moving from {old_territory} to {target_territory} "
+                f"to engage hostiles (reason: {reason})")
+
+    # Move patrol units
+    patrol_state.remaining_mp -= terrain_cost
+    patrol_state.mp_expended_this_turn += terrain_cost
+    patrol_state.current_territory_id = target_territory
+    patrol_state.territories_entered.append(target_territory)
+
+    for unit in patrol_state.units:
+        unit.current_territory_id = target_territory
+        await unit.upsert(conn)
+
+    # Set both groups to ENGAGED
+    patrol_state.status = MovementStatus.ENGAGED
+    if hostile_state:
+        hostile_state.status = MovementStatus.ENGAGED
+
+    # Get faction and character info for events
+    patrol_faction_id = await get_unit_group_faction_id(conn, patrol_state.units, guild_id)
+    hostile_faction_id = await get_unit_group_faction_id(conn, hostile_units, guild_id)
+
+    patrol_affected_ids = await get_affected_character_ids(conn, patrol_state.units, guild_id)
+    hostile_affected_ids = await get_affected_character_ids(conn, hostile_units, guild_id)
+
+    patrol_unit_ids = [u.unit_id for u in patrol_state.units]
+    hostile_unit_ids = [u.unit_id for u in hostile_units]
+
+    # Event for patrol (the intercepting unit)
+    events.append(TurnLog(
+        turn_number=turn_number,
+        phase=TurnPhase.MOVEMENT.value,
+        event_type='PATROL_ENGAGEMENT',
+        entity_type='order',
+        entity_id=patrol_state.order.id,
+        event_data={
+            'order_id': patrol_state.order.order_id,
+            'units': patrol_unit_ids,
+            'from_territory': old_territory,
+            'to_territory': target_territory,
+            'engaged_with': hostile_unit_ids,
+            'engaged_faction_id': hostile_faction_id,
+            'reason': reason,
+            'engaged_by_patrol': False,  # This is the patrol doing the interception
+            'affected_character_ids': patrol_affected_ids
+        },
+        guild_id=guild_id
+    ))
+
+    # Event for hostile (the intercepted unit)
+    events.append(TurnLog(
+        turn_number=turn_number,
+        phase=TurnPhase.MOVEMENT.value,
+        event_type='PATROL_ENGAGEMENT',
+        entity_type='order' if hostile_state else 'unit',
+        entity_id=hostile_state.order.id if hostile_state else (hostile_units[0].id if hostile_units else None),
+        event_data={
+            'order_id': hostile_state.order.order_id if hostile_state else None,
+            'units': hostile_unit_ids,
+            'from_territory': old_territory,  # Where the patrol came from
+            'to_territory': target_territory,
+            'engaged_with': patrol_unit_ids,
+            'engaged_faction_id': patrol_faction_id,
+            'reason': reason,
+            'engaged_by_patrol': True,  # This group was intercepted by patrol
+            'affected_character_ids': hostile_affected_ids
+        },
+        guild_id=guild_id
+    ))
+
+    logger.info(f"execute_patrol_engagement: generated {len(events)} events")
+    return events
+
+
 async def process_patrol_engagement(
     conn: asyncpg.Connection,
     states: List[MovementUnitState],
@@ -637,7 +808,15 @@ async def process_patrol_engagement(
     """
     Process patrol engagement opportunities.
 
-    PLACEHOLDER - Will be implemented with combat phase.
+    Before any ticks, between each tick, and after the last tick, patrol units
+    check adjacent territories for hostile units. If a hostile is found in an
+    adjacent territory and the patrol has enough remaining MP to pay the terrain
+    cost, the patrol moves to that territory and both become ENGAGED.
+
+    Processing order: Patrol orders are processed by order.id ascending (oldest first).
+    Tiebreaking: When multiple hostiles exist in different adjacent territories,
+    first filter to reachable territories (enough MP for terrain cost), then pick
+    alphabetically by territory_id.
 
     Args:
         conn: Database connection
@@ -646,10 +825,75 @@ async def process_patrol_engagement(
         turn_number: Current turn number
 
     Returns:
-        List of events (empty for now)
+        List of TurnLog events for patrol engagements
     """
-    # Placeholder for patrol engagement logic
-    return []
+    events: List[TurnLog] = []
+
+    # 1. Filter to patrol states that are still MOVING
+    patrol_states = [s for s in states
+                     if s.is_patrol() and s.status == MovementStatus.MOVING]
+
+    if not patrol_states:
+        logger.debug("process_patrol_engagement: no patrol states to process")
+        return events
+
+    # 2. Sort by order.id ascending (oldest first)
+    patrol_states.sort(key=lambda s: s.order.id)
+
+    # 3. Build set of unit IDs in movement states
+    moving_unit_ids: Set[int] = {u.id for state in states for u in state.units}
+
+    logger.info(f"process_patrol_engagement: processing {len(patrol_states)} patrol states")
+
+    # 4. Process each patrol
+    for patrol_state in patrol_states:
+        if patrol_state.status != MovementStatus.MOVING:
+            continue  # May have been engaged by earlier patrol
+
+        patrol_unit_ids = [u.unit_id for u in patrol_state.units]
+        logger.debug(f"process_patrol_engagement: checking patrol {patrol_unit_ids} "
+                     f"at {patrol_state.current_territory_id}")
+
+        # Get adjacent territories
+        adjacent = await TerritoryAdjacency.fetch_adjacent(
+            conn, patrol_state.current_territory_id, guild_id
+        )
+
+        if not adjacent:
+            logger.debug(f"process_patrol_engagement: no adjacent territories for "
+                         f"{patrol_state.current_territory_id}")
+            continue
+
+        # Filter to reachable territories and sort alphabetically
+        reachable: List[Tuple[str, int]] = []
+        for territory_id in adjacent:
+            terrain_cost = await get_terrain_cost(conn, territory_id, guild_id)
+            if terrain_cost <= patrol_state.remaining_mp:
+                reachable.append((territory_id, terrain_cost))
+
+        # Sort alphabetically by territory_id for tiebreaking
+        reachable.sort(key=lambda x: x[0])
+
+        logger.debug(f"process_patrol_engagement: reachable territories: {reachable}")
+
+        # Check each reachable territory for hostiles
+        for target_territory, terrain_cost in reachable:
+            hostile_found, hostile_units, hostile_state, reason = \
+                await find_hostiles_in_territory(
+                    conn, patrol_state, target_territory,
+                    states, moving_unit_ids, guild_id
+                )
+
+            if hostile_found:
+                engagement_events = await execute_patrol_engagement(
+                    conn, patrol_state, hostile_units, hostile_state,
+                    target_territory, terrain_cost, reason, turn_number, guild_id
+                )
+                events.extend(engagement_events)
+                break  # Only engage one target per check
+
+    logger.info(f"process_patrol_engagement: finished, generated {len(events)} events")
+    return events
 
 
 async def check_engagement(

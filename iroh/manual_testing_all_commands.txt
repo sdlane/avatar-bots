@@ -2165,6 +2165,126 @@ STEPS:
     - TRANSIT_COMPLETE event (order succeeds normally)
 
 
+--------------------------------------------------------------------------------
+TEST 8B.13: Patrol Engagement - Basic
+--------------------------------------------------------------------------------
+PURPOSE: Test patrol intercepts hostile in adjacent territory
+
+PREREQUISITES:
+- Two factions at war (use /declare-war to create war)
+- Patrol unit from faction 1 in territory 1
+- Hostile unit from faction 2 in territory 2 (stationary)
+- Territory 1 and 2 are adjacent
+
+SETUP:
+    # Create war between factions
+    /order-declare-war target_faction_ids:test-ek objective:Patrol Test
+
+    # Create patrol order for faction 1 unit
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2,3
+
+    # Hostile unit at territory 2 (no movement order - stationary)
+
+STEPS:
+8B.13.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Patrol unit moves from territory 1 to territory 2
+    - PATROL_ENGAGEMENT event for patrol unit (showing interception)
+    - PATROL_ENGAGEMENT event for hostile unit (showing being intercepted)
+    - Both units become ENGAGED
+    - Patrol order status ONGOING (interrupted by engagement)
+
+
+--------------------------------------------------------------------------------
+TEST 8B.14: Patrol Engagement - Insufficient MP
+--------------------------------------------------------------------------------
+PURPOSE: Test patrol does not engage if terrain cost exceeds MP
+
+PREREQUISITES:
+- Two factions at war
+- Patrol unit with 2 MP in territory 1
+- Hostile unit in territory 2 (mountain terrain, cost 3)
+- Territory 1 and 2 are adjacent
+
+SETUP:
+    # Create war between factions
+    /order-declare-war target_faction_ids:test-ek objective:MP Test
+
+    # Create patrol order (unit has 2 MP, mountain costs 3)
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2
+
+STEPS:
+8B.14.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NO PATROL_ENGAGEMENT events
+    - Patrol unit stays at territory 1 (can't afford terrain cost)
+    - Normal patrol behavior continues
+
+
+--------------------------------------------------------------------------------
+TEST 8B.15: Patrol Engagement - Multiple Targets (Tiebreak)
+--------------------------------------------------------------------------------
+PURPOSE: Test tiebreaking with multiple hostiles in different territories
+
+PREREQUISITES:
+- Two factions at war
+- Patrol unit with 3 MP at territory 1
+- Hostile A at territory 2 (plains, cost 1)
+- Hostile B at territory 3 (plains, cost 1)
+- Both territory 2 and 3 adjacent to territory 1
+- Territory 2 < territory 3 alphabetically
+
+SETUP:
+    # Create war and patrol with multiple adjacent hostiles
+    /order-declare-war target_faction_ids:test-ek objective:Tiebreak Test
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2,3
+
+STEPS:
+8B.15.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Patrol engages hostile in alphabetically-first territory (2 before 3)
+    - PATROL_ENGAGEMENT event shows engagement at territory 2
+    - Hostile at territory 3 is NOT engaged
+
+
+--------------------------------------------------------------------------------
+TEST 8B.16: Patrol Engagement - Moving Hostile
+--------------------------------------------------------------------------------
+PURPOSE: Test patrol intercepts moving hostile unit
+
+PREREQUISITES:
+- Two factions at war
+- Patrol unit from faction 1 in territory 1
+- Moving unit from faction 2 transiting through territory 2
+- Territory 1 and 2 are adjacent
+
+SETUP:
+    # Create war between factions
+    /order-declare-war target_faction_ids:test-ek objective:Moving Hostile Test
+
+    # Create patrol order for faction 1
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2,3
+
+    # Create transit order for hostile (moving through)
+    /order-unit unit_ids:EK-001 action:Transit (land) path:2,3,4
+
+STEPS:
+8B.16.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Patrol moves to intercept hostile at territory 2
+    - PATROL_ENGAGEMENT events for both units
+    - Both units become ENGAGED
+    - Hostile's transit order interrupted
+
+
 ================================================================================
 SECTION 9: PLAYER VIEW COMMANDS
 ================================================================================
