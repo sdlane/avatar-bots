@@ -92,9 +92,9 @@ async def submit_join_faction_order(
     if not faction:
         return False, f"Faction '{target_faction_id}' not found."
 
-    # Check character not already in this faction
-    existing_membership = await FactionMember.fetch_by_character(conn, character.id, guild_id)
-    if existing_membership and existing_membership.faction_id == faction.id:
+    # Check character not already in this specific faction
+    existing_membership = await FactionMember.fetch_membership(conn, faction.id, character.id, guild_id)
+    if existing_membership:
         return False, f"{character.name} is already a member of {faction.name}."
 
     # Validate submitter is either:
@@ -151,30 +151,39 @@ async def submit_join_faction_order(
 async def submit_leave_faction_order(
     conn: asyncpg.Connection,
     character: Character,
-    guild_id: int
+    guild_id: int,
+    faction_id: Optional[str] = None
 ) -> Tuple[bool, str]:
     """
-    Submit an order for a character to leave their faction.
+    Submit an order for a character to leave a faction.
 
     Args:
         conn: Database connection
-        character_identifier: Character identifier
+        character: Character object
         guild_id: Guild ID
+        faction_id: Optional faction identifier. If not provided, leaves represented faction.
 
     Returns:
         (success, message)
     """
-    # Check character is in a faction
-    faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
-    if not faction_member:
-        return False, f"You are not a member of any faction."
-
-    # Get faction name
-    faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+    # Determine which faction to leave
+    if faction_id:
+        faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+        if not faction:
+            return False, f"Faction '{faction_id}' not found."
+        faction_member = await FactionMember.fetch_membership(conn, faction.id, character.id, guild_id)
+        if not faction_member:
+            return False, f"You are not a member of {faction.name}."
+    else:
+        # Default to represented faction or any membership
+        faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
+        if not faction_member:
+            return False, f"You are not a member of any faction."
+        faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
 
     # Check character is not faction leader
     if faction.leader_character_id == character.id:
-        return False, f"You are the leader of {faction.name}. Get a GM to a new leader first using `/set-faction-leader`."
+        return False, f"You are the leader of {faction.name}. Get a GM to assign a new leader first using `/set-faction-leader`."
 
     # Get current turn from WargameConfig
     wargame_config = await conn.fetchrow(
@@ -183,20 +192,22 @@ async def submit_leave_faction_order(
     )
     current_turn = wargame_config['current_turn'] if wargame_config else 0
 
-    # Check no pending faction order for current turn
+    # Check no pending leave order for this specific faction
     existing_orders = await Order.fetch_by_character_and_type(
         conn, character.id, guild_id, OrderType.LEAVE_FACTION.value, OrderStatus.PENDING.value
     )
 
-    if existing_orders:
-        return False, f"{character.name} already has a pending faction order."
-
+    # Filter to orders for this specific faction
+    for existing_order in existing_orders:
+        order_faction_id = existing_order.order_data.get('faction_id')
+        if order_faction_id == faction.id:
+            return False, f"{character.name} already has a pending order to leave {faction.name}."
 
     # Generate order ID
     order_count = await Order.get_count(conn, guild_id)
     order_id = f"ORD-{order_count + 1:04d}"
 
-    # Create order
+    # Create order with faction_id in order_data
     order = Order(
         order_id=order_id,
         order_type=OrderType.LEAVE_FACTION.value,
@@ -206,7 +217,10 @@ async def submit_leave_faction_order(
         phase=ORDER_PHASE_MAP[OrderType.LEAVE_FACTION].value,
         priority=ORDER_PRIORITY_MAP[OrderType.LEAVE_FACTION],
         status=OrderStatus.PENDING.value,
-        order_data={},
+        order_data={
+            'faction_id': faction.id,
+            'faction_name': faction.name
+        },
         submitted_at=datetime.now(),
         guild_id=guild_id
     )
@@ -439,12 +453,12 @@ async def submit_transit_order(
     # Create order
     order = Order(
         order_id=order_id,
-        order_type=OrderType.TRANSIT.value,
+        order_type=OrderType.UNIT.value,
         unit_ids=unit_internal_ids,
         character_id=character_id,
         turn_number=current_turn + 1,  # Execute next turn
-        phase=ORDER_PHASE_MAP[OrderType.TRANSIT].value,
-        priority=ORDER_PRIORITY_MAP[OrderType.TRANSIT],
+        phase=ORDER_PHASE_MAP[OrderType.UNIT].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
         status=OrderStatus.PENDING.value,
         order_data={'path': path, 'path_index': 0},
         submitted_at=datetime.now(),
@@ -456,6 +470,255 @@ async def submit_transit_order(
     unit_list = ', '.join([u.unit_id for u in units])
     ongoing_note = " (will take multiple turns)" if will_be_ongoing else ""
     return True, f"Transit order submitted for {unit_list} -> Territory {path[-1]} (Order #{order_id}){ongoing_note}. Slowest unit: {slowest_unit.unit_id} (movement={slowest_movement})."
+
+
+# Valid unit action types
+VALID_LAND_ACTIONS = ['transit', 'transport', 'patrol', 'raid', 'capture', 'siege']
+VALID_NAVAL_ACTIONS = ['naval_transit', 'naval_convoy', 'naval_patrol', 'naval_transport']
+VALID_UNIT_ACTIONS = VALID_LAND_ACTIONS + VALID_NAVAL_ACTIONS
+
+# Terrain types considered water (for naval units)
+WATER_TERRAIN_TYPES = ['ocean', 'lake', 'sea', 'water']
+
+
+async def submit_unit_order(
+    conn: asyncpg.Connection,
+    unit_ids: List[str],
+    action: str,
+    path: List[str],
+    guild_id: int,
+    character_id: int,
+    speed: Optional[int] = None,
+    override: bool = False
+) -> Tuple[bool, str, Optional[dict]]:
+    """
+    Submit a unit order for one or more units.
+
+    Args:
+        conn: Database connection
+        unit_ids: List of unit IDs (user-facing)
+        action: Action type (one of VALID_UNIT_ACTIONS)
+        path: Full path (list of territory IDs as strings)
+        guild_id: Guild ID
+        character_id: Character submitting the order
+        speed: Speed parameter for patrol orders only
+        override: If True, override existing orders (cancel them and create new)
+
+    Returns:
+        (success, message, extra_data)
+        - extra_data may contain {'confirmation_needed': True, 'existing_orders': [...]} if orders exist
+    """
+    # Normalize action to lowercase
+    action = action.lower().strip()
+
+    # Validate action is one of the valid types
+    if action not in VALID_UNIT_ACTIONS:
+        return False, f"Invalid action '{action}'. Valid actions: {', '.join(VALID_UNIT_ACTIONS)}", None
+
+    # Validate path is non-empty
+    if not path or len(path) < 2:
+        return False, "Path must include at least a starting and destination territory.", None
+
+    # Fetch all units
+    units = []
+    for unit_id in unit_ids:
+        unit = await Unit.fetch_by_unit_id(conn, unit_id, guild_id)
+        if not unit:
+            return False, f"Unit '{unit_id}' not found.", None
+        units.append(unit)
+
+    if not units:
+        return False, "No units specified.", None
+
+    # Validate land/naval action matches unit type
+    is_naval_action = action in VALID_NAVAL_ACTIONS
+    for unit in units:
+        if is_naval_action and not unit.is_naval:
+            return False, f"Unit '{unit.unit_id}' is a land unit but you specified a naval action '{action}'.", None
+        if not is_naval_action and unit.is_naval:
+            return False, f"Unit '{unit.unit_id}' is a naval unit but you specified a land action '{action}'.", None
+
+    # Validate authorization for all units
+    unauthorized_units = []
+    for unit in units:
+        authorized, _ = await check_unit_order_authorization(conn, unit, character_id, guild_id)
+        if not authorized:
+            unauthorized_units.append(unit.unit_id)
+
+    if unauthorized_units:
+        return False, f"You are not authorized to issue orders for these units: {', '.join(unauthorized_units)}. Ask a GM for clarification.", None
+
+    # Validate all units in same starting territory
+    starting_territories = set(u.current_territory_id for u in units)
+    if len(starting_territories) > 1:
+        return False, f"All units must be in the same territory. Units are in: {starting_territories}", None
+
+    starting_territory_id = units[0].current_territory_id
+
+    # Validate path starts with current territory
+    if path[0] != starting_territory_id:
+        return False, f"Path must start with the units' current territory ({starting_territory_id}).", None
+
+    # Validate path using validate_path_with_details helper
+    valid, error_msg = await validate_path_with_details(conn, path, guild_id)
+    if not valid:
+        return False, error_msg, None
+
+    # Validate terrain for naval actions (all territories must be water)
+    if is_naval_action:
+        for territory_id in path:
+            territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+            if territory and territory.terrain_type.lower() not in WATER_TERRAIN_TYPES:
+                return False, f"Naval units cannot traverse land territory '{territory_id}' (terrain: {territory.terrain_type}).", None
+
+    # Action-specific validation: Siege requires city terrain at path end
+    if action == 'siege':
+        final_territory = await Territory.fetch_by_territory_id(conn, path[-1], guild_id)
+        if final_territory and final_territory.terrain_type.lower() != 'city':
+            return False, f"Siege action requires a city at the destination. Territory '{path[-1]}' is '{final_territory.terrain_type}'.", None
+
+    # Validate speed parameter for patrol actions
+    if action in ['patrol', 'naval_patrol']:
+        if speed is not None and speed < 1:
+            return False, "Speed must be at least 1 for patrol orders.", None
+    elif speed is not None:
+        return False, "Speed parameter is only valid for patrol actions.", None
+
+    # Check existing orders for all units
+    unit_internal_ids = [u.id for u in units]
+    existing_orders = await Order.fetch_by_units(
+        conn, unit_internal_ids, [OrderStatus.PENDING.value, OrderStatus.ONGOING.value], guild_id
+    )
+
+    if existing_orders and not override:
+        # Collect details about existing orders
+        existing_order_details = []
+        for order in existing_orders:
+            # Find which units in our list are affected
+            affected_unit_ids = [u.unit_id for u in units if u.id in order.unit_ids]
+            existing_order_details.append({
+                'order_id': order.order_id,
+                'order_type': order.order_type,
+                'status': order.status,
+                'affected_units': affected_unit_ids,
+                'action': order.order_data.get('action', 'unknown')
+            })
+
+        conflicting_units = set()
+        for order in existing_orders:
+            conflicting_units.update([u.unit_id for u in units if u.id in order.unit_ids])
+
+        return False, f"These units already have pending orders: {', '.join(conflicting_units)}. Use confirmation to override.", {
+            'confirmation_needed': True,
+            'existing_orders': existing_order_details
+        }
+
+    # If override=True and there are existing orders, cancel them
+    if existing_orders and override:
+        for existing_order in existing_orders:
+            existing_order.status = OrderStatus.CANCELLED.value
+            existing_order.updated_at = datetime.now()
+            existing_order.result_data = {'cancelled_reason': 'overridden_by_new_order'}
+            await existing_order.upsert(conn)
+
+    # Find slowest unit (minimum movement stat)
+    slowest_movement = min(u.movement for u in units)
+    slowest_unit = next(u for u in units if u.movement == slowest_movement)
+
+    # Get current turn from WargameConfig
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Generate order ID
+    order_count = await Order.get_count(conn, guild_id)
+    order_id = f"ORD-{order_count + 1:04d}"
+
+    # Determine if order will be ongoing
+    path_length = len(path) - 1  # Number of steps
+    will_be_ongoing = path_length > slowest_movement
+
+    # Build order_data
+    order_data = {
+        'action': action,
+        'path': path,
+        'path_index': 0
+    }
+    if speed is not None:
+        order_data['speed'] = speed
+
+    # Create order
+    order = Order(
+        order_id=order_id,
+        order_type=OrderType.UNIT.value,
+        unit_ids=unit_internal_ids,
+        character_id=character_id,
+        turn_number=current_turn + 1,  # Execute next turn
+        phase=ORDER_PHASE_MAP[OrderType.UNIT].value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data=order_data,
+        submitted_at=datetime.now(),
+        guild_id=guild_id
+    )
+
+    await order.upsert(conn)
+
+    unit_list = ', '.join([u.unit_id for u in units])
+    ongoing_note = " (will take multiple turns)" if will_be_ongoing else ""
+    override_note = " (previous orders cancelled)" if existing_orders and override else ""
+    speed_note = f", speed={speed}" if speed is not None else ""
+
+    return True, f"Unit order submitted: {action} for {unit_list} -> Territory {path[-1]} (Order #{order_id}){ongoing_note}{override_note}. Slowest unit: {slowest_unit.unit_id} (movement={slowest_movement}{speed_note}).", None
+
+
+async def validate_path_with_details(
+    conn: asyncpg.Connection,
+    path: List[str],
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Validate a path is valid (territories exist and are adjacent).
+    Returns detailed error messages for non-adjacent territories.
+
+    Args:
+        conn: Database connection
+        path: List of territory IDs (as strings)
+        guild_id: Guild ID
+
+    Returns:
+        (success, error_message)
+    """
+    if not path:
+        return False, "Path is empty."
+
+    # Check all territories exist
+    for territory_id in path:
+        territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+        if not territory:
+            return False, f"Territory '{territory_id}' not found."
+
+    # Check each consecutive pair is adjacent
+    for i in range(len(path) - 1):
+        territory_a = path[i]
+        territory_b = path[i + 1]
+
+        # Check adjacency (order doesn't matter due to canonical ordering in DB)
+        is_adjacent = await conn.fetchval("""
+            SELECT EXISTS(
+                SELECT 1 FROM TerritoryAdjacency
+                WHERE ((territory_a_id = $1 AND territory_b_id = $2)
+                   OR (territory_a_id = $2 AND territory_b_id = $1))
+                AND guild_id = $3
+            );
+        """, territory_a, territory_b, guild_id)
+
+        if not is_adjacent:
+            return False, f"Territories '{territory_a}' and '{territory_b}' are not adjacent."
+
+    return True, ""
 
 
 # Minimum turns before cancellation for specific order types

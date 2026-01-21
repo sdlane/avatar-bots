@@ -475,7 +475,7 @@ async def test_submit_transit_order_single_unit(db_conn, test_server):
     # Verify order was created
     orders = await db_conn.fetch('SELECT * FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
     assert len(orders) == 1
-    assert orders[0]['order_type'] == OrderType.TRANSIT.value
+    assert orders[0]['order_type'] == OrderType.UNIT.value
     assert orders[0]['status'] == OrderStatus.PENDING.value
 
     # Cleanup
@@ -1374,7 +1374,7 @@ async def test_view_pending_orders_multiple_types(db_conn, test_server):
     assert len(orders) == 2
     order_types = [o['order_type'] for o in orders]
     assert OrderType.JOIN_FACTION.value in order_types
-    assert OrderType.TRANSIT.value in order_types
+    assert OrderType.UNIT.value in order_types
 
     # Cleanup
     await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)

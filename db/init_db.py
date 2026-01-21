@@ -68,6 +68,10 @@ async def ensure_tables():
     # Victory points
     await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS victory_points INTEGER DEFAULT 0;")
 
+    # Multi-faction representation support
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS represented_faction_id INTEGER;")
+    await conn.execute("ALTER TABLE Character ADD COLUMN IF NOT EXISTS representation_changed_turn INTEGER;")
+
     # --- Constraint Synchronization ---
     # Unique constraint on (identifier, guild_id)
     await conn.execute("""
@@ -262,9 +266,32 @@ async def ensure_tables():
         faction_id INTEGER NOT NULL REFERENCES Faction(id) ON DELETE CASCADE,
         character_id INTEGER NOT NULL REFERENCES Character(id) ON DELETE CASCADE,
         joined_turn INTEGER NOT NULL,
-        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
-        UNIQUE(character_id, guild_id)
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE
     );
+    """)
+
+    # Migration: Change FactionMember constraint from single-faction to multi-faction
+    # Remove old single-faction constraint if it exists, add new multi-faction constraint
+    await conn.execute("""
+    DO $$
+    BEGIN
+        -- Drop old single-faction constraint if it exists
+        IF EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'factionmember_character_id_guild_id_key'
+        ) THEN
+            ALTER TABLE FactionMember DROP CONSTRAINT factionmember_character_id_guild_id_key;
+        END IF;
+
+        -- Add new multi-faction constraint if it doesn't exist
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'factionmember_faction_character_guild_key'
+        ) THEN
+            ALTER TABLE FactionMember ADD CONSTRAINT factionmember_faction_character_guild_key
+                UNIQUE(faction_id, character_id, guild_id);
+        END IF;
+    END$$;
     """)
 
     await conn.execute("ALTER TABLE FactionMember ADD COLUMN IF NOT EXISTS faction_id INTEGER;")
@@ -901,6 +928,21 @@ async def ensure_tables():
             ALTER TABLE Unit
             ADD CONSTRAINT unit_owner_faction_id_fkey
             FOREIGN KEY (owner_faction_id) REFERENCES Faction(id) ON DELETE CASCADE;
+        END IF;
+    END$$;
+    """)
+
+    # FK for Character.represented_faction_id -> Faction.id (ON DELETE SET NULL)
+    await conn.execute("""
+    DO $$
+    BEGIN
+        IF NOT EXISTS (
+            SELECT 1 FROM pg_constraint
+            WHERE conname = 'character_represented_faction_id_fkey'
+        ) THEN
+            ALTER TABLE Character
+            ADD CONSTRAINT character_represented_faction_id_fkey
+            FOREIGN KEY (represented_faction_id) REFERENCES Faction(id) ON DELETE SET NULL;
         END IF;
     END$$;
     """)

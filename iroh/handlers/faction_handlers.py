@@ -88,8 +88,8 @@ async def grant_faction_permission(
         return False, f"Character '{character_identifier}' not found."
 
     # Check if character is a member of the faction
-    membership = await FactionMember.fetch_by_character(conn, char.id, guild_id)
-    if not membership or membership.faction_id != faction.id:
+    membership = await FactionMember.fetch_membership(conn, faction.id, char.id, guild_id)
+    if not membership:
         return False, f"{char.name} is not a member of {faction.name}. Only faction members can hold permissions."
 
     # Check if already has the permission
@@ -368,8 +368,8 @@ async def set_faction_leader(conn: asyncpg.Connection, faction_id: str, leader_i
         return False, f"Character '{leader_identifier}' not found."
 
     # Check if leader is a member of the faction
-    faction_member = await FactionMember.fetch_by_character(conn, leader_char.id, guild_id)
-    if not faction_member or faction_member.faction_id != faction.id:
+    faction_member = await FactionMember.fetch_membership(conn, faction.id, leader_char.id, guild_id)
+    if not faction_member:
         return False, f"{leader_char.name} is not a member of {faction.name}. Add them as a member first."
 
     # Update leader
@@ -385,6 +385,8 @@ async def set_faction_leader(conn: asyncpg.Connection, faction_id: str, leader_i
 async def add_faction_member(conn: asyncpg.Connection, faction_id: str, character_identifier: str, guild_id: int) -> Tuple[bool, str]:
     """
     Add a member to a faction.
+    Characters can be members of multiple factions.
+    On first faction join, the faction is automatically set as the character's represented faction.
 
     Args:
         conn: Database connection
@@ -405,11 +407,10 @@ async def add_faction_member(conn: asyncpg.Connection, faction_id: str, characte
     if not char:
         return False, f"Character '{character_identifier}' not found."
 
-    # Check if already in a faction
-    existing_membership = await FactionMember.fetch_by_character(conn, char.id, guild_id)
+    # Check if already a member of THIS faction
+    existing_membership = await FactionMember.fetch_membership(conn, faction.id, char.id, guild_id)
     if existing_membership:
-        existing_faction = await Faction.fetch_by_id(conn, existing_membership.faction_id)
-        return False, f"{char.name} is already a member of {existing_faction.name}. Remove them first."
+        return False, f"{char.name} is already a member of {faction.name}."
 
     # Get current turn
     wargame_config = await conn.fetchrow(
@@ -417,6 +418,10 @@ async def add_faction_member(conn: asyncpg.Connection, faction_id: str, characte
         guild_id
     )
     current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Check if this is the character's first faction
+    all_memberships = await FactionMember.fetch_all_by_character(conn, char.id, guild_id)
+    is_first_faction = len(all_memberships) == 0
 
     # Add member
     faction_member = FactionMember(
@@ -427,17 +432,24 @@ async def add_faction_member(conn: asyncpg.Connection, faction_id: str, characte
     )
     await faction_member.insert(conn)
 
+    # If first faction, auto-set as represented faction
+    if is_first_faction:
+        char.represented_faction_id = faction.id
+        await char.upsert(conn)
+        return True, f"{char.name} has joined {faction.name} (now representing this faction)."
+
     return True, f"{char.name} has joined {faction.name}."
 
 
-async def remove_faction_member(conn: asyncpg.Connection, character_identifier: str, guild_id: int) -> Tuple[bool, str]:
+async def remove_faction_member(conn: asyncpg.Connection, character_identifier: str, guild_id: int, faction_id: Optional[str] = None) -> Tuple[bool, str]:
     """
-    Remove a member from their faction.
+    Remove a member from a faction.
 
     Args:
         conn: Database connection
         character_identifier: Character identifier to remove
         guild_id: Guild ID
+        faction_id: Optional faction identifier. If not provided, removes from represented faction.
 
     Returns:
         (success, message)
@@ -447,25 +459,71 @@ async def remove_faction_member(conn: asyncpg.Connection, character_identifier: 
     if not char:
         return False, f"Character '{character_identifier}' not found."
 
-    # Check if in a faction
-    faction_member = await FactionMember.fetch_by_character(conn, char.id, guild_id)
-    if not faction_member:
-        return False, f"{char.name} is not a member of any faction."
+    # Determine which faction to leave
+    if faction_id:
+        faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+        if not faction:
+            return False, f"Faction '{faction_id}' not found."
+        faction_member = await FactionMember.fetch_membership(conn, faction.id, char.id, guild_id)
+        if not faction_member:
+            return False, f"{char.name} is not a member of {faction.name}."
+    else:
+        # Default to represented faction or any membership
+        faction_member = await FactionMember.fetch_by_character(conn, char.id, guild_id)
+        if not faction_member:
+            return False, f"{char.name} is not a member of any faction."
+        faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
 
-    # Get faction name
-    faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
-
-    # Check if character is the leader
+    # Check if character is the leader of this faction
     if faction.leader_character_id == char.id:
         return False, f"{char.name} is the leader of {faction.name}. Assign a new leader first using `/set-faction-leader`."
+
+    # Check if leaving the represented faction
+    is_represented_faction = char.represented_faction_id == faction.id
 
     # Revoke all permissions for this character in this faction
     await FactionPermission.delete_all_for_character_in_faction(
         conn, char.id, faction.id, guild_id
     )
 
-    # Remove member
-    await FactionMember.delete(conn, char.id, guild_id)
+    # Remove member from this specific faction
+    await FactionMember.delete(conn, char.id, guild_id, faction_id=faction.id)
+
+    # Handle representation change if leaving represented faction
+    if is_represented_faction:
+        # Get remaining memberships
+        remaining_memberships = await FactionMember.fetch_all_by_character(conn, char.id, guild_id)
+
+        if remaining_memberships:
+            # Auto-assign to most recent membership (highest joined_turn)
+            new_represented_faction = await Faction.fetch_by_id(conn, remaining_memberships[0].faction_id)
+            char.represented_faction_id = remaining_memberships[0].faction_id
+            # Note: Auto-assignment does NOT reset cooldown
+            await char.upsert(conn)
+
+            # Update owned units to new represented faction
+            from db import Unit
+            units = await Unit.fetch_by_owner(conn, char.id, guild_id)
+            for unit in units:
+                if unit.faction_id == faction.id:
+                    unit.faction_id = char.represented_faction_id
+                    await unit.upsert(conn)
+
+            return True, f"{char.name} has left {faction.name}. Now representing {new_represented_faction.name}."
+        else:
+            # No more memberships - clear representation
+            char.represented_faction_id = None
+            await char.upsert(conn)
+
+            # Update owned units to have no faction
+            from db import Unit
+            units = await Unit.fetch_by_owner(conn, char.id, guild_id)
+            for unit in units:
+                if unit.faction_id == faction.id:
+                    unit.faction_id = None
+                    await unit.upsert(conn)
+
+            return True, f"{char.name} has left {faction.name}. No longer representing any faction."
 
     return True, f"{char.name} has left {faction.name}."
 
@@ -779,3 +837,225 @@ async def get_faction_spending(
     }
 
     return True, f"Spending for {faction.name}.", spending_data
+
+
+# ============== Representation Management Handlers ==============
+
+
+async def set_character_representation(
+    conn: asyncpg.Connection,
+    character_id: int,
+    target_faction_id: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Change which faction a character publicly represents.
+    Enforces 3-turn cooldown.
+
+    Args:
+        conn: Database connection
+        character_id: Internal character ID
+        target_faction_id: Faction identifier to represent
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate character
+    char = await Character.fetch_by_id(conn, character_id)
+    if not char:
+        return False, "Character not found."
+
+    # Validate target faction
+    faction = await Faction.fetch_by_faction_id(conn, target_faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{target_faction_id}' not found."
+
+    # Check if character is a member of target faction
+    membership = await FactionMember.fetch_membership(conn, faction.id, char.id, guild_id)
+    if not membership:
+        return False, f"You are not a member of {faction.name}. Join the faction first."
+
+    # Check if already representing this faction
+    if char.represented_faction_id == faction.id:
+        return False, f"You are already representing {faction.name}."
+
+    # Get current turn
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    # Check cooldown
+    can_change, turns_remaining = char.can_change_representation(current_turn)
+    if not can_change:
+        return False, f"Cannot change representation yet. {turns_remaining} turn(s) remaining until cooldown expires."
+
+    # Get old faction name for message
+    old_faction_name = None
+    if char.represented_faction_id:
+        old_faction = await Faction.fetch_by_id(conn, char.represented_faction_id)
+        old_faction_name = old_faction.name if old_faction else None
+
+    # Update representation
+    char.represented_faction_id = faction.id
+    char.representation_changed_turn = current_turn
+    await char.upsert(conn)
+
+    # Update owned units' faction_id to new represented faction
+    from db import Unit
+    units = await Unit.fetch_by_owner(conn, char.id, guild_id)
+    updated_count = 0
+    for unit in units:
+        if unit.faction_id != faction.id:
+            unit.faction_id = faction.id
+            await unit.upsert(conn)
+            updated_count += 1
+
+    if old_faction_name:
+        msg = f"Now representing {faction.name} (was {old_faction_name})."
+    else:
+        msg = f"Now representing {faction.name}."
+
+    if updated_count > 0:
+        msg += f" Updated {updated_count} unit(s) to {faction.name}."
+
+    return True, msg
+
+
+async def admin_set_character_representation(
+    conn: asyncpg.Connection,
+    character_identifier: str,
+    target_faction_id: str,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """
+    Admin command to set a character's representation, bypassing cooldown.
+
+    Args:
+        conn: Database connection
+        character_identifier: Character identifier
+        target_faction_id: Faction identifier to represent
+        guild_id: Guild ID
+
+    Returns:
+        (success, message)
+    """
+    # Validate character
+    char = await Character.fetch_by_identifier(conn, character_identifier, guild_id)
+    if not char:
+        return False, f"Character '{character_identifier}' not found."
+
+    # Validate target faction
+    faction = await Faction.fetch_by_faction_id(conn, target_faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{target_faction_id}' not found."
+
+    # Check if character is a member of target faction
+    membership = await FactionMember.fetch_membership(conn, faction.id, char.id, guild_id)
+    if not membership:
+        return False, f"{char.name} is not a member of {faction.name}."
+
+    # Get old faction name for message
+    old_faction_name = None
+    if char.represented_faction_id:
+        old_faction = await Faction.fetch_by_id(conn, char.represented_faction_id)
+        old_faction_name = old_faction.name if old_faction else None
+
+    # Update representation (no cooldown check, no cooldown reset)
+    char.represented_faction_id = faction.id
+    # Don't set representation_changed_turn - admin bypass doesn't start cooldown
+    await char.upsert(conn)
+
+    # Update owned units' faction_id to new represented faction
+    from db import Unit
+    units = await Unit.fetch_by_owner(conn, char.id, guild_id)
+    updated_count = 0
+    for unit in units:
+        if unit.faction_id != faction.id:
+            unit.faction_id = faction.id
+            await unit.upsert(conn)
+            updated_count += 1
+
+    if old_faction_name:
+        msg = f"{char.name} now representing {faction.name} (was {old_faction_name}). [Admin override]"
+    else:
+        msg = f"{char.name} now representing {faction.name}. [Admin override]"
+
+    if updated_count > 0:
+        msg += f" Updated {updated_count} unit(s)."
+
+    return True, msg
+
+
+async def get_character_memberships(
+    conn: asyncpg.Connection,
+    character_id: int,
+    guild_id: int
+) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
+    """
+    Get all faction memberships for a character.
+
+    Args:
+        conn: Database connection
+        character_id: Internal character ID
+        guild_id: Guild ID
+
+    Returns:
+        (success, message, membership_data or None)
+    """
+    # Validate character
+    char = await Character.fetch_by_id(conn, character_id)
+    if not char:
+        return False, "Character not found.", None
+
+    # Get all memberships
+    memberships = await FactionMember.fetch_all_by_character(conn, char.id, guild_id)
+
+    if not memberships:
+        return True, f"{char.name} is not a member of any faction.", {
+            'character_name': char.name,
+            'represented_faction': None,
+            'memberships': [],
+            'can_change_representation': True,
+            'turns_until_change': 0
+        }
+
+    # Get current turn for cooldown check
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+    can_change, turns_remaining = char.can_change_representation(current_turn)
+
+    # Build membership list
+    membership_list = []
+    represented_faction_info = None
+
+    for membership in memberships:
+        faction = await Faction.fetch_by_id(conn, membership.faction_id)
+        if faction:
+            is_represented = char.represented_faction_id == faction.id
+            is_leader = faction.leader_character_id == char.id
+            faction_info = {
+                'faction_id': faction.faction_id,
+                'faction_name': faction.name,
+                'joined_turn': membership.joined_turn,
+                'is_represented': is_represented,
+                'is_leader': is_leader
+            }
+            membership_list.append(faction_info)
+
+            if is_represented:
+                represented_faction_info = faction_info
+
+    return True, f"Found {len(memberships)} faction membership(s).", {
+        'character_name': char.name,
+        'represented_faction': represented_faction_info,
+        'memberships': membership_list,
+        'can_change_representation': can_change,
+        'turns_until_change': turns_remaining
+    }

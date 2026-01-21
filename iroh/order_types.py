@@ -14,7 +14,7 @@ class OrderType(Enum):
     MAKE_ALLIANCE = "MAKE_ALLIANCE"
     DISSOLVE_ALLIANCE = "DISSOLVE_ALLIANCE"
     DECLARE_WAR = "DECLARE_WAR"
-    TRANSIT = "TRANSIT"
+    UNIT = "UNIT"
     RESOURCE_TRANSFER = "RESOURCE_TRANSFER"
     CANCEL_TRANSFER = "CANCEL_TRANSFER"
     MOBILIZATION = "MOBILIZATION"
@@ -44,7 +44,7 @@ ORDER_PHASE_MAP: Dict[OrderType, TurnPhase] = {
     OrderType.MAKE_ALLIANCE: TurnPhase.BEGINNING,
     OrderType.DISSOLVE_ALLIANCE: TurnPhase.BEGINNING,
     OrderType.DECLARE_WAR: TurnPhase.BEGINNING,
-    OrderType.TRANSIT: TurnPhase.MOVEMENT,
+    OrderType.UNIT: TurnPhase.MOVEMENT,
     OrderType.RESOURCE_TRANSFER: TurnPhase.RESOURCE_TRANSFER,
     OrderType.CANCEL_TRANSFER: TurnPhase.RESOURCE_TRANSFER,
     OrderType.MOBILIZATION: TurnPhase.CONSTRUCTION,
@@ -62,7 +62,7 @@ ORDER_PRIORITY_MAP: Dict[OrderType, int] = {
     OrderType.MAKE_ALLIANCE: 4,  # After VP assignments, so faction membership is settled
     OrderType.DISSOLVE_ALLIANCE: 5,  # After alliance formation, so alliances are created first
     OrderType.DECLARE_WAR: 6,  # After alliance dissolution, so alliance status is settled
-    OrderType.TRANSIT: 0,          # All transit orders at same priority (FIFO by submitted_at)
+    OrderType.UNIT: 0,              # All unit orders at same priority (FIFO by submitted_at)
     OrderType.CANCEL_TRANSFER: 0,  # Process cancellations first
     OrderType.RESOURCE_TRANSFER: 1, # Then resource transfers
     OrderType.MOBILIZATION: 0,      # All construction phase orders at same priority (FIFO)

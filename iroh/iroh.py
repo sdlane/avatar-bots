@@ -242,7 +242,7 @@ async def my_resources_cmd(interaction: discord.Interaction):
 
 @tree.command(
     name="my-faction",
-    description="View your character's faction membership"
+    description="View your character's faction membership(s)"
 )
 async def my_faction_cmd(interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
@@ -254,9 +254,41 @@ async def my_faction_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        # Create and send embed
+        # Create embed for represented faction
         embed = create_faction_embed(data['faction'], data['members'], data['leader'])
-        embed.description = f"Your character's faction\nFaction ID: `{data['faction'].faction_id}`"
+
+        # Build description with representation info
+        description_lines = [f"**Representing:** {data['faction'].name}"]
+        description_lines.append(f"Faction ID: `{data['faction'].faction_id}`")
+
+        # Show all memberships if multiple factions
+        all_memberships = data.get('all_memberships', [])
+        if len(all_memberships) > 1:
+            description_lines.append("")
+            description_lines.append("**All Memberships:**")
+            for m in all_memberships:
+                faction = m['faction']
+                is_rep = m['is_represented']
+                is_leader = m['is_leader']
+                markers = []
+                if is_rep:
+                    markers.append("representing")
+                if is_leader:
+                    markers.append("leader")
+                marker_str = f" ({', '.join(markers)})" if markers else ""
+                description_lines.append(f"- {faction.name} (`{faction.faction_id}`) - joined turn {m['joined_turn']}{marker_str}")
+
+        # Show representation change status
+        can_change = data.get('can_change_representation', True)
+        turns_remaining = data.get('turns_until_change', 0)
+        if not can_change and turns_remaining > 0:
+            description_lines.append("")
+            description_lines.append(f"*Representation change on cooldown: {turns_remaining} turn(s) remaining*")
+        elif len(all_memberships) > 1:
+            description_lines.append("")
+            description_lines.append("*Use `/set-representation` to change represented faction*")
+
+        embed.description = "\n".join(description_lines)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
@@ -841,20 +873,84 @@ async def add_faction_member_cmd(interaction: discord.Interaction, faction_id: s
 
 @tree.command(
     name="remove-faction-member",
-    description="[Admin] Remove a member from their faction"
+    description="[Admin] Remove a member from a faction"
 )
-@app_commands.describe(character="Character identifier to remove")
+@app_commands.describe(
+    character="Character identifier to remove",
+    faction_id="Faction ID to remove from. If not specified, removes from represented faction."
+)
 @app_commands.checks.has_permissions(manage_guild=True)
-async def remove_faction_member_cmd(interaction: discord.Interaction, character: str):
+async def remove_faction_member_cmd(interaction: discord.Interaction, character: str, faction_id: str = None):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
-        success, message = await handlers.remove_faction_member(conn, character, interaction.guild_id)
+        success, message = await handlers.remove_faction_member(conn, character, interaction.guild_id, faction_id=faction_id)
 
         if success:
             logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) removed character '{character}' from faction in guild {interaction.guild_id}")
         else:
             logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to remove character '{character}' from faction in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
+    name="set-representation",
+    description="Change which faction you publicly represent (3-turn cooldown)"
+)
+@app_commands.describe(faction_id="The faction ID to represent")
+async def set_representation_cmd(interaction: discord.Interaction, faction_id: str):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        success, message = await handlers.set_character_representation(
+            conn, character.id, faction_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) changed representation to '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to change representation to '{faction_id}' in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=True
+        )
+
+
+@tree.command(
+    name="admin-set-representation",
+    description="[Admin] Force-set a character's representation (bypasses cooldown)"
+)
+@app_commands.describe(
+    character="Character identifier",
+    faction_id="Faction ID to represent"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def admin_set_representation_cmd(interaction: discord.Interaction, character: str, faction_id: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.admin_set_character_representation(
+            conn, character, faction_id, interaction.guild_id
+        )
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set character '{character}' to represent '{faction_id}' in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set character '{character}' representation to '{faction_id}' in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),
@@ -1830,9 +1926,12 @@ async def order_join_faction_cmd(interaction: discord.Interaction, faction_id: s
 
 @tree.command(
     name="order-leave-faction",
-    description="Submit an order to leave your current faction"
+    description="Submit an order to leave a faction"
 )
-async def order_leave_faction_cmd(interaction: discord.Interaction):
+@app_commands.describe(
+    faction_id="Faction ID to leave. If not specified, leaves your represented faction."
+)
+async def order_leave_faction_cmd(interaction: discord.Interaction, faction_id: str = None):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
@@ -1846,7 +1945,7 @@ async def order_leave_faction_cmd(interaction: discord.Interaction):
             return
 
         success, message = await handlers.submit_leave_faction_order(
-            conn, character, interaction.guild_id
+            conn, character, interaction.guild_id, faction_id=faction_id
         )
 
         if success:
@@ -1935,6 +2034,101 @@ async def order_move_units_cmd(interaction: discord.Interaction, unit_ids: str, 
             logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted transit order for units {unit_ids} along path {path} in guild {interaction.guild_id}")
         else:
             logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit transit order for units {unit_ids} in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+# Define action choices for /order-unit command
+UNIT_ACTION_CHOICES = [
+    app_commands.Choice(name="Transit (land)", value="transit"),
+    app_commands.Choice(name="Transport (land)", value="transport"),
+    app_commands.Choice(name="Patrol (land)", value="patrol"),
+    app_commands.Choice(name="Raid", value="raid"),
+    app_commands.Choice(name="Capture", value="capture"),
+    app_commands.Choice(name="Siege", value="siege"),
+    app_commands.Choice(name="Naval Transit", value="naval_transit"),
+    app_commands.Choice(name="Naval Convoy", value="naval_convoy"),
+    app_commands.Choice(name="Naval Patrol", value="naval_patrol"),
+    app_commands.Choice(name="Naval Transport", value="naval_transport"),
+]
+
+
+@tree.command(
+    name="order-unit",
+    description="[Unit Commander] Submit a unit order (transit, patrol, raid, capture, siege, etc.)"
+)
+@app_commands.describe(
+    unit_ids="Comma-separated unit IDs (e.g., 'FN-001' or 'FN-001,FN-002')",
+    action="The action type for this order",
+    path="Comma-separated territory IDs for the path (e.g., '101,102,103')",
+    speed="Speed parameter for patrol orders only (optional)"
+)
+@app_commands.choices(action=UNIT_ACTION_CHOICES)
+async def order_unit_cmd(
+    interaction: discord.Interaction,
+    unit_ids: str,
+    action: app_commands.Choice[str],
+    path: str,
+    speed: int = None
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Get character for this user
+        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        if not character:
+            await interaction.followup.send(
+                emotive_message("You don't have a character in this wargame."),
+                ephemeral=True
+            )
+            return
+
+        # Parse unit_ids and path
+        unit_id_list = [uid.strip() for uid in unit_ids.split(',')]
+        path_list = [tid.strip() for tid in path.split(',')]
+
+        # Validate path is not empty
+        if not path_list or not path_list[0]:
+            await interaction.followup.send(
+                emotive_message("Invalid path format. Please use comma-separated territory IDs (e.g., '101,102,103')."),
+                ephemeral=True
+            )
+            return
+
+        success, message, extra_data = await handlers.submit_unit_order(
+            conn, unit_id_list, action.value, path_list, interaction.guild_id, character.id, speed=speed
+        )
+
+        if extra_data and extra_data.get('confirmation_needed'):
+            # Show confirmation dialog for existing orders
+            existing_orders = extra_data.get('existing_orders', [])
+            order_details = []
+            for order in existing_orders:
+                order_details.append(
+                    f"- Order #{order['order_id']} ({order['order_type']}, {order['status']}): units {', '.join(order['affected_units'])}"
+                )
+            warning_msg = f"The following units have existing orders that will be cancelled:\n" + "\n".join(order_details)
+
+            view = UnitOrderConfirmView(
+                unit_ids=unit_id_list,
+                action=action.value,
+                path=path_list,
+                speed=speed,
+                existing_orders=existing_orders,
+                db_pool=db_pool,
+                guild_id=interaction.guild_id,
+                submitting_character_id=character.id
+            )
+            await interaction.followup.send(warning_msg, view=view, ephemeral=True)
+            return
+
+        if success:
+            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted unit order ({action.value}) for units {unit_ids} along path {path} in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit unit order ({action.value}) for units {unit_ids} in guild {interaction.guild_id}: {message}")
 
         await interaction.followup.send(
             emotive_message(message),

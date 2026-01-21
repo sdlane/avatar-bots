@@ -228,48 +228,93 @@ async def view_resources(conn: asyncpg.Connection, user_id: int, guild_id: int) 
 async def view_faction_membership(conn: asyncpg.Connection, user_id: int, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
     """
     Fetch player's faction membership information.
+    Supports multi-faction membership - returns all factions with represented faction highlighted.
 
     Returns:
         (success, message, data) where data contains:
         - character: Character object
-        - faction: Faction object
+        - faction: Faction object (represented faction, for backwards compatibility)
         - leader: Character object (if exists)
-        - members: List of Character objects
+        - members: List of Character objects (for represented faction)
+        - all_memberships: List of dicts with faction info and join_turn
+        - represented_faction: Faction object (same as 'faction')
+        - can_change_representation: bool
+        - turns_until_change: int
     """
     character = await Character.fetch_by_user(conn, user_id, guild_id)
 
     if not character:
         return False, "You don't have a character assigned. Ask a GM to assign you one using hawky.", None
 
-    # Find faction membership
-    faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
+    # Find all faction memberships
+    all_faction_memberships = await FactionMember.fetch_all_by_character(conn, character.id, guild_id)
 
-    if not faction_member:
+    if not all_faction_memberships:
         return False, f"{character.name} is not a member of any faction.", None
 
-    # Fetch faction details
-    faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+    # Get current turn for cooldown check
+    wargame_config = await conn.fetchrow(
+        "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+        guild_id
+    )
+    current_turn = wargame_config['current_turn'] if wargame_config else 0
 
-    if not faction:
-        return False, "Faction data not found.", None
+    can_change, turns_remaining = character.can_change_representation(current_turn)
 
-    # Fetch leader and all members
-    leader = None
-    if faction.leader_character_id:
-        leader = await Character.fetch_by_id(conn, faction.leader_character_id)
+    # Build membership list with faction details
+    all_memberships = []
+    represented_faction = None
+    represented_leader = None
+    represented_members = []
 
-    faction_members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
-    members = []
-    for fm in faction_members:
-        char = await Character.fetch_by_id(conn, fm.character_id)
-        if char:
-            members.append(char)
+    for fm in all_faction_memberships:
+        faction = await Faction.fetch_by_id(conn, fm.faction_id)
+        if faction:
+            is_represented = character.represented_faction_id == faction.id
+            is_leader = faction.leader_character_id == character.id
+
+            membership_info = {
+                'faction': faction,
+                'joined_turn': fm.joined_turn,
+                'is_represented': is_represented,
+                'is_leader': is_leader
+            }
+            all_memberships.append(membership_info)
+
+            # Get details for represented faction
+            if is_represented:
+                represented_faction = faction
+                if faction.leader_character_id:
+                    represented_leader = await Character.fetch_by_id(conn, faction.leader_character_id)
+
+                # Fetch members of represented faction
+                faction_members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
+                for member in faction_members:
+                    char = await Character.fetch_by_id(conn, member.character_id)
+                    if char:
+                        represented_members.append(char)
+
+    # If no represented faction found but we have memberships, use the first one
+    if not represented_faction and all_memberships:
+        represented_faction = all_memberships[0]['faction']
+        if represented_faction.leader_character_id:
+            represented_leader = await Character.fetch_by_id(conn, represented_faction.leader_character_id)
+
+        faction_members = await FactionMember.fetch_by_faction(conn, represented_faction.id, guild_id)
+        for member in faction_members:
+            char = await Character.fetch_by_id(conn, member.character_id)
+            if char:
+                represented_members.append(char)
 
     return True, "", {
         'character': character,
-        'faction': faction,
-        'leader': leader,
-        'members': members
+        'faction': represented_faction,  # Backwards compatibility
+        'leader': represented_leader,
+        'members': represented_members,
+        'all_memberships': all_memberships,
+        'represented_faction': represented_faction,
+        'can_change_representation': can_change,
+        'turns_until_change': turns_remaining
     }
 
 

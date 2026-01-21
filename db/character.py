@@ -25,6 +25,9 @@ class Character:
     platinum_production: int = 0
     # Victory points
     victory_points: int = 0
+    # Multi-faction representation
+    represented_faction_id: Optional[int] = None
+    representation_changed_turn: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
         """
@@ -37,9 +40,9 @@ class Character:
             letter_limit, letter_count, guild_id,
             ore_production, lumber_production, coal_production,
             rations_production, cloth_production, platinum_production,
-            victory_points
+            victory_points, represented_faction_id, representation_changed_turn
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         ON CONFLICT (identifier, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             user_id = EXCLUDED.user_id,
@@ -52,7 +55,9 @@ class Character:
             rations_production = EXCLUDED.rations_production,
             cloth_production = EXCLUDED.cloth_production,
             platinum_production = EXCLUDED.platinum_production,
-            victory_points = EXCLUDED.victory_points;
+            victory_points = EXCLUDED.victory_points,
+            represented_faction_id = EXCLUDED.represented_faction_id,
+            representation_changed_turn = EXCLUDED.representation_changed_turn;
         """
         await conn.execute(
             query,
@@ -69,7 +74,9 @@ class Character:
             self.rations_production,
             self.cloth_production,
             self.platinum_production,
-            self.victory_points
+            self.victory_points,
+            self.represented_faction_id,
+            self.representation_changed_turn
         )
 
     @classmethod
@@ -80,7 +87,8 @@ class Character:
         row = await conn.fetchrow("""
             SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
                    ore_production, lumber_production, coal_production,
-                   rations_production, cloth_production, platinum_production, victory_points
+                   rations_production, cloth_production, platinum_production, victory_points,
+                   represented_faction_id, representation_changed_turn
             FROM Character
             WHERE id = $1;
         """, char_id)
@@ -94,7 +102,8 @@ class Character:
         row = await conn.fetchrow("""
             SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
                    ore_production, lumber_production, coal_production,
-                   rations_production, cloth_production, platinum_production, victory_points
+                   rations_production, cloth_production, platinum_production, victory_points,
+                   represented_faction_id, representation_changed_turn
             FROM Character
             WHERE identifier = $1 AND guild_id = $2;
         """, identifier, guild_id)
@@ -108,7 +117,8 @@ class Character:
         row = await conn.fetchrow("""
             SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
                    ore_production, lumber_production, coal_production,
-                   rations_production, cloth_production, platinum_production, victory_points
+                   rations_production, cloth_production, platinum_production, victory_points,
+                   represented_faction_id, representation_changed_turn
             FROM Character
             WHERE user_id = $1 AND guild_id = $2;
         """, user_id, guild_id)
@@ -123,7 +133,8 @@ class Character:
         rows = await conn.fetch("""
             SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
                    ore_production, lumber_production, coal_production,
-                   rations_production, cloth_production, platinum_production, victory_points
+                   rations_production, cloth_production, platinum_production, victory_points,
+                   represented_faction_id, representation_changed_turn
             FROM Character
             WHERE guild_id = $1 AND user_id IS NULL
             ORDER BY identifier;
@@ -138,7 +149,8 @@ class Character:
         rows = await conn.fetch("""
             SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
                    ore_production, lumber_production, coal_production,
-                   rations_production, cloth_production, platinum_production, victory_points
+                   rations_production, cloth_production, platinum_production, victory_points,
+                   represented_faction_id, representation_changed_turn
             FROM Character
             WHERE guild_id = $1
             ORDER BY identifier;
@@ -171,7 +183,8 @@ class Character:
         rows = await conn.fetch("""
             SELECT id, identifier, name, user_id, channel_id, letter_limit, letter_count, guild_id,
                    ore_production, lumber_production, coal_production,
-                   rations_production, cloth_production, platinum_production, victory_points
+                   rations_production, cloth_production, platinum_production, victory_points,
+                   represented_faction_id, representation_changed_turn
             FROM Character
             ORDER BY id;
         """)
@@ -236,6 +249,29 @@ class Character:
         deleted_count = int(result.split()[-1]) if result.startswith("DELETE") else 0
         logger.warning(f"⚠️ Deleted {deleted_count} characters for guild {guild_id}")
         return deleted_count
+
+    def can_change_representation(self, current_turn: int, cooldown_turns: int = 3) -> tuple[bool, int]:
+        """
+        Check if the character can change their faction representation.
+
+        Args:
+            current_turn: The current game turn
+            cooldown_turns: Number of turns required between representation changes (default: 3)
+
+        Returns:
+            (can_change, turns_remaining):
+            - can_change: True if representation can be changed, False if in cooldown
+            - turns_remaining: Number of turns until representation can be changed (0 if can_change is True)
+        """
+        if self.representation_changed_turn is None:
+            return True, 0
+
+        turns_since_change = current_turn - self.representation_changed_turn
+        if turns_since_change >= cooldown_turns:
+            return True, 0
+
+        turns_remaining = cooldown_turns - turns_since_change
+        return False, turns_remaining
 
     def verify(self) -> tuple[bool, str]:
         """

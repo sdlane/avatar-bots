@@ -59,7 +59,7 @@ territories:
       rations: 8
       cloth: 4
       platinum: 0
-    adjacent_to: [2, 3]
+    adjacent_to: [2, 3, "CITY"]
 
   - territory_id: 2
     name: "Earth Kingdom Territory"
@@ -89,7 +89,64 @@ territories:
       rations: 4
       cloth: 3
       platinum: 0
+    adjacent_to: [1, 2, "W1"]
+
+  # City territory for siege testing
+  - territory_id: "CITY"
+    name: "Ba Sing Se"
+    terrain_type: "city"
+    original_nation: "earth-kingdom"
+    controller_character_identifier: "test-toph"
+    victory_points: 5
+    production:
+      ore: 3
+      lumber: 2
+      coal: 1
+      rations: 10
+      cloth: 5
+      platinum: 1
     adjacent_to: [1, 2]
+
+  # Water territories for naval testing
+  - territory_id: "W1"
+    name: "Western Sea"
+    terrain_type: "ocean"
+    controller_character_identifier: "test-sokka"
+    victory_points: 0
+    production:
+      ore: 0
+      lumber: 0
+      coal: 0
+      rations: 2
+      cloth: 0
+      platinum: 0
+    adjacent_to: [1, 3, "W2"]
+
+  - territory_id: "W2"
+    name: "Central Ocean"
+    terrain_type: "ocean"
+    victory_points: 0
+    production:
+      ore: 0
+      lumber: 0
+      coal: 0
+      rations: 1
+      cloth: 0
+      platinum: 0
+    adjacent_to: ["W1", "W3"]
+
+  - territory_id: "W3"
+    name: "Eastern Sea"
+    terrain_type: "ocean"
+    victory_points: 0
+    production:
+      ore: 0
+      lumber: 0
+      coal: 0
+      rations: 1
+      cloth: 0
+      platinum: 0
+    adjacent_to: ["W2"]
 
 unit_types:
   - type_id: "infantry"
@@ -151,6 +208,56 @@ unit_types:
       cloth: 6
       platinum: 0
     upkeep:
+      rations: 2
+      cloth: 1
+      platinum: 0
+
+  # Naval unit type for testing naval orders
+  - type_id: "warship"
+    name: "Water Tribe Warship"
+    nation: "water-tribe"
+    stats:
+      movement: 4
+      organization: 15
+      attack: 8
+      defense: 5
+      siege_attack: 0
+      siege_defense: 2
+      is_naval: true
+      capacity: 3
+    cost:
+      ore: 10
+      lumber: 25
+      rations: 5
+      cloth: 10
+      platinum: 0
+    upkeep:
+      lumber: 2
+      rations: 3
+      cloth: 1
+      platinum: 0
+
+  - type_id: "fire-warship"
+    name: "Fire Nation Warship"
+    nation: "fire-nation"
+    stats:
+      movement: 3
+      organization: 20
+      attack: 10
+      defense: 8
+      siege_attack: 2
+      siege_defense: 3
+      is_naval: true
+      capacity: 5
+    cost:
+      ore: 15
+      lumber: 20
+      coal: 10
+      rations: 5
+      cloth: 5
+      platinum: 0
+    upkeep:
+      coal: 3
       rations: 2
       cloth: 1
       platinum: 0
@@ -234,20 +341,20 @@ buildings:
 
 units:
   # Zuko's units - Fire Nation
-  - unit_id: "fire-1st-infantry"
+  - unit_id: "FN-001"
     name: "1st Fire Infantry"
     type: "infantry"
     owner: "test-zuko"
     current_territory_id: 1
 
-  - unit_id: "fire-2nd-infantry"
+  - unit_id: "FN-002"
     name: "2nd Fire Infantry"
     type: "infantry"
     owner: "test-zuko"
     current_territory_id: 1
 
   # Unit with different owner and commander for testing commander notifications
-  - unit_id: "fire-commanded-unit"
+  - unit_id: "FN-003"
     name: "Fire Commanded Unit"
     type: "infantry"
     owner: "test-zuko"
@@ -255,26 +362,26 @@ units:
     current_territory_id: 1
 
   # Toph's units - Earth Kingdom
-  - unit_id: "earth-1st-cavalry"
+  - unit_id: "EK-001"
     name: "1st Earth Cavalry"
     type: "cavalry"
     owner: "test-toph"
     current_territory_id: 2
 
-  - unit_id: "earth-2nd-cavalry"
+  - unit_id: "EK-002"
     name: "2nd Earth Cavalry"
     type: "cavalry"
     owner: "test-toph"
     current_territory_id: 2
 
-  - unit_id: "earth-3rd-cavalry"
+  - unit_id: "EK-003"
     name: "3rd Earth Cavalry"
     type: "cavalry"
     owner: "test-toph"
     current_territory_id: 2
 
   # Unit with different owner and commander for testing commander notifications
-  - unit_id: "earth-commanded-unit"
+  - unit_id: "EK-004"
     name: "Earth Commanded Unit"
     type: "cavalry"
     owner: "test-toph"
@@ -282,9 +389,28 @@ units:
     current_territory_id: 2
 
   # Water Tribe units
-  - unit_id: "water-1st-waterbenders"
+  - unit_id: "WT-001"
     name: "1st Waterbender Corps"
     type: "waterbenders"
     owner: "test-sokka"
     commander: "test-korra"
     current_territory_id: 3
+
+  # Naval units for testing naval orders
+  - unit_id: "SHIP-001"
+    name: "Northern Fleet Flagship"
+    type: "warship"
+    owner: "test-zuko"
+    current_territory_id: "W1"
+
+  - unit_id: "SHIP-002"
+    name: "Water Tribe Patrol Ship"
+    type: "warship"
+    owner: "test-zuko"
+    current_territory_id: "W1"
+
+  - unit_id: "SHIP-003"
+    name: "Fire Nation Destroyer"
+    type: "fire-warship"
+    owner: "test-zuko"
+    current_territory_id: "W2"

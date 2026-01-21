@@ -349,8 +349,8 @@ async def test_add_faction_member_success(db_conn, test_server):
 
 
 @pytest.mark.asyncio
-async def test_add_faction_member_already_in_faction(db_conn, test_server):
-    """Test that adding a character already in a faction fails."""
+async def test_add_faction_member_already_in_same_faction(db_conn, test_server):
+    """Test that adding a character already in the SAME faction fails."""
     # Create character
     char = Character(
         identifier="existing-member", name="Existing Member",
@@ -375,7 +375,7 @@ async def test_add_faction_member_already_in_faction(db_conn, test_server):
     )
     await member.insert(db_conn)
 
-    # Try to add again
+    # Try to add again to SAME faction
     success, message = await add_faction_member(db_conn, "test-faction", "existing-member", TEST_GUILD_ID)
 
     # Verify failure
@@ -969,3 +969,298 @@ async def test_set_faction_nation_nonexistent_faction(db_conn, test_server):
     # Verify failure
     assert success is False
     assert "not found" in message.lower()
+
+
+# =========================
+# Multi-Faction Membership Tests
+# =========================
+
+from handlers.faction_handlers import set_character_representation, admin_set_character_representation
+
+
+@pytest.mark.asyncio
+async def test_multi_faction_membership_join_multiple_factions(db_conn, test_server):
+    """Test that a character can join multiple factions."""
+    # Create character
+    char = Character(
+        identifier="multi-member", name="Multi Member",
+        user_id=100000000000000301, channel_id=900000000000000301,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+
+    # Create wargame config
+    wargame_config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=1)
+    await wargame_config.upsert(db_conn)
+
+    # Create two factions
+    faction1 = Faction(faction_id="faction-1", name="Faction One", guild_id=TEST_GUILD_ID)
+    await faction1.upsert(db_conn)
+    faction2 = Faction(faction_id="faction-2", name="Faction Two", guild_id=TEST_GUILD_ID)
+    await faction2.upsert(db_conn)
+
+    # Join first faction
+    success1, message1 = await add_faction_member(db_conn, "faction-1", "multi-member", TEST_GUILD_ID)
+    assert success1 is True
+    assert "representing this faction" in message1.lower()
+
+    # Join second faction
+    success2, message2 = await add_faction_member(db_conn, "faction-2", "multi-member", TEST_GUILD_ID)
+    assert success2 is True
+    assert "representing" not in message2.lower()  # Should NOT auto-set representation for second faction
+
+    # Verify both memberships exist
+    char = await Character.fetch_by_identifier(db_conn, "multi-member", TEST_GUILD_ID)
+    memberships = await FactionMember.fetch_all_by_character(db_conn, char.id, TEST_GUILD_ID)
+    assert len(memberships) == 2
+
+    # Verify represented faction is the first one joined
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
+    assert char.represented_faction_id == faction1.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_representation_auto_assignment_on_first_join(db_conn, test_server):
+    """Test that first faction join auto-sets representation."""
+    # Create character
+    char = Character(
+        identifier="new-char", name="New Character",
+        user_id=100000000000000302, channel_id=900000000000000302,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+
+    # Create wargame config
+    wargame_config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=1)
+    await wargame_config.upsert(db_conn)
+
+    # Create faction
+    faction = Faction(faction_id="test-faction", name="Test Faction", guild_id=TEST_GUILD_ID)
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+
+    # Verify character has no representation
+    char = await Character.fetch_by_identifier(db_conn, "new-char", TEST_GUILD_ID)
+    assert char.represented_faction_id is None
+
+    # Join faction
+    success, message = await add_faction_member(db_conn, "test-faction", "new-char", TEST_GUILD_ID)
+    assert success is True
+
+    # Verify representation was auto-set
+    char = await Character.fetch_by_identifier(db_conn, "new-char", TEST_GUILD_ID)
+    assert char.represented_faction_id == faction.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_set_representation_with_cooldown(db_conn, test_server):
+    """Test set_character_representation enforces 3-turn cooldown."""
+    # Create character
+    char = Character(
+        identifier="rep-test", name="Rep Test",
+        user_id=100000000000000303, channel_id=900000000000000303,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "rep-test", TEST_GUILD_ID)
+
+    # Create wargame config at turn 10
+    wargame_config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=10)
+    await wargame_config.upsert(db_conn)
+
+    # Create two factions and add character to both
+    faction1 = Faction(faction_id="faction-1", name="Faction One", guild_id=TEST_GUILD_ID)
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
+
+    faction2 = Faction(faction_id="faction-2", name="Faction Two", guild_id=TEST_GUILD_ID)
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-2", TEST_GUILD_ID)
+
+    member1 = FactionMember(faction_id=faction1.id, character_id=char.id, joined_turn=1, guild_id=TEST_GUILD_ID)
+    await member1.insert(db_conn)
+    member2 = FactionMember(faction_id=faction2.id, character_id=char.id, joined_turn=5, guild_id=TEST_GUILD_ID)
+    await member2.insert(db_conn)
+
+    # Set character to represent faction1
+    char.represented_faction_id = faction1.id
+    await char.upsert(db_conn)
+
+    # Change representation to faction2
+    success1, message1 = await set_character_representation(db_conn, char.id, "faction-2", TEST_GUILD_ID)
+    assert success1 is True
+    assert "now representing" in message1.lower()
+
+    # Verify cooldown was set
+    char = await Character.fetch_by_identifier(db_conn, "rep-test", TEST_GUILD_ID)
+    assert char.representation_changed_turn == 10
+
+    # Try to change back immediately - should fail
+    success2, message2 = await set_character_representation(db_conn, char.id, "faction-1", TEST_GUILD_ID)
+    assert success2 is False
+    assert "cooldown" in message2.lower()
+
+    # Advance turn to 13 (3 turns later)
+    await db_conn.execute("UPDATE WargameConfig SET current_turn = 13 WHERE guild_id = $1;", TEST_GUILD_ID)
+
+    # Now should succeed
+    success3, message3 = await set_character_representation(db_conn, char.id, "faction-1", TEST_GUILD_ID)
+    assert success3 is True
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_admin_set_representation_bypasses_cooldown(db_conn, test_server):
+    """Test admin_set_character_representation bypasses cooldown."""
+    # Create character
+    char = Character(
+        identifier="admin-rep-test", name="Admin Rep Test",
+        user_id=100000000000000304, channel_id=900000000000000304,
+        guild_id=TEST_GUILD_ID,
+        representation_changed_turn=10  # Just changed
+    )
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "admin-rep-test", TEST_GUILD_ID)
+
+    # Create wargame config at turn 10 (same as change)
+    wargame_config = WargameConfig(guild_id=TEST_GUILD_ID, current_turn=10)
+    await wargame_config.upsert(db_conn)
+
+    # Create two factions and add character to both
+    faction1 = Faction(faction_id="faction-1", name="Faction One", guild_id=TEST_GUILD_ID)
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
+
+    faction2 = Faction(faction_id="faction-2", name="Faction Two", guild_id=TEST_GUILD_ID)
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-2", TEST_GUILD_ID)
+
+    member1 = FactionMember(faction_id=faction1.id, character_id=char.id, joined_turn=1, guild_id=TEST_GUILD_ID)
+    await member1.insert(db_conn)
+    member2 = FactionMember(faction_id=faction2.id, character_id=char.id, joined_turn=5, guild_id=TEST_GUILD_ID)
+    await member2.insert(db_conn)
+
+    # Set character to represent faction1
+    char.represented_faction_id = faction1.id
+    await char.upsert(db_conn)
+
+    # Admin change should bypass cooldown
+    success, message = await admin_set_character_representation(db_conn, "admin-rep-test", "faction-2", TEST_GUILD_ID)
+    assert success is True
+    assert "admin override" in message.lower()
+
+    # Verify representation changed
+    char = await Character.fetch_by_identifier(db_conn, "admin-rep-test", TEST_GUILD_ID)
+    assert char.represented_faction_id == faction2.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_leave_represented_faction_auto_reassigns(db_conn, test_server):
+    """Test leaving represented faction auto-assigns to most recent membership."""
+    # Create character
+    char = Character(
+        identifier="leave-test", name="Leave Test",
+        user_id=100000000000000305, channel_id=900000000000000305,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "leave-test", TEST_GUILD_ID)
+
+    # Create two factions
+    faction1 = Faction(faction_id="faction-1", name="Faction One", guild_id=TEST_GUILD_ID)
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
+
+    faction2 = Faction(faction_id="faction-2", name="Faction Two", guild_id=TEST_GUILD_ID)
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-2", TEST_GUILD_ID)
+
+    # Add to both factions - faction2 joined more recently
+    member1 = FactionMember(faction_id=faction1.id, character_id=char.id, joined_turn=1, guild_id=TEST_GUILD_ID)
+    await member1.insert(db_conn)
+    member2 = FactionMember(faction_id=faction2.id, character_id=char.id, joined_turn=5, guild_id=TEST_GUILD_ID)
+    await member2.insert(db_conn)
+
+    # Set character to represent faction1
+    char.represented_faction_id = faction1.id
+    await char.upsert(db_conn)
+
+    # Leave faction1 (represented faction)
+    success, message = await remove_faction_member(db_conn, "leave-test", TEST_GUILD_ID, faction_id="faction-1")
+    assert success is True
+    assert "now representing faction two" in message.lower()
+
+    # Verify auto-reassigned to faction2 (most recent)
+    char = await Character.fetch_by_identifier(db_conn, "leave-test", TEST_GUILD_ID)
+    assert char.represented_faction_id == faction2.id
+
+    # Verify no cooldown reset (auto-assignment doesn't reset cooldown)
+    assert char.representation_changed_turn is None
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_leave_non_represented_faction(db_conn, test_server):
+    """Test leaving a non-represented faction doesn't change representation."""
+    # Create character
+    char = Character(
+        identifier="leave-other-test", name="Leave Other Test",
+        user_id=100000000000000306, channel_id=900000000000000306,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "leave-other-test", TEST_GUILD_ID)
+
+    # Create two factions
+    faction1 = Faction(faction_id="faction-1", name="Faction One", guild_id=TEST_GUILD_ID)
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
+
+    faction2 = Faction(faction_id="faction-2", name="Faction Two", guild_id=TEST_GUILD_ID)
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-2", TEST_GUILD_ID)
+
+    # Add to both factions
+    member1 = FactionMember(faction_id=faction1.id, character_id=char.id, joined_turn=1, guild_id=TEST_GUILD_ID)
+    await member1.insert(db_conn)
+    member2 = FactionMember(faction_id=faction2.id, character_id=char.id, joined_turn=5, guild_id=TEST_GUILD_ID)
+    await member2.insert(db_conn)
+
+    # Set character to represent faction1
+    char.represented_faction_id = faction1.id
+    await char.upsert(db_conn)
+
+    # Leave faction2 (NOT represented faction)
+    success, message = await remove_faction_member(db_conn, "leave-other-test", TEST_GUILD_ID, faction_id="faction-2")
+    assert success is True
+    assert "now representing" not in message.lower()  # Should NOT mention representation change
+
+    # Verify still representing faction1
+    char = await Character.fetch_by_identifier(db_conn, "leave-other-test", TEST_GUILD_ID)
+    assert char.represented_faction_id == faction1.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)

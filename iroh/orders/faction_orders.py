@@ -12,6 +12,7 @@ async def handle_leave_faction_order(
 ) -> List[TurnLog]:
     """
     Handle a single LEAVE_FACTION order.
+    Supports multi-faction membership - only removes from the specific faction specified in order_data.
 
     Args:
         conn: Database connection
@@ -45,11 +46,19 @@ async def handle_leave_faction_order(
                 guild_id=guild_id
             )]
 
-        # Get current faction membership
-        faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
-        if not faction_member:
+        # Get faction from order_data (new) or fall back to fetch_by_character (legacy)
+        faction_id_from_order = order.order_data.get('faction_id')
+        if faction_id_from_order:
+            faction = await Faction.fetch_by_id(conn, faction_id_from_order)
+            faction_member = await FactionMember.fetch_membership(conn, faction_id_from_order, character.id, guild_id) if faction else None
+        else:
+            # Legacy support: get character's represented/primary faction
+            faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
+            faction = await Faction.fetch_by_id(conn, faction_member.faction_id) if faction_member else None
+
+        if not faction_member or not faction:
             order.status = OrderStatus.FAILED.value
-            order.result_data = {'error': 'Character not in a faction'}
+            order.result_data = {'error': 'Character not in the specified faction'}
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
@@ -62,32 +71,59 @@ async def handle_leave_faction_order(
                 event_data={
                     'order_type': 'LEAVE_FACTION',
                     'order_id': order.order_id,
-                    'error': 'Character not in a faction',
+                    'error': 'Character not in the specified faction',
                     'affected_character_ids': [character.id]
                 },
                 guild_id=guild_id
             )]
 
-        faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
-
         # Get all faction members BEFORE the character leaves
-        faction_members = await FactionMember.fetch_by_faction(conn, faction_member.faction_id, guild_id)
+        faction_members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
 
-        # Remove from faction
-        await FactionMember.delete(conn, character.id, guild_id)
+        # Check if leaving the represented faction (or no representation set)
+        is_represented_faction = character.represented_faction_id == faction.id
+        has_no_representation = character.represented_faction_id is None
 
-        # Update units' faction_id to NULL
-        units = await Unit.fetch_by_owner(conn, character.id, guild_id)
-        for unit in units:
-            if unit.faction_id == faction_member.faction_id:
-                unit.faction_id = None
-                await unit.upsert(conn)
+        # Remove from this specific faction
+        await FactionMember.delete(conn, character.id, guild_id, faction_id=faction.id)
+
+        # Handle representation and units if leaving represented faction OR no representation set
+        new_represented_faction = None
+        if is_represented_faction or has_no_representation:
+            # Get remaining memberships
+            remaining_memberships = await FactionMember.fetch_all_by_character(conn, character.id, guild_id)
+
+            if remaining_memberships:
+                # Auto-assign to most recent membership (highest joined_turn)
+                new_represented_faction = await Faction.fetch_by_id(conn, remaining_memberships[0].faction_id)
+                character.represented_faction_id = remaining_memberships[0].faction_id
+                # Note: Auto-assignment does NOT reset cooldown
+                await character.upsert(conn)
+
+                # Update owned units to new represented faction
+                units = await Unit.fetch_by_owner(conn, character.id, guild_id)
+                for unit in units:
+                    if unit.faction_id == faction.id:
+                        unit.faction_id = character.represented_faction_id
+                        await unit.upsert(conn)
+            else:
+                # No more memberships - clear representation
+                character.represented_faction_id = None
+                await character.upsert(conn)
+
+                # Update owned units to have no faction
+                units = await Unit.fetch_by_owner(conn, character.id, guild_id)
+                for unit in units:
+                    if unit.faction_id == faction.id:
+                        unit.faction_id = None
+                        await unit.upsert(conn)
 
         # Mark order success
         order.status = OrderStatus.SUCCESS.value
         order.result_data = {
             'faction_name': faction.name if faction else 'Unknown',
-            'faction_id': faction.faction_id if faction else None
+            'faction_id': faction.faction_id if faction else None,
+            'new_represented_faction': new_represented_faction.name if new_represented_faction else None
         }
         order.updated_at = datetime.now()
         order.updated_turn = turn_number
@@ -99,6 +135,16 @@ async def handle_leave_faction_order(
             if member.character_id != character.id:
                 affected_character_ids.append(member.character_id)
 
+        # Build event data
+        event_data = {
+            'character_name': character.name,
+            'faction_name': faction.name if faction else 'Unknown',
+            'order_id': order.order_id,
+            'affected_character_ids': affected_character_ids
+        }
+        if new_represented_faction:
+            event_data['new_represented_faction'] = new_represented_faction.name
+
         # Return single event with all affected character IDs
         return [TurnLog(
             turn_number=turn_number,
@@ -106,12 +152,7 @@ async def handle_leave_faction_order(
             event_type='LEAVE_FACTION',
             entity_type='character',
             entity_id=character.id,
-            event_data={
-                'character_name': character.name,
-                'faction_name': faction.name if faction else 'Unknown',
-                'order_id': order.order_id,
-                'affected_character_ids': affected_character_ids
-            },
+            event_data=event_data,
             guild_id=guild_id
         )]
 
@@ -213,12 +254,12 @@ async def handle_join_faction_order(
                 guild_id=guild_id
             )]
 
-        # Check if character is already a member of a faction
-        existing_membership = await FactionMember.fetch_by_character(conn, character.id, guild_id)
+        # Check if character is already a member of THIS SPECIFIC faction
+        existing_membership = await FactionMember.fetch_membership(conn, faction.id, character.id, guild_id)
 
         if existing_membership:
             order.status = OrderStatus.FAILED.value
-            order.result_data = {'error': 'Character already in a faction'}
+            order.result_data = {'error': 'Character already in this faction'}
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
@@ -231,11 +272,15 @@ async def handle_join_faction_order(
                 event_data={
                     'order_type': 'JOIN_FACTION',
                     'order_id': order.order_id,
-                    'error': 'Character already in a faction',
+                    'error': 'Character already in this faction',
                     'affected_character_ids': [character.id]
                 },
                 guild_id=guild_id
             )]
+
+        # Check if this is the character's first faction (for auto-representation)
+        all_memberships = await FactionMember.fetch_all_by_character(conn, character.id, guild_id)
+        is_first_faction = len(all_memberships) == 0
 
         # Check for matching request from other party
         other_party = 'leader' if submitted_by == 'character' else 'character'
@@ -258,11 +303,17 @@ async def handle_join_faction_order(
             )
             await faction_member.insert(conn)
 
-            # Update units' faction_id
-            units = await Unit.fetch_by_owner(conn, character.id, guild_id)
-            for unit in units:
-                unit.faction_id = faction.id
-                await unit.upsert(conn)
+            # If first faction, auto-set as represented faction
+            if is_first_faction:
+                character.represented_faction_id = faction.id
+                await character.upsert(conn)
+
+            # Only update units if this is now the represented faction
+            if character.represented_faction_id == faction.id:
+                units = await Unit.fetch_by_owner(conn, character.id, guild_id)
+                for unit in units:
+                    unit.faction_id = faction.id
+                    await unit.upsert(conn)
 
             # Delete all requests for this character-faction pair
             await FactionJoinRequest.delete_all_for_character_faction(
@@ -438,9 +489,9 @@ async def handle_kick_from_faction_order(
                 guild_id=guild_id
             )]
 
-        # Check target is still in the faction
-        target_membership = await FactionMember.fetch_by_character(conn, target_character.id, guild_id)
-        if not target_membership or target_membership.faction_id != faction.id:
+        # Check target is still in the faction (specific membership check)
+        target_membership = await FactionMember.fetch_membership(conn, faction.id, target_character.id, guild_id)
+        if not target_membership:
             order.status = OrderStatus.FAILED.value
             order.result_data = {'error': 'Target character is no longer in the faction'}
             order.updated_at = datetime.now()
@@ -464,22 +515,54 @@ async def handle_kick_from_faction_order(
         # Get all faction members BEFORE removing the target
         faction_members = await FactionMember.fetch_by_faction(conn, faction.id, guild_id)
 
-        # Remove from faction
-        await FactionMember.delete(conn, target_character.id, guild_id)
+        # Check if being kicked from represented faction (or no representation set)
+        is_represented_faction = target_character.represented_faction_id == faction.id
+        has_no_representation = target_character.represented_faction_id is None
 
-        # Update units' faction_id to NULL
-        units = await Unit.fetch_by_owner(conn, target_character.id, guild_id)
-        for unit in units:
-            if unit.faction_id == faction.id:
-                unit.faction_id = None
-                await unit.upsert(conn)
+        # Remove from faction (only this specific faction)
+        await FactionMember.delete(conn, target_character.id, guild_id, faction_id=faction.id)
+
+        # Handle representation and units if kicked from represented faction OR no representation set
+        new_represented_faction = None
+        if is_represented_faction or has_no_representation:
+            # Get remaining memberships
+            remaining_memberships = await FactionMember.fetch_all_by_character(conn, target_character.id, guild_id)
+
+            if remaining_memberships:
+                # Auto-assign to most recent membership (highest joined_turn)
+                new_represented_faction = await Faction.fetch_by_id(conn, remaining_memberships[0].faction_id)
+                target_character.represented_faction_id = remaining_memberships[0].faction_id
+                # IMPORTANT: Being kicked resets the cooldown
+                target_character.representation_changed_turn = turn_number
+                await target_character.upsert(conn)
+
+                # Update owned units to new represented faction
+                units = await Unit.fetch_by_owner(conn, target_character.id, guild_id)
+                for unit in units:
+                    if unit.faction_id == faction.id:
+                        unit.faction_id = target_character.represented_faction_id
+                        await unit.upsert(conn)
+            else:
+                # No more memberships - clear representation
+                target_character.represented_faction_id = None
+                # Reset cooldown even when going factionless
+                target_character.representation_changed_turn = turn_number
+                await target_character.upsert(conn)
+
+                # Update owned units to have no faction
+                units = await Unit.fetch_by_owner(conn, target_character.id, guild_id)
+                for unit in units:
+                    if unit.faction_id == faction.id:
+                        unit.faction_id = None
+                        await unit.upsert(conn)
 
         # Mark order success
         order.status = OrderStatus.SUCCESS.value
         order.result_data = {
             'target_character_name': target_character.name,
             'faction_name': faction.name,
-            'faction_id': faction.faction_id
+            'faction_id': faction.faction_id,
+            'new_represented_faction': new_represented_faction.name if new_represented_faction else None
         }
         order.updated_at = datetime.now()
         order.updated_turn = turn_number
@@ -491,6 +574,16 @@ async def handle_kick_from_faction_order(
             if member.character_id != target_character.id:
                 affected_character_ids.append(member.character_id)
 
+        # Build event data
+        event_data = {
+            'character_name': target_character.name,
+            'faction_name': faction.name,
+            'order_id': order.order_id,
+            'affected_character_ids': affected_character_ids
+        }
+        if new_represented_faction:
+            event_data['new_represented_faction'] = new_represented_faction.name
+
         # Return single event with all affected character IDs
         return [TurnLog(
             turn_number=turn_number,
@@ -498,12 +591,7 @@ async def handle_kick_from_faction_order(
             event_type='KICK_FROM_FACTION',
             entity_type='character',
             entity_id=target_character.id,
-            event_data={
-                'character_name': target_character.name,
-                'faction_name': faction.name,
-                'order_id': order.order_id,
-                'affected_character_ids': affected_character_ids
-            },
+            event_data=event_data,
             guild_id=guild_id
         )]
 

@@ -409,10 +409,15 @@ STEPS:
 
     EXPECTED: Error about character not found
 
-3.4.5 Try adding character already in a faction:
+3.4.5 Try adding character already in the SAME faction:
+    /add-faction-member faction_id:fire-nation character:test-member
+
+    EXPECTED: Error about character already a member of that faction
+
+3.4.6 Multi-faction: Add character to a second faction:
     /add-faction-member faction_id:earth-kingdom character:test-member
 
-    EXPECTED: Error about character already in a faction
+    EXPECTED: Success - characters can now be members of multiple factions
 
 
 --------------------------------------------------------------------------------
@@ -447,9 +452,12 @@ TEST 3.6: /remove-faction-member
 --------------------------------------------------------------------------------
 PURPOSE: Remove members from a faction
 
+NOTE: Characters can now be members of multiple factions. The faction_id parameter
+specifies which faction to remove from. If not specified, removes from represented faction.
+
 STEPS:
-3.6.1 Remove a member:
-    /remove-faction-member character:test-member
+3.6.1 Remove a member from a specific faction:
+    /remove-faction-member character:test-member faction_id:fire-nation
 
     EXPECTED: Success message
 
@@ -459,14 +467,14 @@ STEPS:
     EXPECTED: test-member should not appear in member list
 
 3.6.3 Try removing nonexistent character:
-    /remove-faction-member character:nonexistent
+    /remove-faction-member character:nonexistent faction_id:fire-nation
 
     EXPECTED: Error message
 
-3.6.4 Try removing the character again:
-    /remove-faction-member character:test-member
+3.6.4 Try removing from faction character is not in:
+    /remove-faction-member character:test-member faction_id:fire-nation
 
-    EXPECTED: Error message
+    EXPECTED: Error message (not a member of that faction)
 
 3.6.5 Try removing the faction leader:
     /set-faction-leader faction_id:fire-nation leader:test-leader
@@ -1410,19 +1418,27 @@ STEPS:
 --------------------------------------------------------------------------------
 TEST 8.9: /order-leave-faction
 --------------------------------------------------------------------------------
-PURPOSE: Leave your current faction
+PURPOSE: Leave a faction
+
+NOTE: Characters can now be members of multiple factions. The faction_id parameter
+is optional - if not specified, leaves the represented faction.
 
 Setup:
 - Switch your character to test-member
 - /add-faction-member faction_id:fire-nation character:test-member
 
 STEPS:
-8.9.1 Submit leave order:
+8.9.1 Submit leave order (default - leaves represented faction):
     /order-leave-faction
 
     EXPECTED: Success message
 
-8.9.2 Resolve turn:
+8.9.2 Submit leave order for specific faction:
+    /order-leave-faction faction_id:fire-nation
+
+    EXPECTED: Success message
+
+8.9.3 Resolve turn:
     /resolve-turn
 
     EXPECTED: Note in the turn report about test-member leaving the faction
@@ -1620,6 +1636,206 @@ ERROR CASES:
 
 
 ================================================================================
+SECTION 8A: UNIT ORDERS (/order-unit)
+================================================================================
+
+The /order-unit command replaces the old /order-move-units (transit-only) with
+support for all 10 action types: 6 land actions and 4 naval actions.
+
+--------------------------------------------------------------------------------
+TEST 8A.1: Basic Transit Order (Single Unit)
+--------------------------------------------------------------------------------
+PURPOSE: Test basic transit order submission
+
+PREREQUISITES:
+- Unit you command in territory 1
+- Path through adjacent territories (1 -> 2)
+
+STEPS:
+8A.1.1 Submit transit order:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2
+
+    EXPECTED: Success message with order ID
+
+8A.1.2 Verify order:
+    /my-orders
+
+    EXPECTED: UNIT order with action=transit listed
+
+
+--------------------------------------------------------------------------------
+TEST 8A.2: Unit Groups (Multiple Units)
+--------------------------------------------------------------------------------
+PURPOSE: Test ordering multiple units together
+
+PREREQUISITES:
+- Multiple units in same territory (FN-001, FN-002 in territory 1)
+
+STEPS:
+8A.2.1 Submit order for multiple units:
+    /order-unit unit_ids:FN-001,FN-002 action:Transit (land) path:1,2
+
+    EXPECTED: Success message listing both units
+
+8A.2.2 Verify:
+    /my-orders
+
+    EXPECTED: Single order with both units
+
+
+--------------------------------------------------------------------------------
+TEST 8A.3: Patrol with Speed Parameter
+--------------------------------------------------------------------------------
+PURPOSE: Test patrol orders with speed setting
+
+STEPS:
+8A.3.1 Submit patrol with speed:
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2,3 speed:2
+
+    EXPECTED: Success message with speed noted
+
+8A.3.2 Try speed with non-patrol action:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2 speed:2
+
+    EXPECTED: Error about speed only valid for patrol actions
+
+
+--------------------------------------------------------------------------------
+TEST 8A.4: Land vs Naval Validation
+--------------------------------------------------------------------------------
+PURPOSE: Test that land/naval actions match unit type
+
+PREREQUISITES:
+- Land unit (FN-001) in land territory
+- Naval unit (SHIP-001) in water territory
+
+STEPS:
+8A.4.1 Land unit with naval action:
+    /order-unit unit_ids:FN-001 action:Naval Transit path:1,2
+
+    EXPECTED: Error about land unit with naval action
+
+8A.4.2 Naval unit with land action:
+    /order-unit unit_ids:SHIP-001 action:Transit (land) path:W1,W2
+
+    EXPECTED: Error about naval unit with land action
+
+8A.4.3 Naval unit on land:
+    /order-unit unit_ids:SHIP-001 action:Naval Transit path:W1,1
+
+    EXPECTED: Error about naval units cannot traverse land
+
+
+--------------------------------------------------------------------------------
+TEST 8A.5: Each Action Type
+--------------------------------------------------------------------------------
+PURPOSE: Verify each action type submits successfully
+
+STEPS:
+8A.5.1 Transit:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2
+    EXPECTED: Success
+
+8A.5.2 Transport:
+    /order-unit unit_ids:FN-001 action:Transport (land) path:1,2
+    EXPECTED: Success
+
+8A.5.3 Patrol:
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2,3 speed:1
+    EXPECTED: Success
+
+8A.5.4 Raid:
+    /order-unit unit_ids:FN-001 action:Raid path:1,2
+    EXPECTED: Success
+
+8A.5.5 Capture:
+    /order-unit unit_ids:FN-001 action:Capture path:1,2
+    EXPECTED: Success
+
+8A.5.6 Siege (requires city at destination):
+    /order-unit unit_ids:FN-001 action:Siege path:1,CITY
+    EXPECTED: Success (or error if CITY is not city terrain)
+
+8A.5.7-10 Naval variants:
+    Naval Transit, Naval Convoy, Naval Patrol, Naval Transport
+    Same patterns as land but with naval units in water territories
+
+
+--------------------------------------------------------------------------------
+TEST 8A.6: Authorization Scenarios
+--------------------------------------------------------------------------------
+PURPOSE: Test who can issue orders
+
+STEPS:
+8A.6.1 Owner can order own unit:
+    (as unit owner)
+    /order-unit unit_ids:MY-UNIT action:Transit (land) path:1,2
+    EXPECTED: Success
+
+8A.6.2 Commander can order assigned unit:
+    (as commander of unit owned by someone else)
+    /order-unit unit_ids:THEIR-UNIT action:Transit (land) path:1,2
+    EXPECTED: Success
+
+8A.6.3 Non-authorized cannot order:
+    (as random character)
+    /order-unit unit_ids:SOMEONES-UNIT action:Transit (land) path:1,2
+    EXPECTED: Error about not authorized
+
+8A.6.4 Faction COMMAND permission for faction units:
+    (grant COMMAND permission first)
+    /grant-faction-permission faction_id:test-fn character:test-member permission_type:COMMAND
+    /order-unit unit_ids:FACTION-UNIT action:Transit (land) path:1,2
+    EXPECTED: Success
+
+
+--------------------------------------------------------------------------------
+TEST 8A.7: Path Validation
+--------------------------------------------------------------------------------
+PURPOSE: Test path validation rules
+
+STEPS:
+8A.7.1 Path must start at current territory:
+    (unit in territory 1)
+    /order-unit unit_ids:FN-001 action:Transit (land) path:2,3
+    EXPECTED: Error about path must start at current territory
+
+8A.7.2 Non-adjacent territories:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,3
+    EXPECTED: Error identifying which territories are not adjacent (e.g., "1 and 3")
+
+8A.7.3 Nonexistent territory:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,999
+    EXPECTED: Error about territory not found
+
+
+--------------------------------------------------------------------------------
+TEST 8A.8: Confirmation for Existing Orders
+--------------------------------------------------------------------------------
+PURPOSE: Test confirmation dialog when units have existing orders
+
+STEPS:
+8A.8.1 Submit first order:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2
+    EXPECTED: Success
+
+8A.8.2 Submit second order without override:
+    /order-unit unit_ids:FN-001 action:Raid path:1,2,3
+    EXPECTED: Confirmation dialog showing existing order
+
+8A.8.3 Click Cancel:
+    EXPECTED: Order cancelled message, original order unchanged
+
+8A.8.4 Submit again and click Confirm Override:
+    /order-unit unit_ids:FN-001 action:Raid path:1,2,3
+    EXPECTED: Success with "previous orders cancelled" note
+
+8A.8.5 Verify:
+    /my-orders
+    EXPECTED: Only the raid order (transit was cancelled)
+
+
+================================================================================
 SECTION 9: PLAYER VIEW COMMANDS
 ================================================================================
 
@@ -1645,15 +1861,35 @@ STEPS:
 --------------------------------------------------------------------------------
 TEST 9.2: /my-faction
 --------------------------------------------------------------------------------
-PURPOSE: View your faction membership
+PURPOSE: View your faction membership(s)
+
+NOTE: Characters can now be members of multiple factions. The embed shows:
+- Which faction you're currently representing
+- All your faction memberships with join turns
+- Representation change cooldown status
 
 STEPS:
-9.2.1 If in a faction:
+9.2.1 If in one faction:
     /my-faction
 
-    EXPECTED: Embed showing your faction details
+    EXPECTED: Embed showing:
+    - Represented faction details
+    - Member list
+    - Faction ID
 
-9.2.2 If not in a faction:
+9.2.2 If in multiple factions:
+    /my-faction
+
+    EXPECTED: Embed showing:
+    - Which faction you're representing
+    - "All Memberships" section with:
+      - Each faction name and ID
+      - Join turn for each
+      - Which is represented
+      - Which you lead (if any)
+    - Cooldown status (if recently changed)
+
+9.2.3 If not in a faction:
     EXPECTED: Error message
 
 
@@ -2035,6 +2271,140 @@ STEPS:
 
 CLEANUP:
     /edit-faction-spending faction_id:fire-nation ore:0 rations:0
+
+
+================================================================================
+SECTION 14: FACTION REPRESENTATION (Multi-Faction Membership)
+================================================================================
+
+PURPOSE: Test the multi-faction membership and representation system
+
+SETUP:
+- Create two factions: fire-nation, earth-kingdom
+- Create two characters: test-leader, test-member
+- Ensure test-member is NOT in any faction initially
+
+
+--------------------------------------------------------------------------------
+TEST 14.1: /set-representation - Change represented faction
+--------------------------------------------------------------------------------
+PURPOSE: Change which faction you publicly represent (has 3-turn cooldown)
+
+SETUP:
+- /add-faction-member faction_id:fire-nation character:test-member
+- /add-faction-member faction_id:earth-kingdom character:test-member
+- Switch to test-member character
+
+STEPS:
+14.1.1 Check current representation:
+    /my-faction
+
+    EXPECTED: Representing fire-nation (first faction joined)
+
+14.1.2 Change representation:
+    /set-representation faction_id:earth-kingdom
+
+    EXPECTED: Success message, now representing earth-kingdom
+
+14.1.3 Try to change again immediately (cooldown):
+    /set-representation faction_id:fire-nation
+
+    EXPECTED: Error - cooldown not expired (3 turns remaining)
+
+14.1.4 Advance 3 turns and try again:
+    /resolve-turn (x3)
+    /set-representation faction_id:fire-nation
+
+    EXPECTED: Success - cooldown expired
+
+14.1.5 Try representing a faction you're not a member of:
+    /set-representation faction_id:nonexistent
+
+    EXPECTED: Error - not a member of that faction
+
+
+--------------------------------------------------------------------------------
+TEST 14.2: /admin-set-representation - Admin bypass cooldown
+--------------------------------------------------------------------------------
+PURPOSE: Admin can force-set representation bypassing cooldown
+
+STEPS:
+14.2.1 Admin set representation (even during cooldown):
+    /admin-set-representation character:test-member faction_id:earth-kingdom
+
+    EXPECTED: Success with "[Admin override]" message
+
+14.2.2 Verify no cooldown applied to admin changes:
+    /admin-set-representation character:test-member faction_id:fire-nation
+
+    EXPECTED: Success - no cooldown for admin commands
+
+
+--------------------------------------------------------------------------------
+TEST 14.3: Auto-representation on first faction join
+--------------------------------------------------------------------------------
+PURPOSE: First faction join auto-sets representation
+
+SETUP: Create a new character not in any faction (test-newbie)
+
+STEPS:
+14.3.1 Join first faction:
+    /add-faction-member faction_id:fire-nation character:test-newbie
+
+    EXPECTED: Success with "now representing this faction"
+
+14.3.2 Verify representation was auto-set:
+    Switch to test-newbie
+    /my-faction
+
+    EXPECTED: Representing fire-nation
+
+
+--------------------------------------------------------------------------------
+TEST 14.4: Auto-reassignment when leaving represented faction
+--------------------------------------------------------------------------------
+PURPOSE: Leaving represented faction auto-assigns to most recent remaining
+
+SETUP:
+- test-member in fire-nation (joined turn 1) and earth-kingdom (joined turn 5)
+- Representing fire-nation
+
+STEPS:
+14.4.1 Leave represented faction:
+    /order-leave-faction faction_id:fire-nation
+    /resolve-turn
+
+    EXPECTED: Success, now representing earth-kingdom (most recent join)
+
+14.4.2 Verify auto-assignment doesn't reset cooldown:
+    /my-faction
+
+    EXPECTED: No cooldown message (auto-assignment doesn't start cooldown)
+
+
+--------------------------------------------------------------------------------
+TEST 14.5: Kick from represented faction resets cooldown
+--------------------------------------------------------------------------------
+PURPOSE: Being kicked from represented faction resets the representation cooldown
+
+SETUP:
+- test-member in fire-nation and earth-kingdom
+- Representing fire-nation
+- Switch to faction leader
+
+STEPS:
+14.5.1 Kick member from represented faction:
+    /order-kick-from-faction target_character:test-member
+    /resolve-turn
+
+    EXPECTED: test-member auto-assigned to earth-kingdom
+
+14.5.2 Verify cooldown was reset:
+    Switch to test-member
+    /set-representation faction_id:fire-nation  (rejoin first)
+    /set-representation faction_id:earth-kingdom
+
+    EXPECTED: Error - cooldown active (kick reset the timer)
 
 
 ================================================================================

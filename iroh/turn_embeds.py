@@ -49,7 +49,7 @@ def create_orders_embed(character_name: str, orders: List[Dict]) -> discord.Embe
                 line += f" - Join `{target}`"
             elif order_type == 'LEAVE_FACTION':
                 line += " - Leave faction"
-            elif order_type == 'TRANSIT':
+            elif order_type == 'UNIT':
                 units = order.get('units', [])
                 path = order['order_data'].get('path', [])
                 path_index = order['order_data'].get('path_index', 0)

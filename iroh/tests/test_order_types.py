@@ -15,7 +15,7 @@ def test_faction_order_types_exist():
 
 def test_movement_order_types_exist():
     """Test that movement-related order types exist."""
-    assert OrderType.TRANSIT.value == "TRANSIT"
+    assert OrderType.UNIT.value == "UNIT"
 
 
 def test_resource_transfer_order_types_exist():
@@ -34,7 +34,7 @@ def test_faction_orders_phase_mapping():
 
 def test_movement_orders_phase_mapping():
     """Test that movement orders map to MOVEMENT phase."""
-    assert ORDER_PHASE_MAP[OrderType.TRANSIT] == TurnPhase.MOVEMENT
+    assert ORDER_PHASE_MAP[OrderType.UNIT] == TurnPhase.MOVEMENT
 
 
 def test_resource_transfer_phase_mapping():
@@ -55,8 +55,8 @@ def test_faction_orders_priority_ordering():
 
 
 def test_movement_orders_priority():
-    """Test that movement orders have priority 0 (FIFO ordering)."""
-    assert ORDER_PRIORITY_MAP[OrderType.TRANSIT] == 0
+    """Test that unit orders have priority 0 (FIFO ordering)."""
+    assert ORDER_PRIORITY_MAP[OrderType.UNIT] == 0
 
 
 def test_resource_transfer_priority_ordering():
@@ -124,7 +124,7 @@ def test_all_order_types_have_priority():
 def test_total_order_type_count():
     """Test that we have the expected number of order types."""
     # JOIN_FACTION, LEAVE_FACTION, KICK_FROM_FACTION, ASSIGN_COMMANDER, ASSIGN_VICTORY_POINTS,
-    # MAKE_ALLIANCE, DISSOLVE_ALLIANCE, DECLARE_WAR, TRANSIT, RESOURCE_TRANSFER, CANCEL_TRANSFER,
+    # MAKE_ALLIANCE, DISSOLVE_ALLIANCE, DECLARE_WAR, UNIT, RESOURCE_TRANSFER, CANCEL_TRANSFER,
     # MOBILIZATION, CONSTRUCTION
     assert len(OrderType) == 13
 

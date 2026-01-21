@@ -84,6 +84,11 @@ async def import_herbalism_data(
     ingredients = load_ingredients(ingredients_file)
     logger.info(f"Inserting {len(ingredients)} ingredients...")
     for ing in ingredients:
+        # Normalize chakra names to lowercase
+        if ing.primary_chakra:
+            ing.primary_chakra = ing.primary_chakra.lower()
+        if ing.secondary_chakra:
+            ing.secondary_chakra = ing.secondary_chakra.lower()
         await ing.upsert(conn)
 
     # Load and insert products

@@ -150,7 +150,7 @@ async def test_handle_leave_faction_order_not_in_faction(db_conn, test_server):
     # Verify order failed
     order = await Order.fetch_by_order_id(db_conn, "ORDER-003", TEST_GUILD_ID)
     assert order.status == OrderStatus.FAILED.value
-    assert 'not in a faction' in order.result_data['error']
+    assert 'not in' in order.result_data['error'].lower()
 
     # Verify failure event
     assert len(events) == 1
@@ -393,8 +393,8 @@ async def test_handle_join_faction_order_pending(db_conn, test_server):
 
 
 @pytest.mark.asyncio
-async def test_handle_join_faction_order_already_in_faction(db_conn, test_server):
-    """Test joining faction when already in a faction fails."""
+async def test_handle_join_faction_order_already_in_same_faction(db_conn, test_server):
+    """Test joining the SAME faction again fails (multi-faction allows joining OTHER factions)."""
     # Setup: Create character
     char = Character(
         identifier="member-char", name="Member Character",
@@ -404,28 +404,48 @@ async def test_handle_join_faction_order_already_in_faction(db_conn, test_server
     await char.upsert(db_conn)
     char = await Character.fetch_by_identifier(db_conn, "member-char", TEST_GUILD_ID)
 
-    # Setup: Create first faction and add character
+    # Setup: Create leader for faction
+    leader = Character(
+        identifier="faction-leader", name="Faction Leader",
+        user_id=100000000000000088, channel_id=900000000000000088,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+    leader = await Character.fetch_by_identifier(db_conn, "faction-leader", TEST_GUILD_ID)
+
+    # Setup: Create faction and add character
     faction1 = Faction(
         faction_id="faction-1", name="Faction 1",
+        leader_character_id=leader.id,
         guild_id=TEST_GUILD_ID
     )
     await faction1.upsert(db_conn)
     faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
 
+    # Add leader as member
+    await FactionMember(
+        character_id=leader.id, faction_id=faction1.id,
+        joined_turn=0, guild_id=TEST_GUILD_ID
+    ).insert(db_conn)
+
+    # Add character as member
     member = FactionMember(
         character_id=char.id, faction_id=faction1.id,
         joined_turn=0, guild_id=TEST_GUILD_ID
     )
     await member.insert(db_conn)
 
-    # Setup: Create second faction
-    faction2 = Faction(
-        faction_id="faction-2", name="Faction 2",
-        guild_id=TEST_GUILD_ID
-    )
-    await faction2.upsert(db_conn)
+    # Setup: Create join requests for same faction (character wants to join again)
+    await FactionJoinRequest(
+        character_id=char.id, faction_id=faction1.id,
+        submitted_by='character', guild_id=TEST_GUILD_ID
+    ).insert(db_conn)
+    await FactionJoinRequest(
+        character_id=char.id, faction_id=faction1.id,
+        submitted_by='leader', guild_id=TEST_GUILD_ID
+    ).insert(db_conn)
 
-    # Setup: Create order to join second faction
+    # Setup: Create order to join the SAME faction
     order = Order(
         order_id="ORDER-007",
         order_type="JOIN_FACTION",
@@ -435,7 +455,7 @@ async def test_handle_join_faction_order_already_in_faction(db_conn, test_server
         priority=1,
         status=OrderStatus.PENDING.value,
         order_data={
-            'target_faction_id': 'faction-2',
+            'target_faction_id': 'faction-1',  # Same faction they're already in
             'submitted_by': 'character'
         },
         submitted_at=datetime.now(),
@@ -446,10 +466,10 @@ async def test_handle_join_faction_order_already_in_faction(db_conn, test_server
     # Execute
     events = await handle_join_faction_order(db_conn, order, TEST_GUILD_ID, 1)
 
-    # Verify order failed
+    # Verify order failed - can't join same faction twice
     order = await Order.fetch_by_order_id(db_conn, "ORDER-007", TEST_GUILD_ID)
     assert order.status == OrderStatus.FAILED.value
-    assert 'already in a faction' in order.result_data['error']
+    assert 'already in this faction' in order.result_data['error']
 
     # Verify failure event
     assert len(events) == 1
@@ -457,6 +477,7 @@ async def test_handle_join_faction_order_already_in_faction(db_conn, test_server
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionJoinRequest WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
 
@@ -889,3 +910,366 @@ async def test_handle_kick_from_faction_order_nonexistent_faction(db_conn, test_
 
     # Cleanup
     await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+# =========================
+# Multi-Faction Membership Tests
+# =========================
+
+
+@pytest.mark.asyncio
+async def test_join_faction_order_sets_representation_on_first_join(db_conn, test_server):
+    """Test that joining first faction auto-sets representation."""
+    # Setup: Create character with no faction
+    char = Character(
+        identifier="new-member", name="New Member",
+        user_id=100000000000000101, channel_id=900000000000000101,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "new-member", TEST_GUILD_ID)
+
+    # Verify no representation
+    assert char.represented_faction_id is None
+
+    # Setup: Create faction with leader
+    leader = Character(
+        identifier="leader", name="Leader",
+        user_id=100000000000000102, channel_id=900000000000000102,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+    leader = await Character.fetch_by_identifier(db_conn, "leader", TEST_GUILD_ID)
+
+    faction = Faction(
+        faction_id="test-faction", name="Test Faction",
+        leader_character_id=leader.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction", TEST_GUILD_ID)
+
+    # Add leader as member
+    leader_member = FactionMember(
+        character_id=leader.id, faction_id=faction.id,
+        joined_turn=0, guild_id=TEST_GUILD_ID
+    )
+    await leader_member.insert(db_conn)
+
+    # Create join requests from both sides
+    request1 = FactionJoinRequest(
+        character_id=char.id, faction_id=faction.id,
+        submitted_by='character', guild_id=TEST_GUILD_ID
+    )
+    await request1.insert(db_conn)
+    request2 = FactionJoinRequest(
+        character_id=char.id, faction_id=faction.id,
+        submitted_by='leader', guild_id=TEST_GUILD_ID
+    )
+    await request2.insert(db_conn)
+
+    # Create order
+    order = Order(
+        order_id="ORDER-101",
+        order_type="JOIN_FACTION",
+        character_id=char.id,
+        turn_number=1,
+        phase=TurnPhase.BEGINNING.value,
+        priority=10,
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_faction_id': faction.faction_id,
+            'submitted_by': 'character'
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute
+    events = await handle_join_faction_order(db_conn, order, TEST_GUILD_ID, 1)
+
+    # Verify success
+    order = await Order.fetch_by_order_id(db_conn, "ORDER-101", TEST_GUILD_ID)
+    assert order.status == OrderStatus.SUCCESS.value
+
+    # Verify representation was set
+    char = await Character.fetch_by_identifier(db_conn, "new-member", TEST_GUILD_ID)
+    assert char.represented_faction_id == faction.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionJoinRequest WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_join_second_faction_does_not_change_representation(db_conn, test_server):
+    """Test that joining a second faction doesn't change representation."""
+    # Setup: Create character
+    char = Character(
+        identifier="multi-member", name="Multi Member",
+        user_id=100000000000000103, channel_id=900000000000000103,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "multi-member", TEST_GUILD_ID)
+
+    # Setup: Create two factions with leaders
+    leader1 = Character(
+        identifier="leader1", name="Leader 1",
+        user_id=100000000000000104, channel_id=900000000000000104,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader1.upsert(db_conn)
+    leader1 = await Character.fetch_by_identifier(db_conn, "leader1", TEST_GUILD_ID)
+
+    leader2 = Character(
+        identifier="leader2", name="Leader 2",
+        user_id=100000000000000105, channel_id=900000000000000105,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader2.upsert(db_conn)
+    leader2 = await Character.fetch_by_identifier(db_conn, "leader2", TEST_GUILD_ID)
+
+    faction1 = Faction(
+        faction_id="faction-1", name="Faction One",
+        leader_character_id=leader1.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-2", name="Faction Two",
+        leader_character_id=leader2.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-2", TEST_GUILD_ID)
+
+    # Add leaders as members
+    await FactionMember(character_id=leader1.id, faction_id=faction1.id, joined_turn=0, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await FactionMember(character_id=leader2.id, faction_id=faction2.id, joined_turn=0, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    # Character already in faction1 and representing it
+    member1 = FactionMember(
+        character_id=char.id, faction_id=faction1.id,
+        joined_turn=1, guild_id=TEST_GUILD_ID
+    )
+    await member1.insert(db_conn)
+    char.represented_faction_id = faction1.id
+    await char.upsert(db_conn)
+
+    # Create join requests for faction2
+    await FactionJoinRequest(
+        character_id=char.id, faction_id=faction2.id,
+        submitted_by='character', guild_id=TEST_GUILD_ID
+    ).insert(db_conn)
+    await FactionJoinRequest(
+        character_id=char.id, faction_id=faction2.id,
+        submitted_by='leader', guild_id=TEST_GUILD_ID
+    ).insert(db_conn)
+
+    # Create order to join faction2
+    order = Order(
+        order_id="ORDER-102",
+        order_type="JOIN_FACTION",
+        character_id=char.id,
+        turn_number=5,
+        phase=TurnPhase.BEGINNING.value,
+        priority=10,
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_faction_id': faction2.faction_id,
+            'submitted_by': 'character'
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute
+    events = await handle_join_faction_order(db_conn, order, TEST_GUILD_ID, 5)
+
+    # Verify success
+    order = await Order.fetch_by_order_id(db_conn, "ORDER-102", TEST_GUILD_ID)
+    assert order.status == OrderStatus.SUCCESS.value
+
+    # Verify character has two memberships
+    memberships = await FactionMember.fetch_all_by_character(db_conn, char.id, TEST_GUILD_ID)
+    assert len(memberships) == 2
+
+    # Verify representation still points to faction1
+    char = await Character.fetch_by_identifier(db_conn, "multi-member", TEST_GUILD_ID)
+    assert char.represented_faction_id == faction1.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionJoinRequest WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_leave_represented_faction_auto_reassigns(db_conn, test_server):
+    """Test leaving represented faction auto-assigns to most recent remaining."""
+    # Setup: Create character
+    char = Character(
+        identifier="leaving-member", name="Leaving Member",
+        user_id=100000000000000106, channel_id=900000000000000106,
+        guild_id=TEST_GUILD_ID
+    )
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "leaving-member", TEST_GUILD_ID)
+
+    # Setup: Create two factions
+    faction1 = Faction(
+        faction_id="faction-1", name="Faction One",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-2", name="Faction Two",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-2", TEST_GUILD_ID)
+
+    # Add character to both factions - faction2 joined more recently
+    await FactionMember(
+        character_id=char.id, faction_id=faction1.id,
+        joined_turn=1, guild_id=TEST_GUILD_ID
+    ).insert(db_conn)
+    await FactionMember(
+        character_id=char.id, faction_id=faction2.id,
+        joined_turn=5, guild_id=TEST_GUILD_ID
+    ).insert(db_conn)
+
+    # Character representing faction1
+    char.represented_faction_id = faction1.id
+    await char.upsert(db_conn)
+
+    # Create order to leave faction1 (represented)
+    order = Order(
+        order_id="ORDER-103",
+        order_type="LEAVE_FACTION",
+        character_id=char.id,
+        turn_number=10,
+        phase=TurnPhase.BEGINNING.value,
+        priority=0,
+        status=OrderStatus.PENDING.value,
+        order_data={'faction_id': faction1.id},
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute
+    events = await handle_leave_faction_order(db_conn, order, TEST_GUILD_ID, 10)
+
+    # Verify success
+    order = await Order.fetch_by_order_id(db_conn, "ORDER-103", TEST_GUILD_ID)
+    assert order.status == OrderStatus.SUCCESS.value
+    assert order.result_data.get('new_represented_faction') == 'Faction Two'
+
+    # Verify auto-reassigned to faction2 (most recent)
+    char = await Character.fetch_by_identifier(db_conn, "leaving-member", TEST_GUILD_ID)
+    assert char.represented_faction_id == faction2.id
+
+    # Verify only one membership remains
+    memberships = await FactionMember.fetch_all_by_character(db_conn, char.id, TEST_GUILD_ID)
+    assert len(memberships) == 1
+    assert memberships[0].faction_id == faction2.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
+
+
+@pytest.mark.asyncio
+async def test_kick_from_represented_faction_resets_cooldown(db_conn, test_server):
+    """Test that being kicked from represented faction resets representation cooldown."""
+    # Setup: Create characters
+    leader = Character(
+        identifier="kicker", name="Kicker",
+        user_id=100000000000000107, channel_id=900000000000000107,
+        guild_id=TEST_GUILD_ID
+    )
+    await leader.upsert(db_conn)
+    leader = await Character.fetch_by_identifier(db_conn, "kicker", TEST_GUILD_ID)
+
+    target = Character(
+        identifier="kicked", name="Kicked",
+        user_id=100000000000000108, channel_id=900000000000000108,
+        guild_id=TEST_GUILD_ID,
+        representation_changed_turn=5  # Had changed representation at turn 5
+    )
+    await target.upsert(db_conn)
+    target = await Character.fetch_by_identifier(db_conn, "kicked", TEST_GUILD_ID)
+
+    # Setup: Create two factions
+    faction1 = Faction(
+        faction_id="faction-1", name="Faction One",
+        leader_character_id=leader.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "faction-1", TEST_GUILD_ID)
+
+    faction2 = Faction(
+        faction_id="faction-2", name="Faction Two",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "faction-2", TEST_GUILD_ID)
+
+    # Add members
+    await FactionMember(character_id=leader.id, faction_id=faction1.id, joined_turn=0, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await FactionMember(character_id=target.id, faction_id=faction1.id, joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await FactionMember(character_id=target.id, faction_id=faction2.id, joined_turn=3, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    # Target representing faction1
+    target.represented_faction_id = faction1.id
+    await target.upsert(db_conn)
+
+    # Create kick order
+    order = Order(
+        order_id="ORDER-104",
+        order_type="KICK_FROM_FACTION",
+        character_id=leader.id,
+        turn_number=10,
+        phase=TurnPhase.BEGINNING.value,
+        priority=5,
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'target_character_id': target.id,
+            'faction_id': faction1.id
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute
+    events = await handle_kick_from_faction_order(db_conn, order, TEST_GUILD_ID, 10)
+
+    # Verify success
+    order = await Order.fetch_by_order_id(db_conn, "ORDER-104", TEST_GUILD_ID)
+    assert order.status == OrderStatus.SUCCESS.value
+
+    # Verify cooldown was reset to current turn (10)
+    target = await Character.fetch_by_identifier(db_conn, "kicked", TEST_GUILD_ID)
+    assert target.representation_changed_turn == 10
+
+    # Verify auto-reassigned to faction2
+    assert target.represented_faction_id == faction2.id
+
+    # Cleanup
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM FactionMember WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)

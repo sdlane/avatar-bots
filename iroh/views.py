@@ -978,3 +978,62 @@ class AssignCommanderConfirmView(discord.ui.View):
         await interaction.followup.send(emotive_message("Commander assignment cancelled."), ephemeral=True)
 
         logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) cancelled commander assignment: {self.unit_id} -> {self.new_commander_name} in guild {self.guild_id}")
+
+
+class UnitOrderConfirmView(discord.ui.View):
+    """Confirmation view for overriding existing unit orders."""
+
+    def __init__(
+        self,
+        unit_ids: list,
+        action: str,
+        path: list,
+        speed: int | None,
+        existing_orders: list,
+        db_pool,
+        guild_id: int,
+        submitting_character_id: int
+    ):
+        super().__init__(timeout=60)  # 60 second timeout
+        self.unit_ids = unit_ids
+        self.action = action
+        self.path = path
+        self.speed = speed
+        self.existing_orders = existing_orders
+        self.db_pool = db_pool
+        self.guild_id = guild_id
+        self.submitting_character_id = submitting_character_id
+
+    @discord.ui.button(label="Confirm Override", style=discord.ButtonStyle.danger)
+    async def confirm_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Handle confirmation - cancel old orders and create new one."""
+        from helpers import emotive_message
+        from handlers.order_handlers import submit_unit_order
+
+        # Submit the order with override=True
+        async with self.db_pool.acquire() as conn:
+            success, message, _ = await submit_unit_order(
+                conn,
+                self.unit_ids,
+                self.action,
+                self.path,
+                self.guild_id,
+                self.submitting_character_id,
+                speed=self.speed,
+                override=True
+            )
+
+        # Replace the confirmation message with the result
+        await interaction.response.edit_message(content=emotive_message(message), view=None)
+
+        logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) confirmed unit order override: {self.action} for {self.unit_ids} in guild {self.guild_id}")
+
+    @discord.ui.button(label="Cancel", style=discord.ButtonStyle.secondary)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Handle cancellation - do not proceed."""
+        from helpers import emotive_message
+
+        # Replace the confirmation message with cancellation notice
+        await interaction.response.edit_message(content=emotive_message("Unit order cancelled."), view=None)
+
+        logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) cancelled unit order: {self.action} for {self.unit_ids} in guild {self.guild_id}")

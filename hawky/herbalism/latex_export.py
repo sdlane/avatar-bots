@@ -4,15 +4,33 @@ LaTeX export functions for herbalism data.
 Converts ingredients and products to GameTeX format for printing item cards.
 """
 
+import sys
+from pathlib import Path
 from typing import List
-from db import Ingredient, Product
-from .loaders import load_ingredients, load_products
+
+# Handle both direct execution and module import
+if __name__ == "__main__":
+    # Add parent directories to path for direct execution
+    # Script is in hawky/herbalism/
+    herbalism_dir = Path(__file__).parent
+    hawky_dir = herbalism_dir.parent
+    avatar_bots_dir = hawky_dir.parent
+    sys.path.insert(0, str(herbalism_dir))
+    sys.path.insert(0, str(hawky_dir))
+    sys.path.insert(0, str(avatar_bots_dir))
+
+    from db import Ingredient, Product
+    from loaders import load_ingredients, load_products
+else:
+    from db import Ingredient, Product
+    from .loaders import load_ingredients, load_products
 
 # --- Configuration ---
 # Update these paths to point to your CSV files
 
-INGREDIENTS_FILE = "ingredients.csv"
-PRODUCTS_FILE = "products.csv"
+INGREDIENTS_FILE = "production_data/herbal_ingredients.csv"
+#PRODUCTS_FILE = "products.csv"
+PRODUCTS_FILE = None
 
 
 def convert_ingredient(ingredient: Ingredient) -> str:
@@ -28,11 +46,11 @@ def convert_ingredient(ingredient: Ingredient) -> str:
     name = _escape_latex(ingredient.name or "")
     item_number = _escape_latex(ingredient.item_number or "")
     flavor_text = _escape_latex(ingredient.flavor_text or "")
-    rules_text = _escape_latex(ingredient.rules_text or "")
+    rules_text = ingredient.rules_text or ""
     macro = ingredient.macro or "Unknown"
 
     return f"""\\NEW{{Item}}{{\\i{macro}}}{{
-  \\s\\MYname     {{{name}}}
+  \\s\\MYname     {{Ingredient: {name}}}
   \\s\\MYnumber   {{{item_number}}}
   \\s\\MYtext     {{\\textit{{{flavor_text}}}
 
@@ -46,17 +64,42 @@ def convert_ingredients(ingredients: List[Ingredient]) -> str:
     """
     Convert a list of ingredients to GameTeX format.
 
-    Sorts ingredients alphabetically by macro before converting.
+    Sorts ingredients by rarity (common, uncommon, rare, spirit world, special),
+    then alphabetically by macro within each rarity.
     """
-    # Sort by macro (case insensitive)
-    sorted_ingredients = sorted(
-        ingredients,
-        key=lambda i: (i.macro or "").lower()
-    )
+    # Define rarity sort order
+    rarity_order = {
+        "common": 0,
+        "uncommon": 1,
+        "rare": 2,
+        "spirit world": 3,
+        "special": 4,
+    }
 
-    # Convert each ingredient
+    def rarity_sort_key(ingredient: Ingredient) -> tuple:
+        rarity = (ingredient.rarity or "").lower()
+        rarity_rank = rarity_order.get(rarity, 999)  # Unknown rarities sort last
+        macro = (ingredient.macro or "").lower()
+        return (rarity_rank, macro)
+
+    sorted_ingredients = sorted(ingredients, key=rarity_sort_key)
+
+    # Convert each ingredient, adding rarity headers
     parts = []
+    current_rarity = None
+
     for ing in sorted_ingredients:
+        # Skip if marked for skip
+        if ing.skip_export:
+            continue
+
+        # Add rarity header comment if rarity changed
+        rarity = (ing.rarity or "").lower()
+        if rarity != current_rarity:
+            current_rarity = rarity
+            rarity_header = f"\n% ===== {rarity.upper()} =====\n"
+            parts.append(rarity_header)
+
         converted = convert_ingredient(ing)
         if converted:
             parts.append(converted)
@@ -139,24 +182,26 @@ def convert_to_latex(
     converts them to GameTeX format, and saves to .tex files.
     """
     # Load and convert ingredients
-    print(f"Loading ingredients from {ingredients_file}...")
-    ingredients = load_ingredients(ingredients_file)
-    print(f"Converting {len(ingredients)} ingredients...")
-    ingredients_latex = convert_ingredients(ingredients)
+    if ingredients_file:
+        print(f"Loading ingredients from {ingredients_file}...")
+        ingredients = load_ingredients(ingredients_file)
+        print(f"Converting {len(ingredients)} ingredients...")
+        ingredients_latex = convert_ingredients(ingredients)
 
-    with open("ingredients.tex", "w", encoding="utf-8") as f:
-        f.write(ingredients_latex)
-    print("Saved ingredients.tex")
+        with open("ingredients.tex", "w", encoding="utf-8") as f:
+            f.write(ingredients_latex)
+        print("Saved ingredients.tex")
 
     # Load and convert products
-    print(f"Loading products from {products_file}...")
-    products = load_products(products_file)
-    print(f"Converting {len(products)} products...")
-    products_latex = convert_products(products)
+    if products_file:
+        print(f"Loading products from {products_file}...")
+        products = load_products(products_file)
+        print(f"Converting {len(products)} products...")
+        products_latex = convert_products(products)
 
-    with open("products.tex", "w", encoding="utf-8") as f:
-        f.write(products_latex)
-    print("Saved products.tex")
+        with open("products.tex", "w", encoding="utf-8") as f:
+            f.write(products_latex)
+        print("Saved products.tex")
 
     print("LaTeX export complete!")
 

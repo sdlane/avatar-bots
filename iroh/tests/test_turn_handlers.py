@@ -534,7 +534,7 @@ async def test_get_turn_status_with_pending_orders(db_conn, test_server):
 
     order2 = Order(
         order_id="ORD-0002",
-        order_type=OrderType.TRANSIT.value,
+        order_type=OrderType.UNIT.value,
         character_id=char.id,
         phase=TurnPhase.MOVEMENT.value,
         priority=0,
@@ -549,7 +549,7 @@ async def test_get_turn_status_with_pending_orders(db_conn, test_server):
     # Create an ONGOING order (should also be counted)
     order3 = Order(
         order_id="ORD-0003",
-        order_type=OrderType.TRANSIT.value,
+        order_type=OrderType.UNIT.value,
         character_id=char.id,
         phase=TurnPhase.MOVEMENT.value,
         priority=0,
