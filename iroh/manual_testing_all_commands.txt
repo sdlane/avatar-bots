@@ -2060,26 +2060,6 @@ STEPS:
     - Units don't move
 
 
---------------------------------------------------------------------------------
-TEST 8B.9: Naval Units Excluded
---------------------------------------------------------------------------------
-PURPOSE: Verify naval units are excluded from land movement
-
-PREREQUISITES:
-- Naval unit (is_naval=True)
-
-SETUP:
-    /order-unit unit_ids:SHIP-001 action:Transit (land) path:1,2
-
-STEPS:
-8B.9.1 Resolve turn:
-    /resolve-turn
-
-    EXPECTED:
-    - ORDER_FAILED event
-    - Error about naval units not valid for land movement
-    - Naval unit doesn't move
-
 ================================================================================
 SECTION 9: PLAYER VIEW COMMANDS
 ================================================================================

@@ -765,6 +765,50 @@ def create_victory_points_embed(data: dict) -> discord.Embed:
     return embed
 
 
+def create_edit_unit_embed(unit: Unit) -> discord.Embed:
+    """Create embed for editing unit via button interface."""
+    embed = discord.Embed(
+        title=f"Edit Unit: {unit.name or unit.unit_id}",
+        description=f"Unit ID: `{unit.unit_id}`\nType: `{unit.unit_type}`",
+        color=discord.Color.blue()
+    )
+
+    # Basic info
+    embed.add_field(name="Status", value=unit.status, inline=True)
+    embed.add_field(name="Territory", value=unit.current_territory_id or "None", inline=True)
+    embed.add_field(name="Naval", value="Yes" if unit.is_naval else "No", inline=True)
+
+    # Combat stats
+    stats = f"Move: {unit.movement} | Org: {unit.organization}/{unit.max_organization}\n"
+    stats += f"Atk: {unit.attack} | Def: {unit.defense}\n"
+    stats += f"Siege Atk: {unit.siege_attack} | Siege Def: {unit.siege_defense}\n"
+    stats += f"Size: {unit.size} | Capacity: {unit.capacity}"
+    embed.add_field(name="Combat Stats", value=stats, inline=False)
+
+    # Upkeep
+    upkeep_parts = []
+    if unit.upkeep_ore > 0:
+        upkeep_parts.append(f"⛏️{unit.upkeep_ore}")
+    if unit.upkeep_lumber > 0:
+        upkeep_parts.append(f"🪵{unit.upkeep_lumber}")
+    if unit.upkeep_coal > 0:
+        upkeep_parts.append(f"⚫{unit.upkeep_coal}")
+    if unit.upkeep_rations > 0:
+        upkeep_parts.append(f"🍖{unit.upkeep_rations}")
+    if unit.upkeep_cloth > 0:
+        upkeep_parts.append(f"🧵{unit.upkeep_cloth}")
+    if unit.upkeep_platinum > 0:
+        upkeep_parts.append(f"🪙{unit.upkeep_platinum}")
+    embed.add_field(name="Upkeep", value=" ".join(upkeep_parts) if upkeep_parts else "None", inline=False)
+
+    # Keywords
+    keywords = ", ".join(unit.keywords) if unit.keywords else "None"
+    embed.add_field(name="Keywords", value=keywords, inline=False)
+
+    embed.set_footer(text="Click a button to modify fields")
+    return embed
+
+
 def create_faction_victory_points_embed(data: dict) -> discord.Embed:
     """Create embed for faction victory points view (admin)."""
     faction = data['faction']

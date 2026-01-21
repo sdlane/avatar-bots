@@ -198,3 +198,25 @@ async def set_unit_status(conn: asyncpg.Connection, unit_id: str, status: str, g
     await unit.upsert(conn)
 
     return True, f"Unit '{unit_id}' status changed from {old_status} to {status_upper}."
+
+
+async def get_unit_for_edit(
+    conn: asyncpg.Connection,
+    unit_id: str,
+    guild_id: int
+) -> Tuple[bool, str, Optional[Unit]]:
+    """
+    Fetch a unit for editing.
+
+    Args:
+        conn: Database connection
+        unit_id: Unit identifier
+        guild_id: Guild ID
+
+    Returns:
+        (success, message, unit) tuple
+    """
+    unit = await Unit.fetch_by_unit_id(conn, unit_id, guild_id)
+    if not unit:
+        return False, f"Unit '{unit_id}' not found.", None
+    return True, f"Found unit '{unit.name or unit_id}'.", unit

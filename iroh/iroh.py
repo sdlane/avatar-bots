@@ -1642,6 +1642,28 @@ async def set_unit_status_cmd(interaction: discord.Interaction, unit_id: str, st
         )
 
 
+@tree.command(
+    name="edit-unit",
+    description="[Admin] Edit a unit's properties"
+)
+@app_commands.describe(unit_id="The unit ID to edit")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_unit_cmd(interaction: discord.Interaction, unit_id: str):
+    async with db_pool.acquire() as conn:
+        success, message, unit = await handlers.get_unit_for_edit(conn, unit_id, interaction.guild_id)
+
+        if not success:
+            await interaction.response.send_message(
+                emotive_message(message),
+                ephemeral=True
+            )
+            return
+
+        embed = create_edit_unit_embed(unit)
+        view = EditUnitView(unit, db_pool)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+
+
 # Resource Management Commands
 @tree.command(
     name="modify-resources",

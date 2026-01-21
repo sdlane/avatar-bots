@@ -3,7 +3,7 @@ Discord UI components (modals, views, buttons) for Iroh wargame bot.
 """
 import discord
 from typing import Optional
-from db import Territory, UnitType, BuildingType, PlayerResources, Character, WargameConfig
+from db import Territory, UnitType, BuildingType, PlayerResources, Character, WargameConfig, Unit, Faction, FactionMember
 import logging
 
 logger = logging.getLogger(__name__)
@@ -1037,3 +1037,727 @@ class UnitOrderConfirmView(discord.ui.View):
         await interaction.response.edit_message(content=emotive_message("Unit order cancelled."), view=None)
 
         logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) cancelled unit order: {self.action} for {self.unit_ids} in guild {self.guild_id}")
+
+
+# ============== Edit Unit Components ==============
+
+
+class EditUnitBasicModal(discord.ui.Modal, title="Edit Basic Info"):
+    """Modal for editing unit basic info."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.unit_id_input = discord.ui.TextInput(
+            label="Unit ID",
+            default=unit.unit_id,
+            required=True,
+            max_length=100
+        )
+        self.name_input = discord.ui.TextInput(
+            label="Name (leave empty to clear)",
+            default=unit.name or "",
+            required=False,
+            max_length=255
+        )
+        self.type_input = discord.ui.TextInput(
+            label="Unit Type",
+            default=unit.unit_type,
+            required=True,
+            max_length=100
+        )
+        self.status_input = discord.ui.TextInput(
+            label="Status (ACTIVE or DISBANDED)",
+            default=unit.status,
+            required=True,
+            max_length=10
+        )
+
+        self.add_item(self.unit_id_input)
+        self.add_item(self.name_input)
+        self.add_item(self.type_input)
+        self.add_item(self.status_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+
+        new_unit_id = self.unit_id_input.value.strip()
+        new_name = self.name_input.value.strip() or None
+        new_type = self.type_input.value.strip()
+        new_status = self.status_input.value.strip().upper()
+
+        # Validate status
+        if new_status not in ['ACTIVE', 'DISBANDED']:
+            await interaction.response.send_message(
+                emotive_message("Status must be 'ACTIVE' or 'DISBANDED'."),
+                ephemeral=True
+            )
+            return
+
+        async with self.db_pool.acquire() as conn:
+            # Validate unit type exists
+            unit_type_obj = await UnitType.fetch_by_type_id(conn, new_type, interaction.guild_id)
+            if not unit_type_obj:
+                await interaction.response.send_message(
+                    emotive_message(f"Unit type '{new_type}' not found."),
+                    ephemeral=True
+                )
+                return
+
+            # Check if renaming and new ID already exists
+            if new_unit_id != self.unit.unit_id:
+                existing = await Unit.fetch_by_unit_id(conn, new_unit_id, interaction.guild_id)
+                if existing:
+                    await interaction.response.send_message(
+                        emotive_message(f"Unit ID '{new_unit_id}' already exists."),
+                        ephemeral=True
+                    )
+                    return
+                # Delete old unit and create with new ID
+                await Unit.delete(conn, self.unit.unit_id, interaction.guild_id)
+                self.unit.unit_id = new_unit_id
+
+            self.unit.name = new_name
+            self.unit.unit_type = new_type
+            self.unit.status = new_status
+            await self.unit.upsert(conn)
+
+        # Update parent view's unit reference
+        self.parent_view.unit = self.unit
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit basic info for '{self.unit.unit_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitLocationModal(discord.ui.Modal, title="Edit Location"):
+    """Modal for editing unit location."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.territory_input = discord.ui.TextInput(
+            label="Territory ID (leave empty to clear)",
+            default=unit.current_territory_id or "",
+            required=False,
+            max_length=100
+        )
+        self.add_item(self.territory_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+        from db import Territory
+
+        territory_id = self.territory_input.value.strip() or None
+
+        async with self.db_pool.acquire() as conn:
+            # Validate territory exists if specified
+            if territory_id:
+                territory = await Territory.fetch_by_territory_id(conn, territory_id, interaction.guild_id)
+                if not territory:
+                    await interaction.response.send_message(
+                        emotive_message(f"Territory '{territory_id}' not found."),
+                        ephemeral=True
+                    )
+                    return
+
+            self.unit.current_territory_id = territory_id
+            await self.unit.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit location for '{self.unit.unit_id}' to '{territory_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitOwnershipModal(discord.ui.Modal, title="Edit Ownership"):
+    """Modal for editing unit ownership."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view, owner_char_identifier: str, owner_faction_id: str, faction_id: str):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.owner_char_input = discord.ui.TextInput(
+            label="Owner Character (identifier)",
+            default=owner_char_identifier,
+            required=False,
+            max_length=100
+        )
+        self.owner_faction_input = discord.ui.TextInput(
+            label="Owner Faction (faction_id)",
+            default=owner_faction_id,
+            required=False,
+            max_length=100
+        )
+        self.faction_input = discord.ui.TextInput(
+            label="Faction (faction_id)",
+            default=faction_id,
+            required=False,
+            max_length=100
+        )
+
+        self.add_item(self.owner_char_input)
+        self.add_item(self.owner_faction_input)
+        self.add_item(self.faction_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+
+        owner_char = self.owner_char_input.value.strip() or None
+        owner_faction = self.owner_faction_input.value.strip() or None
+        faction = self.faction_input.value.strip() or None
+
+        # Validate cannot set both owner_character and owner_faction
+        if owner_char and owner_faction:
+            await interaction.response.send_message(
+                emotive_message("Cannot set both owner_character and owner_faction. Choose one."),
+                ephemeral=True
+            )
+            return
+
+        async with self.db_pool.acquire() as conn:
+            # Validate owner character if specified
+            owner_char_id = None
+            if owner_char:
+                char = await Character.fetch_by_identifier(conn, owner_char, interaction.guild_id)
+                if not char:
+                    await interaction.response.send_message(
+                        emotive_message(f"Character '{owner_char}' not found."),
+                        ephemeral=True
+                    )
+                    return
+                owner_char_id = char.id
+
+            # Validate owner faction if specified
+            owner_faction_id = None
+            if owner_faction:
+                fact = await Faction.fetch_by_faction_id(conn, owner_faction, interaction.guild_id)
+                if not fact:
+                    await interaction.response.send_message(
+                        emotive_message(f"Faction '{owner_faction}' not found."),
+                        ephemeral=True
+                    )
+                    return
+                owner_faction_id = fact.id
+
+            # Validate faction if specified
+            faction_id = None
+            if faction:
+                fact = await Faction.fetch_by_faction_id(conn, faction, interaction.guild_id)
+                if not fact:
+                    await interaction.response.send_message(
+                        emotive_message(f"Faction '{faction}' not found."),
+                        ephemeral=True
+                    )
+                    return
+                faction_id = fact.id
+
+            self.unit.owner_character_id = owner_char_id
+            self.unit.owner_faction_id = owner_faction_id
+            self.unit.faction_id = faction_id
+            await self.unit.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit ownership for '{self.unit.unit_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitCommanderModal(discord.ui.Modal, title="Edit Commander"):
+    """Modal for editing unit commander."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view, commander_identifier: str):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.commander_input = discord.ui.TextInput(
+            label="Commander (identifier, 'none' to clear)",
+            default=commander_identifier,
+            required=False,
+            max_length=100
+        )
+        self.add_item(self.commander_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+
+        commander = self.commander_input.value.strip()
+
+        async with self.db_pool.acquire() as conn:
+            # Handle clearing commander
+            if not commander or commander.lower() == 'none':
+                self.unit.commander_character_id = None
+                self.unit.commander_assigned_turn = None
+            else:
+                # Validate commander character exists
+                char = await Character.fetch_by_identifier(conn, commander, interaction.guild_id)
+                if not char:
+                    await interaction.response.send_message(
+                        emotive_message(f"Character '{commander}' not found."),
+                        ephemeral=True
+                    )
+                    return
+
+                # Get current turn for commander_assigned_turn
+                wargame_config = await conn.fetchrow(
+                    "SELECT current_turn FROM WargameConfig WHERE guild_id = $1;",
+                    interaction.guild_id
+                )
+                current_turn = wargame_config['current_turn'] if wargame_config else 0
+
+                self.unit.commander_character_id = char.id
+                self.unit.commander_assigned_turn = current_turn
+
+            await self.unit.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit commander for '{self.unit.unit_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitCombatModal(discord.ui.Modal, title="Edit Combat Stats"):
+    """Modal for editing unit combat stats."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.movement_input = discord.ui.TextInput(
+            label="Movement",
+            default=str(unit.movement),
+            required=True,
+            max_length=10
+        )
+        self.org_input = discord.ui.TextInput(
+            label="Organization",
+            default=str(unit.organization),
+            required=True,
+            max_length=10
+        )
+        self.max_org_input = discord.ui.TextInput(
+            label="Max Organization",
+            default=str(unit.max_organization),
+            required=True,
+            max_length=10
+        )
+        self.attack_input = discord.ui.TextInput(
+            label="Attack",
+            default=str(unit.attack),
+            required=True,
+            max_length=10
+        )
+        self.defense_input = discord.ui.TextInput(
+            label="Defense",
+            default=str(unit.defense),
+            required=True,
+            max_length=10
+        )
+
+        self.add_item(self.movement_input)
+        self.add_item(self.org_input)
+        self.add_item(self.max_org_input)
+        self.add_item(self.attack_input)
+        self.add_item(self.defense_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+
+        try:
+            movement = int(self.movement_input.value.strip())
+            organization = int(self.org_input.value.strip())
+            max_organization = int(self.max_org_input.value.strip())
+            attack = int(self.attack_input.value.strip())
+            defense = int(self.defense_input.value.strip())
+
+            if any(v < 0 for v in [movement, organization, max_organization, attack, defense]):
+                await interaction.response.send_message(
+                    emotive_message("All values must be >= 0."),
+                    ephemeral=True
+                )
+                return
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid values. All fields must be integers."),
+                ephemeral=True
+            )
+            return
+
+        async with self.db_pool.acquire() as conn:
+            self.unit.movement = movement
+            self.unit.organization = organization
+            self.unit.max_organization = max_organization
+            self.unit.attack = attack
+            self.unit.defense = defense
+            await self.unit.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit combat stats for '{self.unit.unit_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitSizeModal(discord.ui.Modal, title="Edit Size/Siege Stats"):
+    """Modal for editing unit size and siege stats."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.siege_attack_input = discord.ui.TextInput(
+            label="Siege Attack",
+            default=str(unit.siege_attack),
+            required=True,
+            max_length=10
+        )
+        self.siege_defense_input = discord.ui.TextInput(
+            label="Siege Defense",
+            default=str(unit.siege_defense),
+            required=True,
+            max_length=10
+        )
+        self.size_input = discord.ui.TextInput(
+            label="Size",
+            default=str(unit.size),
+            required=True,
+            max_length=10
+        )
+        self.capacity_input = discord.ui.TextInput(
+            label="Capacity",
+            default=str(unit.capacity),
+            required=True,
+            max_length=10
+        )
+        self.naval_input = discord.ui.TextInput(
+            label="Is Naval (true/false)",
+            default="true" if unit.is_naval else "false",
+            required=True,
+            max_length=5
+        )
+
+        self.add_item(self.siege_attack_input)
+        self.add_item(self.siege_defense_input)
+        self.add_item(self.size_input)
+        self.add_item(self.capacity_input)
+        self.add_item(self.naval_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+
+        try:
+            siege_attack = int(self.siege_attack_input.value.strip())
+            siege_defense = int(self.siege_defense_input.value.strip())
+            size = int(self.size_input.value.strip())
+            capacity = int(self.capacity_input.value.strip())
+
+            if any(v < 0 for v in [siege_attack, siege_defense, size, capacity]):
+                await interaction.response.send_message(
+                    emotive_message("All numeric values must be >= 0."),
+                    ephemeral=True
+                )
+                return
+
+            naval_str = self.naval_input.value.strip().lower()
+            if naval_str not in ['true', 'false']:
+                await interaction.response.send_message(
+                    emotive_message("Is Naval must be 'true' or 'false'."),
+                    ephemeral=True
+                )
+                return
+            is_naval = naval_str == 'true'
+
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid values. Numeric fields must be integers."),
+                ephemeral=True
+            )
+            return
+
+        async with self.db_pool.acquire() as conn:
+            self.unit.siege_attack = siege_attack
+            self.unit.siege_defense = siege_defense
+            self.unit.size = size
+            self.unit.capacity = capacity
+            self.unit.is_naval = is_naval
+            await self.unit.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit size/siege stats for '{self.unit.unit_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitUpkeep1Modal(discord.ui.Modal, title="Edit Upkeep (1/2)"):
+    """Modal for editing unit upkeep (ore, lumber, coal)."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.ore_input = discord.ui.TextInput(
+            label="Ore Upkeep",
+            default=str(unit.upkeep_ore),
+            required=True,
+            max_length=10
+        )
+        self.lumber_input = discord.ui.TextInput(
+            label="Lumber Upkeep",
+            default=str(unit.upkeep_lumber),
+            required=True,
+            max_length=10
+        )
+        self.coal_input = discord.ui.TextInput(
+            label="Coal Upkeep",
+            default=str(unit.upkeep_coal),
+            required=True,
+            max_length=10
+        )
+
+        self.add_item(self.ore_input)
+        self.add_item(self.lumber_input)
+        self.add_item(self.coal_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+
+        try:
+            ore = int(self.ore_input.value.strip())
+            lumber = int(self.lumber_input.value.strip())
+            coal = int(self.coal_input.value.strip())
+
+            if any(v < 0 for v in [ore, lumber, coal]):
+                await interaction.response.send_message(
+                    emotive_message("All values must be >= 0."),
+                    ephemeral=True
+                )
+                return
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid values. All fields must be integers."),
+                ephemeral=True
+            )
+            return
+
+        async with self.db_pool.acquire() as conn:
+            self.unit.upkeep_ore = ore
+            self.unit.upkeep_lumber = lumber
+            self.unit.upkeep_coal = coal
+            await self.unit.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit upkeep (ore/lumber/coal) for '{self.unit.unit_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitUpkeep2Modal(discord.ui.Modal, title="Edit Upkeep (2/2)"):
+    """Modal for editing unit upkeep (rations, cloth, platinum)."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.rations_input = discord.ui.TextInput(
+            label="Rations Upkeep",
+            default=str(unit.upkeep_rations),
+            required=True,
+            max_length=10
+        )
+        self.cloth_input = discord.ui.TextInput(
+            label="Cloth Upkeep",
+            default=str(unit.upkeep_cloth),
+            required=True,
+            max_length=10
+        )
+        self.platinum_input = discord.ui.TextInput(
+            label="Platinum Upkeep",
+            default=str(unit.upkeep_platinum),
+            required=True,
+            max_length=10
+        )
+
+        self.add_item(self.rations_input)
+        self.add_item(self.cloth_input)
+        self.add_item(self.platinum_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+
+        try:
+            rations = int(self.rations_input.value.strip())
+            cloth = int(self.cloth_input.value.strip())
+            platinum = int(self.platinum_input.value.strip())
+
+            if any(v < 0 for v in [rations, cloth, platinum]):
+                await interaction.response.send_message(
+                    emotive_message("All resource values must be >= 0."),
+                    ephemeral=True
+                )
+                return
+        except ValueError:
+            await interaction.response.send_message(
+                emotive_message("Invalid values. Resource fields must be integers."),
+                ephemeral=True
+            )
+            return
+
+        async with self.db_pool.acquire() as conn:
+            self.unit.upkeep_rations = rations
+            self.unit.upkeep_cloth = cloth
+            self.unit.upkeep_platinum = platinum
+            await self.unit.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit upkeep (rations/cloth/platinum) for '{self.unit.unit_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitKeywordsModal(discord.ui.Modal, title="Edit Keywords"):
+    """Modal for editing unit keywords."""
+
+    def __init__(self, unit: Unit, db_pool, parent_view):
+        super().__init__()
+        self.unit = unit
+        self.db_pool = db_pool
+        self.parent_view = parent_view
+
+        self.keywords_input = discord.ui.TextInput(
+            label="Keywords (comma-separated)",
+            default=", ".join(unit.keywords) if unit.keywords else "",
+            required=False,
+            max_length=500,
+            style=discord.TextStyle.paragraph
+        )
+
+        self.add_item(self.keywords_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+        from helpers import emotive_message
+        from embeds import create_edit_unit_embed
+
+        # Parse keywords
+        keywords_str = self.keywords_input.value.strip()
+        if keywords_str:
+            keywords = [k.strip() for k in keywords_str.split(',') if k.strip()]
+        else:
+            keywords = []
+
+        async with self.db_pool.acquire() as conn:
+            self.unit.keywords = keywords
+            await self.unit.upsert(conn)
+
+        logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit keywords for '{self.unit.unit_id}' in guild {interaction.guild_id}")
+
+        new_embed = create_edit_unit_embed(self.unit)
+        await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
+
+
+class EditUnitView(discord.ui.View):
+    """View with buttons to edit unit field categories."""
+
+    def __init__(self, unit: Unit, db_pool):
+        super().__init__(timeout=300)  # 5 minute timeout
+        self.unit = unit
+        self.db_pool = db_pool
+
+    @discord.ui.button(label="Basic Info", style=discord.ButtonStyle.primary, row=0)
+    async def basic_info(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = EditUnitBasicModal(self.unit, self.db_pool, self)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Location", style=discord.ButtonStyle.secondary, row=0)
+    async def location(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = EditUnitLocationModal(self.unit, self.db_pool, self)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Ownership", style=discord.ButtonStyle.secondary, row=0)
+    async def ownership(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Need to fetch current owner/faction identifiers for display
+        async with self.db_pool.acquire() as conn:
+            owner_char_identifier = ""
+            owner_faction_id = ""
+            faction_id = ""
+
+            if self.unit.owner_character_id:
+                char = await Character.fetch_by_id(conn, self.unit.owner_character_id)
+                if char:
+                    owner_char_identifier = char.identifier
+
+            if self.unit.owner_faction_id:
+                faction = await Faction.fetch_by_id(conn, self.unit.owner_faction_id)
+                if faction:
+                    owner_faction_id = faction.faction_id
+
+            if self.unit.faction_id:
+                faction = await Faction.fetch_by_id(conn, self.unit.faction_id)
+                if faction:
+                    faction_id = faction.faction_id
+
+        modal = EditUnitOwnershipModal(self.unit, self.db_pool, self, owner_char_identifier, owner_faction_id, faction_id)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Commander", style=discord.ButtonStyle.secondary, row=0)
+    async def commander(self, interaction: discord.Interaction, button: discord.ui.Button):
+        # Fetch current commander identifier for display
+        commander_identifier = ""
+        if self.unit.commander_character_id:
+            async with self.db_pool.acquire() as conn:
+                char = await Character.fetch_by_id(conn, self.unit.commander_character_id)
+                if char:
+                    commander_identifier = char.identifier
+
+        modal = EditUnitCommanderModal(self.unit, self.db_pool, self, commander_identifier)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Combat", style=discord.ButtonStyle.primary, row=1)
+    async def combat(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = EditUnitCombatModal(self.unit, self.db_pool, self)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Size/Siege", style=discord.ButtonStyle.primary, row=1)
+    async def size_siege(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = EditUnitSizeModal(self.unit, self.db_pool, self)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Upkeep 1", style=discord.ButtonStyle.secondary, row=1)
+    async def upkeep1(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = EditUnitUpkeep1Modal(self.unit, self.db_pool, self)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Upkeep 2", style=discord.ButtonStyle.secondary, row=1)
+    async def upkeep2(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = EditUnitUpkeep2Modal(self.unit, self.db_pool, self)
+        await interaction.response.send_modal(modal)
+
+    @discord.ui.button(label="Keywords", style=discord.ButtonStyle.secondary, row=2)
+    async def keywords(self, interaction: discord.Interaction, button: discord.ui.Button):
+        modal = EditUnitKeywordsModal(self.unit, self.db_pool, self)
+        await interaction.response.send_modal(modal)
