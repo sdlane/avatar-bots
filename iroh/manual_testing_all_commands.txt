@@ -1836,6 +1836,251 @@ STEPS:
 
 
 ================================================================================
+SECTION 8B: MOVEMENT PHASE TURN RESOLUTION
+================================================================================
+
+Tests for verifying the movement phase processes land unit movement correctly
+during turn resolution. These tests focus on the turn resolution behavior
+rather than order submission (which is covered in Section 8A).
+
+--------------------------------------------------------------------------------
+TEST 8B.1: Basic Transit Movement
+--------------------------------------------------------------------------------
+PURPOSE: Verify unit moves along path during turn resolution
+
+PREREQUISITES:
+- Unit FN-001 in territory 1 (plains)
+- Territory 2 exists (plains, adjacent to 1)
+- Unit has movement >= 1
+
+SETUP:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2
+
+STEPS:
+8B.1.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Turn report shows TRANSIT_COMPLETE event
+    - Unit moved from territory 1 to territory 2
+
+8B.1.2 Verify unit position:
+    /view-unit unit_id:FN-001
+
+    EXPECTED: Current territory is 2
+
+
+--------------------------------------------------------------------------------
+TEST 8B.2: Movement Bonus (+1 for Transit)
+--------------------------------------------------------------------------------
+PURPOSE: Verify transit action gets +1 movement bonus
+
+PREREQUISITES:
+- Unit with movement=1 in territory 1
+- Three adjacent territories: 1 -> 2 -> 3 (all plains)
+
+SETUP:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2,3
+
+STEPS:
+8B.2.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Unit should reach territory 3 (movement 1 + bonus 1 = 2 steps)
+    - TRANSIT_COMPLETE event in turn report
+
+8B.2.2 Verify:
+    /view-unit unit_id:FN-001
+
+    EXPECTED: Current territory is 3
+
+
+--------------------------------------------------------------------------------
+TEST 8B.3: Terrain Costs (Mountains)
+--------------------------------------------------------------------------------
+PURPOSE: Verify mountains terrain costs 3 MP
+
+PREREQUISITES:
+- Unit with movement=2 (total 3 MP with transit bonus) in plains territory
+- Adjacent mountain territory
+
+SETUP:
+    # Create mountain territory if needed
+    /create-territory territory_id:MT1 terrain_type:mountains name:Test Mountains
+    /add-adjacency territory_id_1:1 territory_id_2:MT1
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,MT1
+
+STEPS:
+8B.3.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED: Unit moves to MT1 (cost 3, have 3 MP)
+
+8B.3.2 Test with insufficient MP (unit with movement=1, total 2 MP):
+    /order-unit unit_ids:SLOW-UNIT action:Transit (land) path:1,MT1
+
+8B.3.3 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Unit stays at territory 1
+    - MOVEMENT_BLOCKED event in turn report
+    - Order remains ONGOING
+
+
+--------------------------------------------------------------------------------
+TEST 8B.4: Multi-Turn Path
+--------------------------------------------------------------------------------
+PURPOSE: Verify long paths continue across multiple turns
+
+PREREQUISITES:
+- Unit with movement=1 (2 MP with bonus)
+- Path of 5 territories: 1 -> 2 -> 3 -> 4 -> 5
+
+SETUP:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2,3,4,5
+
+STEPS:
+8B.4.1 Resolve turn 1:
+    /resolve-turn
+
+    EXPECTED:
+    - Unit at territory 3 (2 steps)
+    - TRANSIT_PROGRESS event (not COMPLETE)
+    - Order status is ONGOING
+
+8B.4.2 Resolve turn 2:
+    /resolve-turn
+
+    EXPECTED:
+    - Unit at territory 5 (final destination)
+    - TRANSIT_COMPLETE event
+    - Order status is SUCCESS
+
+
+--------------------------------------------------------------------------------
+TEST 8B.5: Group Movement (Slowest Unit)
+--------------------------------------------------------------------------------
+PURPOSE: Verify group uses slowest unit's movement
+
+PREREQUISITES:
+- Fast unit (movement=4) and slow unit (movement=1) in same territory
+- Path: 1 -> 2 -> 3 -> 4
+
+SETUP:
+    /order-unit unit_ids:FAST-UNIT,SLOW-UNIT action:Transit (land) path:1,2,3,4
+
+STEPS:
+8B.5.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Both units at territory 3 (slowest movement 1 + bonus = 2 steps)
+    - Both units move together
+
+8B.5.2 Verify both units moved:
+    /view-unit unit_id:FAST-UNIT
+    /view-unit unit_id:SLOW-UNIT
+
+    EXPECTED: Both show current territory as 3
+
+
+--------------------------------------------------------------------------------
+TEST 8B.6: Patrol Looping
+--------------------------------------------------------------------------------
+PURPOSE: Verify patrol orders loop indefinitely
+
+PREREQUISITES:
+- Unit with movement=2 (2 MP, no patrol bonus)
+- Circular path: 1 -> 2 -> 3
+
+SETUP:
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2,3
+
+STEPS:
+8B.6.1 Resolve turn 1:
+    /resolve-turn
+
+    EXPECTED:
+    - Unit at territory 3
+    - TRANSIT_PROGRESS event (patrol never completes)
+    - Order status is ONGOING
+
+8B.6.2 Resolve turn 2:
+    /resolve-turn
+
+    EXPECTED:
+    - Unit loops back to territory 2 (path resets at end)
+    - Order still ONGOING
+    - Patrol continues until replaced
+
+
+--------------------------------------------------------------------------------
+TEST 8B.7: Patrol Speed Limit
+--------------------------------------------------------------------------------
+PURPOSE: Verify patrol speed parameter limits movement per turn
+
+PREREQUISITES:
+- Unit with movement=4 (4 MP, no patrol bonus)
+- Path: 1 -> 2 -> 3 -> 4
+
+SETUP:
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2,3,4 speed:2
+
+STEPS:
+8B.7.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Unit at territory 3 (only 2 MP used due to speed limit)
+    - 4 MP available but speed=2 limits movement
+
+
+--------------------------------------------------------------------------------
+TEST 8B.8: Co-location Validation Failure
+--------------------------------------------------------------------------------
+PURPOSE: Verify order fails if units aren't in same territory
+
+PREREQUISITES:
+- Unit A in territory 1
+- Unit B in territory 2
+
+SETUP:
+    # Move units to different territories first
+    /order-unit unit_ids:UNIT-A,UNIT-B action:Transit (land) path:1,2
+
+STEPS:
+8B.8.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - ORDER_FAILED event in turn report
+    - Error message about units not co-located
+    - Units don't move
+
+
+--------------------------------------------------------------------------------
+TEST 8B.9: Naval Units Excluded
+--------------------------------------------------------------------------------
+PURPOSE: Verify naval units are excluded from land movement
+
+PREREQUISITES:
+- Naval unit (is_naval=True)
+
+SETUP:
+    /order-unit unit_ids:SHIP-001 action:Transit (land) path:1,2
+
+STEPS:
+8B.9.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - ORDER_FAILED event
+    - Error about naval units not valid for land movement
+    - Naval unit doesn't move
+
+================================================================================
 SECTION 9: PLAYER VIEW COMMANDS
 ================================================================================
 

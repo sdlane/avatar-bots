@@ -19,6 +19,14 @@ from orders.victory_point_orders import handle_assign_victory_points_order
 from orders.alliance_orders import handle_make_alliance_order, handle_dissolve_alliance_order
 from orders.faction_orders import handle_declare_war_order
 from orders.construction_orders import handle_mobilization_order, handle_construction_order
+from handlers.movement_handlers import (
+    build_movement_states,
+    process_movement_tick,
+    process_patrol_engagement,
+    check_engagement,
+    generate_observation_reports,
+    finalize_movement_order,
+)
 
 import logging
 
@@ -177,6 +185,16 @@ async def execute_movement_phase(
     Movement happens in ticks from highest movement stat down to 1.
     Units move when tick <= their movement stat.
 
+    Algorithm:
+    1. SETUP - Fetch UNIT orders, filter to land units, build states, validate
+    2. TICK LOOP - For each tick from max_mp down to 1:
+       a. Process patrol engagement (placeholder)
+       b. For each state where total_mp >= tick: try to move
+       c. Check engagement (placeholder)
+       d. Generate observation reports (placeholder)
+    3. POST-LOOP - Final engagement, observation reports
+    4. FINALIZE - Update orders, generate events
+
     Args:
         conn: Database connection
         guild_id: Guild ID
@@ -188,9 +206,70 @@ async def execute_movement_phase(
     events = []
     logger.info(f"Movement phase: starting movement phase for guild {guild_id}, turn {turn_number}")
 
-    # Placeholder for now
+    # 1. SETUP - Fetch PENDING/ONGOING UNIT orders for MOVEMENT phase
+    all_orders = await Order.fetch_unresolved_by_phase(
+        conn, guild_id, TurnPhase.MOVEMENT.value
+    )
 
-    logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}")
+    # Filter to UNIT type orders only
+    unit_orders = [o for o in all_orders if o.order_type == OrderType.UNIT.value]
+
+    if not unit_orders:
+        logger.info(f"Movement phase: no unit orders to process for guild {guild_id}")
+        logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}")
+        return events
+
+    logger.info(f"Movement phase: processing {len(unit_orders)} unit orders for guild {guild_id}")
+
+    # Build movement states (validates orders, fails invalid ones)
+    states, failed_events = await build_movement_states(conn, unit_orders, guild_id)
+    events.extend(failed_events)
+
+    if not states:
+        logger.info(f"Movement phase: no valid movement states after validation")
+        logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}")
+        return events
+
+    # Sort states by total_movement_points DESC, then order.id ASC (oldest first for ties)
+    states.sort(key=lambda s: (-s.total_movement_points, s.order.id))
+
+    # Calculate max_ticks as the highest total_movement_points
+    max_ticks = max(s.total_movement_points for s in states)
+    logger.info(f"Movement phase: max_ticks={max_ticks}, processing {len(states)} states")
+
+    # 2. TICK LOOP - From max_ticks down to 1
+    for tick in range(max_ticks, 0, -1):
+        logger.debug(f"Movement phase: tick {tick}")
+
+        # a. Process patrol engagement (placeholder)
+        patrol_events = await process_patrol_engagement(conn, states, guild_id, turn_number)
+        events.extend(patrol_events)
+
+        # b. Process movement for each state where total_mp >= tick
+        tick_events = await process_movement_tick(conn, states, tick, guild_id)
+        events.extend(tick_events)
+
+        # c. Check engagement (placeholder)
+        await check_engagement(conn, states, guild_id)
+
+        # d. Generate observation reports (placeholder)
+        obs_events = await generate_observation_reports(conn, states, guild_id, turn_number)
+        events.extend(obs_events)
+
+    # 3. POST-LOOP - Run engagement and observation one more time
+    patrol_events = await process_patrol_engagement(conn, states, guild_id, turn_number)
+    events.extend(patrol_events)
+    await check_engagement(conn, states, guild_id)
+    obs_events = await generate_observation_reports(conn, states, guild_id, turn_number)
+    events.extend(obs_events)
+
+    # 4. FINALIZE - Update orders and generate completion events
+    for state in states:
+        final_event = await finalize_movement_order(conn, state, turn_number, guild_id)
+        events.append(final_event)
+
+    logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}. "
+                f"Generated {len(events)} events.")
     return events
 
 

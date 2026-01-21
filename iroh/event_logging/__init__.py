@@ -47,6 +47,8 @@ from .movement_events import (
     transit_complete_gm_line,
     transit_progress_character_line,
     transit_progress_gm_line,
+    movement_blocked_character_line,
+    movement_blocked_gm_line,
 )
 
 from .resource_events import (
@@ -203,6 +205,10 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'TRANSIT_PROGRESS': EventHandler(
         get_character_line=transit_progress_character_line,
         get_gm_line=transit_progress_gm_line
+    ),
+    'MOVEMENT_BLOCKED': EventHandler(
+        get_character_line=movement_blocked_character_line,
+        get_gm_line=movement_blocked_gm_line
     ),
 
     # Resource events
