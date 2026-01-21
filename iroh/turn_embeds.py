@@ -8,6 +8,35 @@ from order_types import PHASE_ORDER
 from event_logging import EVENT_HANDLERS
 
 
+def split_lines_into_chunks(lines: List[str], max_chars: int = 1000) -> List[str]:
+    """Split a list of lines into chunks that fit within max_chars.
+
+    Returns list of joined strings, each under max_chars.
+    """
+    if not lines:
+        return []
+
+    chunks = []
+    current_chunk = []
+    current_length = 0
+
+    for line in lines:
+        line_length = len(line) + 1  # +1 for newline
+
+        if current_length + line_length > max_chars and current_chunk:
+            chunks.append("\n".join(current_chunk))
+            current_chunk = [line]
+            current_length = len(line)
+        else:
+            current_chunk.append(line)
+            current_length += line_length
+
+    if current_chunk:
+        chunks.append("\n".join(current_chunk))
+
+    return chunks
+
+
 def create_orders_embed(character_name: str, orders: List[Dict]) -> discord.Embed:
     """
     Create an embed displaying a character's pending/ongoing orders.
@@ -142,14 +171,14 @@ def create_turn_status_embed(status_data: Dict) -> discord.Embed:
     return embed
 
 
-def create_character_turn_report_embed(
+def create_character_turn_report_embeds(
     character_name: str,
     turn_number: int,
     events: List[Dict],
     character_id: Optional[int] = None
-) -> discord.Embed:
+) -> List[discord.Embed]:
     """
-    Create an embed with a character's turn report.
+    Create embeds with a character's turn report.
 
     Args:
         character_name: Name of the character
@@ -158,17 +187,139 @@ def create_character_turn_report_embed(
         character_id: ID of the viewing character (for context-aware formatting)
 
     Returns:
-        Discord embed
+        List of Discord embeds (multiple if content exceeds limits)
     """
-    embed = discord.Embed(
-        title=f"📊 Turn {turn_number} Report: {character_name}",
-        color=discord.Color.blue(),
-        timestamp=datetime.now()
-    )
+    embed_color = discord.Color.blue()
+    base_title = f"Turn {turn_number} Report: {character_name}"
 
     if not events:
+        embed = discord.Embed(
+            title=f"📊 {base_title}",
+            color=embed_color,
+            timestamp=datetime.now()
+        )
         embed.description = "No events this turn."
-        return embed
+        return [embed]
+
+    # Group events by phase
+    phases = {}
+    for event in events:
+        phase = event.phase or 'UNKNOWN'
+        if phase not in phases:
+            phases[phase] = []
+        phases[phase].append(event)
+
+    embeds = []
+    current_embed = discord.Embed(
+        title=f"📊 {base_title}",
+        color=embed_color,
+        timestamp=datetime.now()
+    )
+    current_embed_size = 100  # Base size for title/timestamp
+    field_count = 0
+
+    for phase in PHASE_ORDER:
+        if phase not in phases:
+            continue
+
+        phase_events = phases[phase]
+        lines = []
+
+        # Format ALL events (no limit)
+        for event in phase_events:
+            event_type = event.event_type or 'UNKNOWN'
+            event_data = event.event_data or {}
+
+            if event_type in EVENT_HANDLERS:
+                handler = EVENT_HANDLERS[event_type]
+                line = handler.get_character_line(event_data, character_id)
+                if line:
+                    lines.append(line)
+
+        if not lines:
+            continue
+
+        # Split into chunks if needed
+        chunks = split_lines_into_chunks(lines, 1000)
+        phase_name = phase.replace('_', ' ').title()
+
+        for i, chunk in enumerate(chunks):
+            field_name = f"📌 {phase_name} Phase"
+            if i > 0:
+                field_name += f" (cont. {i+1})"
+
+            field_size = len(field_name) + len(chunk) + 10
+
+            # Check if we need a new embed
+            if current_embed_size + field_size > 5500 or field_count >= 24:
+                embeds.append(current_embed)
+                current_embed = discord.Embed(
+                    title=f"📊 {base_title} (continued)",
+                    color=embed_color
+                )
+                current_embed_size = 100
+                field_count = 0
+
+            current_embed.add_field(name=field_name, value=chunk, inline=False)
+            current_embed_size += field_size
+            field_count += 1
+
+    # Add the last embed if it has content or is the only one
+    if field_count > 0 or not embeds:
+        embeds.append(current_embed)
+
+    return embeds
+
+
+def create_gm_turn_report_embeds(
+    turn_number: int,
+    events: List[Dict],
+    summary: Dict
+) -> List[discord.Embed]:
+    """
+    Create embeds with the GM's comprehensive turn report.
+
+    Args:
+        turn_number: Turn number
+        events: All events from the turn
+        summary: Summary statistics dict
+
+    Returns:
+        List of Discord embeds (multiple if content exceeds limits)
+    """
+    embed_color = discord.Color.purple()
+    base_title = f"GM Turn {turn_number} Report"
+
+    embeds = []
+    current_embed = discord.Embed(
+        title=f"👑 {base_title}",
+        description="Complete turn resolution summary",
+        color=embed_color,
+        timestamp=datetime.now()
+    )
+    current_embed_size = 150  # Base size for title/description/timestamp
+    field_count = 0
+
+    # Executive summary
+    summary_lines = []
+    if summary.get('total_events', 0) > 0:
+        summary_lines.append(f"📊 Total Events: {summary['total_events']}")
+
+    for phase in PHASE_ORDER:
+        count = summary.get(f'{phase.lower()}_events', 0)
+        if count > 0:
+            phase_name = phase.replace('_', ' ').title()
+            summary_lines.append(f"• {phase_name}: {count}")
+
+    if summary_lines:
+        summary_value = "\n".join(summary_lines)
+        current_embed.add_field(
+            name="📈 Executive Summary",
+            value=summary_value,
+            inline=False
+        )
+        current_embed_size += len("📈 Executive Summary") + len(summary_value) + 10
+        field_count += 1
 
     # Group events by phase
     phases = {}
@@ -186,117 +337,51 @@ def create_character_turn_report_embed(
         phase_events = phases[phase]
         lines = []
 
-        # Limit events to avoid embed size limits (Discord field value max is 1024 chars)
-        for event in phase_events[:15]:
+        # Format ALL events (no limit)
+        for event in phase_events:
             event_type = event.event_type or 'UNKNOWN'
             event_data = event.event_data or {}
 
-            # Use EVENT_HANDLERS if available, otherwise skip unknown event types
-            if event_type in EVENT_HANDLERS:
-                handler = EVENT_HANDLERS[event_type]
-                line = handler.get_character_line(event_data, character_id)
-                if line:  # Only add non-empty lines
-                    lines.append(line)
-
-        if len(phase_events) > 15:
-            lines.append(f"... and {len(phase_events) - 15} more events")
-
-        if lines:
-            phase_name = phase.replace('_', ' ').title()
-            # Truncate value if it exceeds Discord's 1024 char limit
-            value = "\n".join(lines)
-            if len(value) > 1020:
-                value = value[:1017] + "..."
-            embed.add_field(
-                name=f"📌 {phase_name} Phase",
-                value=value,
-                inline=False
-            )
-
-    return embed
-
-
-def create_gm_turn_report_embed(
-    turn_number: int,
-    events: List[Dict],
-    summary: Dict
-) -> discord.Embed:
-    """
-    Create an embed with the GM's comprehensive turn report.
-
-    Args:
-        turn_number: Turn number
-        events: All events from the turn
-        summary: Summary statistics dict
-
-    Returns:
-        Discord embed
-    """
-    embed = discord.Embed(
-        title=f"👑 GM Turn {turn_number} Report",
-        description="Complete turn resolution summary",
-        color=discord.Color.purple(),
-        timestamp=datetime.now()
-    )
-
-    # Executive summary
-    summary_lines = []
-    if summary.get('total_events', 0) > 0:
-        summary_lines.append(f"📊 Total Events: {summary['total_events']}")
-
-    for phase in PHASE_ORDER:
-        count = summary.get(f'{phase.lower()}_events', 0)
-        if count > 0:
-            phase_name = phase.replace('_', ' ').title()
-            summary_lines.append(f"• {phase_name}: {count}")
-
-    if summary_lines:
-        embed.add_field(
-            name="📈 Executive Summary",
-            value="\n".join(summary_lines),
-            inline=False
-        )
-
-    # Group events by phase
-    phases = {}
-    for event in events:
-        phase = event.phase or 'UNKNOWN'
-        if phase not in phases:
-            phases[phase] = []
-        phases[phase].append(event)
-
-    # Display each phase (limited to avoid embed size limits)
-    for phase in PHASE_ORDER:
-        if phase not in phases:
-            continue
-
-        phase_events = phases[phase]
-        lines = []
-
-        # Limit to first 10 events per phase to avoid embed limits
-        for event in phase_events[:10]:
-            event_type = event.event_type or 'UNKNOWN'
-            event_data = event.event_data or {}
-
-            # Use EVENT_HANDLERS if available, otherwise skip unknown event types
             if event_type in EVENT_HANDLERS:
                 handler = EVENT_HANDLERS[event_type]
                 line = handler.get_gm_line(event_data)
-                if line:  # Only add non-empty lines
+                if line:
                     lines.append(line)
 
-        if len(phase_events) > 10:
-            lines.append(f"... and {len(phase_events) - 10} more events")
+        if not lines:
+            continue
 
-        if lines:
-            phase_name = phase.replace('_', ' ').title()
-            embed.add_field(
-                name=f"📌 {phase_name} ({len(phase_events)} events)",
-                value="\n".join(lines),
-                inline=False
-            )
+        # Split into chunks if needed
+        chunks = split_lines_into_chunks(lines, 1000)
+        phase_name = phase.replace('_', ' ').title()
+        event_count = len(phase_events)
 
-    # Add footer
-    embed.set_footer(text=f"Turn {turn_number} completed at")
+        for i, chunk in enumerate(chunks):
+            field_name = f"📌 {phase_name} ({event_count} events)"
+            if i > 0:
+                field_name = f"📌 {phase_name} (cont. {i+1})"
 
-    return embed
+            field_size = len(field_name) + len(chunk) + 10
+
+            # Check if we need a new embed
+            if current_embed_size + field_size > 5500 or field_count >= 24:
+                embeds.append(current_embed)
+                current_embed = discord.Embed(
+                    title=f"👑 {base_title} (continued)",
+                    color=embed_color
+                )
+                current_embed_size = 100
+                field_count = 0
+
+            current_embed.add_field(name=field_name, value=chunk, inline=False)
+            current_embed_size += field_size
+            field_count += 1
+
+    # Add footer to the last embed
+    current_embed.set_footer(text=f"Turn {turn_number} completed at")
+
+    # Add the last embed if it has content or is the only one
+    if field_count > 0 or not embeds:
+        embeds.append(current_embed)
+
+    return embeds

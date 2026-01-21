@@ -2482,12 +2482,13 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
                 try:
                     reports_channel = client.get_channel(config.gm_reports_channel_id)
                     if reports_channel:
-                        gm_embed = turn_embeds.create_gm_turn_report_embed(
+                        gm_embeds = turn_embeds.create_gm_turn_report_embeds(
                             gm_data['turn_number'],
                             gm_data['events'],
                             gm_data['summary']
                         )
-                        await reports_channel.send(embed=gm_embed)
+                        for embed in gm_embeds:
+                            await reports_channel.send(embed=embed)
                 except Exception as e:
                     logger.error(f"Failed to send GM report to channel: {e}")
 
@@ -2508,13 +2509,14 @@ async def resolve_turn_cmd(interaction: discord.Interaction):
                     try:
                         char_channel = client.get_channel(character.channel_id)
                         if char_channel:
-                            char_embed = turn_embeds.create_character_turn_report_embed(
+                            char_embeds = turn_embeds.create_character_turn_report_embeds(
                                 char_data['character'].name,
                                 char_data['turn_number'],
                                 char_data['events'],
                                 char_data['character'].id
                             )
-                            await char_channel.send(embed=char_embed)
+                            for embed in char_embeds:
+                                await char_channel.send(embed=embed)
                     except Exception as e:
                         logger.error(f"Failed to send report to {character.name}: {e}")
 
@@ -2618,14 +2620,15 @@ async def turn_report_cmd(interaction: discord.Interaction, turn_number: int = N
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        # Create and send embed
-        embed = turn_embeds.create_character_turn_report_embed(
+        # Create and send embeds
+        embeds = turn_embeds.create_character_turn_report_embeds(
             data['character'].name,
             data['turn_number'],
             data['events'],
             data['character'].id
         )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        for embed in embeds:
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @tree.command(
@@ -2648,13 +2651,14 @@ async def gm_turn_report_cmd(interaction: discord.Interaction, turn_number: int 
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        # Create and send embed
-        embed = turn_embeds.create_gm_turn_report_embed(
+        # Create and send embeds
+        embeds = turn_embeds.create_gm_turn_report_embeds(
             data['turn_number'],
             data['events'],
             data['summary']
         )
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        for embed in embeds:
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @tree.command(
