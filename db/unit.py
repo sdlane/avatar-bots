@@ -246,6 +246,28 @@ class Unit:
         return result
 
     @classmethod
+    async def fetch_by_territory(cls, conn: asyncpg.Connection, territory_id: str, guild_id: int) -> List["Unit"]:
+        """
+        Fetch all Units in a specific territory.
+        """
+        rows = await conn.fetch("""
+            SELECT id, unit_id, name, unit_type, owner_character_id, owner_faction_id,
+                   commander_character_id, commander_assigned_turn, faction_id, movement,
+                   organization, max_organization, attack, defense, siege_attack, siege_defense,
+                   size, capacity, current_territory_id, is_naval, upkeep_ore, upkeep_lumber,
+                   upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum, keywords, guild_id, status
+            FROM Unit
+            WHERE current_territory_id = $1 AND guild_id = $2
+            ORDER BY unit_id;
+        """, territory_id, guild_id)
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['keywords'] = list(data['keywords']) if data['keywords'] else []
+            result.append(cls(**data))
+        return result
+
+    @classmethod
     async def delete(cls, conn: asyncpg.Connection, unit_id: str, guild_id: int) -> bool:
         """
         Delete a Unit by unit_id and guild_id.

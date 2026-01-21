@@ -249,8 +249,9 @@ async def execute_movement_phase(
         tick_events = await process_movement_tick(conn, states, tick, guild_id)
         events.extend(tick_events)
 
-        # c. Check engagement (placeholder)
-        await check_engagement(conn, states, guild_id)
+        # c. Check engagement
+        engagement_events = await check_engagement(conn, states, turn_number, guild_id)
+        events.extend(engagement_events)
 
         # d. Generate observation reports (placeholder)
         obs_events = await generate_observation_reports(conn, states, guild_id, turn_number)
@@ -259,7 +260,8 @@ async def execute_movement_phase(
     # 3. POST-LOOP - Run engagement and observation one more time
     patrol_events = await process_patrol_engagement(conn, states, guild_id, turn_number)
     events.extend(patrol_events)
-    await check_engagement(conn, states, guild_id)
+    engagement_events = await check_engagement(conn, states, turn_number, guild_id)
+    events.extend(engagement_events)
     obs_events = await generate_observation_reports(conn, states, guild_id, turn_number)
     events.extend(obs_events)
 

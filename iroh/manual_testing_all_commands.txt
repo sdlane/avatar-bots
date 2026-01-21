@@ -2060,6 +2060,111 @@ STEPS:
     - Units don't move
 
 
+--------------------------------------------------------------------------------
+TEST 8B.9: Engagement Detection - Moving vs Moving (War)
+--------------------------------------------------------------------------------
+PURPOSE: Verify units from warring factions engage when meeting
+
+PREREQUISITES:
+- Two factions at war (use /declare-war to create war)
+- Unit A from faction 1 in territory 1
+- Unit B from faction 2 in territory 3
+- Territory 2 between them
+
+SETUP:
+    # Create war between factions
+    /declare-war target_faction:EK objective:Test War
+
+    # Create transit orders heading toward each other
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2,3
+    /order-unit unit_ids:EK-001 action:Transit (land) path:3,2,1
+
+STEPS:
+8B.9.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Both units meet at territory 2
+    - ENGAGEMENT_DETECTED events for both units
+    - Both units stop moving (ENGAGED status)
+    - Orders remain ONGOING (not completed)
+
+
+--------------------------------------------------------------------------------
+TEST 8B.10: Engagement Detection - Moving vs Stationary (War)
+--------------------------------------------------------------------------------
+PURPOSE: Verify moving unit engages hostile stationary unit
+
+PREREQUISITES:
+- Two factions at war
+- Moving unit from faction 1 in territory 1
+- Stationary unit from faction 2 in territory 2
+
+SETUP:
+    # Ensure war exists between factions
+    /declare-war target_faction:EK objective:Test War
+
+    # Create transit order for faction 1 unit
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2
+
+STEPS:
+8B.10.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Moving unit reaches territory 2
+    - ENGAGEMENT_DETECTED event for moving unit
+    - ENGAGEMENT_DETECTED event for stationary unit (owner notified)
+    - Moving unit status becomes ENGAGED
+
+
+--------------------------------------------------------------------------------
+TEST 8B.11: Engagement Detection - Raid vs Defender
+--------------------------------------------------------------------------------
+PURPOSE: Verify raiding unit engages territory controller's units
+
+PREREQUISITES:
+- Faction 1 owns territory 2
+- Faction 2 unit in territory 1 (NOT at war with faction 1)
+- Faction 1 unit in territory 2
+
+SETUP:
+    # No war between factions - raiding creates engagement
+    /order-unit unit_ids:F2-001 action:Raid (land) path:1,2
+
+STEPS:
+8B.11.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Raiding unit reaches territory 2
+    - ENGAGEMENT_DETECTED event with reason "raid_defense"
+    - Defender notified of engagement
+
+
+--------------------------------------------------------------------------------
+TEST 8B.12: No Engagement - Friendly Units
+--------------------------------------------------------------------------------
+PURPOSE: Verify friendly units don't engage each other
+
+PREREQUISITES:
+- Two units from the same faction
+- Unit A in territory 1
+- Unit B in territory 2
+
+SETUP:
+    /order-unit unit_ids:FN-001 action:Transit (land) path:1,2
+
+STEPS:
+8B.12.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Moving unit reaches territory 2
+    - NO ENGAGEMENT_DETECTED events
+    - TRANSIT_COMPLETE event (order succeeds normally)
+
+
 ================================================================================
 SECTION 9: PLAYER VIEW COMMANDS
 ================================================================================

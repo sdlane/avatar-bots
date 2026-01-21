@@ -5,11 +5,12 @@ This module contains helper functions for processing tick-based movement
 during the MOVEMENT phase of turn resolution.
 """
 import asyncpg
-from typing import List, Optional, Tuple
+from typing import List, Optional, Tuple, Dict, Set
 from datetime import datetime
 import logging
+from collections import defaultdict
 
-from db import Order, Unit, Territory, TurnLog, FactionPermission
+from db import Order, Unit, Territory, TurnLog, FactionPermission, Character, Alliance, WarParticipant
 from order_types import OrderType, OrderStatus, TurnPhase
 from orders.movement_state import MovementUnitState, MovementStatus, MovementAction
 
@@ -112,6 +113,182 @@ async def get_affected_character_ids(conn: asyncpg.Connection, units: List[Unit]
                 affected_ids.add(unit.commander_character_id)
 
     return list(affected_ids)
+
+
+async def get_unit_group_faction_id(
+    conn: asyncpg.Connection,
+    units: List[Unit],
+    guild_id: int
+) -> Optional[int]:
+    """
+    Get the faction ID for a unit group based on owner.
+
+    For character-owned units: looks up the owner character's represented_faction_id.
+    For faction-owned units: uses owner_faction_id directly.
+
+    Args:
+        conn: Database connection
+        units: List of units in the group
+        guild_id: Guild ID
+
+    Returns:
+        The faction ID (internal) representing the unit group, or None if unaffiliated
+    """
+    if not units:
+        return None
+
+    # Use the first unit to determine the group's faction
+    # (all units in a movement order should have the same owner)
+    unit = units[0]
+
+    if unit.owner_character_id is not None:
+        # Character-owned unit: look up the character's represented faction
+        character = await Character.fetch_by_id(conn, unit.owner_character_id)
+        if character:
+            return character.represented_faction_id
+        return None
+    elif unit.owner_faction_id is not None:
+        # Faction-owned unit: use owner_faction_id directly
+        return unit.owner_faction_id
+
+    return None
+
+
+async def are_factions_at_war(
+    conn: asyncpg.Connection,
+    faction_a_id: int,
+    faction_b_id: int,
+    guild_id: int
+) -> bool:
+    """
+    Check if two factions are on opposite sides of any war.
+
+    Args:
+        conn: Database connection
+        faction_a_id: First faction's internal ID
+        faction_b_id: Second faction's internal ID
+        guild_id: Guild ID
+
+    Returns:
+        True if factions are on opposite sides of any war, False otherwise
+    """
+    if faction_a_id == faction_b_id:
+        return False
+
+    # Get all war participations for both factions
+    a_participations = await WarParticipant.fetch_by_faction(conn, faction_a_id, guild_id)
+    b_participations = await WarParticipant.fetch_by_faction(conn, faction_b_id, guild_id)
+
+    # Build a dict of war_id -> side for faction_a
+    a_wars: Dict[int, str] = {p.war_id: p.side for p in a_participations}
+
+    # Check if faction_b is on the opposite side in any shared war
+    for b_part in b_participations:
+        if b_part.war_id in a_wars:
+            a_side = a_wars[b_part.war_id]
+            b_side = b_part.side
+            if a_side != b_side:
+                return True
+
+    return False
+
+
+async def are_factions_allied(
+    conn: asyncpg.Connection,
+    faction_a_id: int,
+    faction_b_id: int,
+    guild_id: int
+) -> bool:
+    """
+    Check if two factions have an ACTIVE alliance.
+
+    Args:
+        conn: Database connection
+        faction_a_id: First faction's internal ID
+        faction_b_id: Second faction's internal ID
+        guild_id: Guild ID
+
+    Returns:
+        True if factions have an ACTIVE alliance, False otherwise
+    """
+    if faction_a_id == faction_b_id:
+        return True  # Same faction is considered allied with itself
+
+    alliance = await Alliance.fetch_by_factions(conn, faction_a_id, faction_b_id, guild_id)
+    if alliance and alliance.status == "ACTIVE":
+        return True
+
+    return False
+
+
+async def are_unit_groups_hostile(
+    conn: asyncpg.Connection,
+    units_a: List[Unit],
+    units_b: List[Unit],
+    territory_id: str,
+    action_a: Optional[str],
+    action_b: Optional[str],
+    guild_id: int
+) -> Tuple[bool, Optional[str]]:
+    """
+    Check if two unit groups are hostile to each other.
+
+    Hostile if:
+    1. Factions are on opposite sides of any war, OR
+    2. One group is raiding and the other is allied with territory controller
+
+    Args:
+        conn: Database connection
+        units_a: First unit group
+        units_b: Second unit group
+        territory_id: Territory where the encounter occurs
+        action_a: Movement action for group A (transit, raid, etc.) or None if stationary
+        action_b: Movement action for group B (transit, raid, etc.) or None if stationary
+        guild_id: Guild ID
+
+    Returns:
+        (is_hostile, reason): Tuple of boolean and reason string ("war" or "raid_defense")
+    """
+    faction_a_id = await get_unit_group_faction_id(conn, units_a, guild_id)
+    faction_b_id = await get_unit_group_faction_id(conn, units_b, guild_id)
+
+    # Same faction or unaffiliated - not hostile
+    if faction_a_id == faction_b_id:
+        return False, None
+    if faction_a_id is None or faction_b_id is None:
+        return False, None
+
+    # Check war hostility
+    if await are_factions_at_war(conn, faction_a_id, faction_b_id, guild_id):
+        return True, "war"
+
+    # Check raid hostility
+    territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+    if not territory:
+        return False, None
+
+    controller_faction_id = territory.controller_faction_id
+
+    if controller_faction_id:
+        # If group A is raiding
+        if action_a == "raid":
+            # Hostile to territory controller
+            if faction_b_id == controller_faction_id:
+                return True, "raid_defense"
+            # Hostile to allies of territory controller
+            if await are_factions_allied(conn, faction_b_id, controller_faction_id, guild_id):
+                return True, "raid_defense"
+
+        # If group B is raiding
+        if action_b == "raid":
+            # Hostile to territory controller
+            if faction_a_id == controller_faction_id:
+                return True, "raid_defense"
+            # Hostile to allies of territory controller
+            if await are_factions_allied(conn, faction_a_id, controller_faction_id, guild_id):
+                return True, "raid_defense"
+
+    return False, None
 
 
 async def validate_units_colocation(
@@ -440,20 +617,190 @@ async def process_patrol_engagement(
 async def check_engagement(
     conn: asyncpg.Connection,
     states: List[MovementUnitState],
+    turn_number: int,
     guild_id: int
-) -> None:
+) -> List[TurnLog]:
     """
     Check for engagements between moving units and other units.
 
-    PLACEHOLDER - Will be implemented with combat phase.
+    For each state with status=MOVING:
+    1. Get all other MovementUnitStates in same territory
+    2. Get all stationary units in same territory (not in any movement state)
+    3. Check hostility against each
+    4. If hostile, set status to ENGAGED and generate event
 
     Args:
         conn: Database connection
         states: List of MovementUnitState objects
+        turn_number: Current turn number
         guild_id: Guild ID
+
+    Returns:
+        List of TurnLog events for engagements detected
     """
-    # Placeholder for engagement logic
-    pass
+    events: List[TurnLog] = []
+
+    # Build set of unit IDs that are part of movement states
+    moving_unit_ids: Set[int] = set()
+    for state in states:
+        for unit in state.units:
+            moving_unit_ids.add(unit.id)
+
+    # Group states by current territory
+    states_by_territory: Dict[str, List[MovementUnitState]] = defaultdict(list)
+    for state in states:
+        states_by_territory[state.current_territory_id].append(state)
+
+    # Process each territory
+    for territory_id, territory_states in states_by_territory.items():
+        # Get moving states (not already engaged)
+        moving_states = [s for s in territory_states if s.status == MovementStatus.MOVING]
+
+        if not moving_states:
+            continue
+
+        # Check moving vs moving
+        for i, state_a in enumerate(moving_states):
+            if state_a.status != MovementStatus.MOVING:
+                continue
+
+            for state_b in moving_states[i+1:]:
+                if state_b.status != MovementStatus.MOVING:
+                    continue
+
+                is_hostile, reason = await are_unit_groups_hostile(
+                    conn, state_a.units, state_b.units, territory_id,
+                    state_a.action, state_b.action, guild_id
+                )
+
+                if is_hostile:
+                    # Both groups become engaged
+                    state_a.status = MovementStatus.ENGAGED
+                    state_b.status = MovementStatus.ENGAGED
+
+                    # Generate events for both groups
+                    affected_ids_a = await get_affected_character_ids(conn, state_a.units, guild_id)
+                    affected_ids_b = await get_affected_character_ids(conn, state_b.units, guild_id)
+
+                    faction_a_id = await get_unit_group_faction_id(conn, state_a.units, guild_id)
+                    faction_b_id = await get_unit_group_faction_id(conn, state_b.units, guild_id)
+
+                    # Event for group A
+                    events.append(TurnLog(
+                        turn_number=turn_number,
+                        phase=TurnPhase.MOVEMENT.value,
+                        event_type='ENGAGEMENT_DETECTED',
+                        entity_type='order',
+                        entity_id=state_a.order.id,
+                        event_data={
+                            'order_id': state_a.order.order_id,
+                            'units': [u.unit_id for u in state_a.units],
+                            'territory': territory_id,
+                            'engaged_with': [u.unit_id for u in state_b.units],
+                            'engaged_faction_id': faction_b_id,
+                            'reason': reason,
+                            'affected_character_ids': affected_ids_a
+                        },
+                        guild_id=guild_id
+                    ))
+
+                    # Event for group B
+                    events.append(TurnLog(
+                        turn_number=turn_number,
+                        phase=TurnPhase.MOVEMENT.value,
+                        event_type='ENGAGEMENT_DETECTED',
+                        entity_type='order',
+                        entity_id=state_b.order.id,
+                        event_data={
+                            'order_id': state_b.order.order_id,
+                            'units': [u.unit_id for u in state_b.units],
+                            'territory': territory_id,
+                            'engaged_with': [u.unit_id for u in state_a.units],
+                            'engaged_faction_id': faction_a_id,
+                            'reason': reason,
+                            'affected_character_ids': affected_ids_b
+                        },
+                        guild_id=guild_id
+                    ))
+
+        # Check moving vs stationary
+        # First, get all units in territory that aren't part of movement states
+        all_units_in_territory = await Unit.fetch_by_territory(conn, territory_id, guild_id)
+        stationary_units = [u for u in all_units_in_territory
+                           if u.id not in moving_unit_ids and u.status == 'ACTIVE']
+
+        if not stationary_units:
+            continue
+
+        # Group stationary units by faction
+        stationary_by_faction: Dict[Optional[int], List[Unit]] = defaultdict(list)
+        for unit in stationary_units:
+            faction_id = await get_unit_group_faction_id(conn, [unit], guild_id)
+            stationary_by_faction[faction_id].append(unit)
+
+        # Check each moving state against stationary groups
+        for state in moving_states:
+            if state.status != MovementStatus.MOVING:
+                continue
+
+            for faction_id, faction_units in stationary_by_faction.items():
+                is_hostile, reason = await are_unit_groups_hostile(
+                    conn, state.units, faction_units, territory_id,
+                    state.action, None,  # Stationary units have no action
+                    guild_id
+                )
+
+                if is_hostile:
+                    # Moving group becomes engaged
+                    state.status = MovementStatus.ENGAGED
+
+                    # Get affected character IDs
+                    affected_ids_moving = await get_affected_character_ids(conn, state.units, guild_id)
+                    affected_ids_stationary = await get_affected_character_ids(conn, faction_units, guild_id)
+
+                    moving_faction_id = await get_unit_group_faction_id(conn, state.units, guild_id)
+
+                    # Event for moving group
+                    events.append(TurnLog(
+                        turn_number=turn_number,
+                        phase=TurnPhase.MOVEMENT.value,
+                        event_type='ENGAGEMENT_DETECTED',
+                        entity_type='order',
+                        entity_id=state.order.id,
+                        event_data={
+                            'order_id': state.order.order_id,
+                            'units': [u.unit_id for u in state.units],
+                            'territory': territory_id,
+                            'engaged_with': [u.unit_id for u in faction_units],
+                            'engaged_faction_id': faction_id,
+                            'reason': reason,
+                            'affected_character_ids': affected_ids_moving
+                        },
+                        guild_id=guild_id
+                    ))
+
+                    # Event for stationary group (notify owners)
+                    events.append(TurnLog(
+                        turn_number=turn_number,
+                        phase=TurnPhase.MOVEMENT.value,
+                        event_type='ENGAGEMENT_DETECTED',
+                        entity_type='unit',  # No order for stationary units
+                        entity_id=faction_units[0].id if faction_units else None,
+                        event_data={
+                            'order_id': None,
+                            'units': [u.unit_id for u in faction_units],
+                            'territory': territory_id,
+                            'engaged_with': [u.unit_id for u in state.units],
+                            'engaged_faction_id': moving_faction_id,
+                            'reason': reason,
+                            'affected_character_ids': affected_ids_stationary
+                        },
+                        guild_id=guild_id
+                    ))
+
+                    break  # Only one engagement per moving state
+
+    return events
 
 
 async def generate_observation_reports(

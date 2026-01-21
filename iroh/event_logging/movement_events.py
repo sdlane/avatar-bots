@@ -52,3 +52,25 @@ def movement_blocked_gm_line(event_data: Dict[str, Any]) -> str:
     terrain_cost = event_data.get('terrain_cost', 0)
     remaining_mp = event_data.get('remaining_mp', 0)
     return f"{', '.join(units)} blocked at {blocked_at} (cost {terrain_cost} > {remaining_mp} MP)"
+
+
+def engagement_detected_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for ENGAGEMENT_DETECTED event."""
+    units = event_data.get('units', [])
+    territory = event_data.get('territory', 'Unknown')
+    engaged_with = event_data.get('engaged_with', [])
+    reason = event_data.get('reason', 'unknown')
+
+    reason_text = "due to war" if reason == "war" else "defending against raid"
+    return (f"Engagement detected: {', '.join(units)} encountered hostile units "
+            f"{', '.join(engaged_with)} in Territory {territory} ({reason_text})")
+
+
+def engagement_detected_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for ENGAGEMENT_DETECTED event."""
+    units = event_data.get('units', [])
+    territory = event_data.get('territory', 'Unknown')
+    engaged_with = event_data.get('engaged_with', [])
+    reason = event_data.get('reason', 'unknown')
+
+    return f"{', '.join(units)} engaged {', '.join(engaged_with)} at T{territory} ({reason})"

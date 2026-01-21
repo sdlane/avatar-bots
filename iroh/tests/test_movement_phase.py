@@ -10,6 +10,7 @@ Tests verify:
 - Validation (co-location, naval exclusion)
 - Patrol looping and speed limits
 - Event generation
+- Engagement detection
 
 Run with: docker compose -f ~/avatar-bots/docker-compose-development.yaml exec iroh-api pytest tests/test_movement_phase.py -v
 """
@@ -21,9 +22,15 @@ from handlers.movement_handlers import (
     get_terrain_cost,
     build_movement_states,
     validate_units_colocation,
+    get_unit_group_faction_id,
+    are_factions_at_war,
+    are_factions_allied,
+    are_unit_groups_hostile,
+    check_engagement,
 )
-from db import Character, Unit, Territory, Order, WargameConfig
+from db import Character, Unit, Territory, Order, WargameConfig, Faction, War, WarParticipant, Alliance
 from order_types import OrderType, OrderStatus, TurnPhase, ORDER_PHASE_MAP, ORDER_PRIORITY_MAP
+from orders.movement_state import MovementUnitState, MovementStatus
 from tests.conftest import TEST_GUILD_ID
 from event_logging.movement_events import (
     transit_complete_character_line,
@@ -32,6 +39,8 @@ from event_logging.movement_events import (
     transit_progress_gm_line,
     movement_blocked_character_line,
     movement_blocked_gm_line,
+    engagement_detected_character_line,
+    engagement_detected_gm_line,
 )
 
 
@@ -1204,3 +1213,615 @@ async def test_no_unit_orders_returns_empty(db_conn, test_server):
 
     events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
     assert events == []
+
+
+# ============================================================================
+# Engagement Detection Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_get_unit_group_faction_id_character_owned(db_conn, test_server):
+    """Test that character-owned units return owner's represented_faction_id."""
+    # Create faction
+    faction = Faction(
+        faction_id="test-faction-1", name="Test Faction",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction-1", TEST_GUILD_ID)
+
+    # Create character with represented faction
+    character = Character(
+        identifier="eng-char-1", name="Engagement Tester",
+        channel_id=999000000000000100,
+        represented_faction_id=faction.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "eng-char-1", TEST_GUILD_ID)
+
+    # Create unit owned by character
+    unit = Unit(
+        unit_id="unit-eng-1", name="Test Unit", unit_type="infantry",
+        owner_character_id=character.id,
+        movement=2, guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "unit-eng-1", TEST_GUILD_ID)
+
+    # Get faction ID
+    result = await get_unit_group_faction_id(db_conn, [unit], TEST_GUILD_ID)
+    assert result == faction.id
+
+
+@pytest.mark.asyncio
+async def test_get_unit_group_faction_id_faction_owned(db_conn, test_server):
+    """Test that faction-owned units return owner_faction_id."""
+    # Create faction
+    faction = Faction(
+        faction_id="test-faction-2", name="Test Faction 2",
+        guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "test-faction-2", TEST_GUILD_ID)
+
+    # Create unit owned by faction
+    unit = Unit(
+        unit_id="unit-eng-2", name="Faction Unit", unit_type="infantry",
+        owner_faction_id=faction.id,
+        movement=2, guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "unit-eng-2", TEST_GUILD_ID)
+
+    # Get faction ID
+    result = await get_unit_group_faction_id(db_conn, [unit], TEST_GUILD_ID)
+    assert result == faction.id
+
+
+@pytest.mark.asyncio
+async def test_get_unit_group_faction_id_no_faction(db_conn, test_server):
+    """Test that character without represented faction returns None."""
+    # Create character without represented faction
+    character = Character(
+        identifier="eng-char-no-faction", name="No Faction Char",
+        channel_id=999000000000000101,
+        guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "eng-char-no-faction", TEST_GUILD_ID)
+
+    # Create unit owned by character
+    unit = Unit(
+        unit_id="unit-eng-no-faction", name="Test Unit", unit_type="infantry",
+        owner_character_id=character.id,
+        movement=2, guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "unit-eng-no-faction", TEST_GUILD_ID)
+
+    # Get faction ID
+    result = await get_unit_group_faction_id(db_conn, [unit], TEST_GUILD_ID)
+    assert result is None
+
+
+@pytest.mark.asyncio
+async def test_are_factions_at_war_opposite_sides(db_conn, test_server):
+    """Test that factions on opposite sides of a war are detected as at war."""
+    # Create two factions
+    faction_a = Faction(faction_id="war-faction-a", name="Faction A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="war-faction-b", name="Faction B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "war-faction-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "war-faction-b", TEST_GUILD_ID)
+
+    # Create a war
+    war = War(war_id="WAR-TEST-01", objective="Test War", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-TEST-01", TEST_GUILD_ID)
+
+    # Add factions to opposite sides
+    participant_a = WarParticipant(
+        war_id=war.id, faction_id=faction_a.id, side="SIDE_A",
+        joined_turn=1, is_original_declarer=True, guild_id=TEST_GUILD_ID
+    )
+    participant_b = WarParticipant(
+        war_id=war.id, faction_id=faction_b.id, side="SIDE_B",
+        joined_turn=1, is_original_declarer=False, guild_id=TEST_GUILD_ID
+    )
+    await participant_a.insert(db_conn)
+    await participant_b.insert(db_conn)
+
+    # Check if at war
+    result = await are_factions_at_war(db_conn, faction_a.id, faction_b.id, TEST_GUILD_ID)
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_are_factions_at_war_same_side(db_conn, test_server):
+    """Test that factions on the same side of a war are not detected as at war."""
+    # Create two factions
+    faction_a = Faction(faction_id="ally-faction-a", name="Ally A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="ally-faction-b", name="Ally B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "ally-faction-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "ally-faction-b", TEST_GUILD_ID)
+
+    # Create a war
+    war = War(war_id="WAR-TEST-02", objective="Test War 2", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-TEST-02", TEST_GUILD_ID)
+
+    # Add factions to same side
+    participant_a = WarParticipant(
+        war_id=war.id, faction_id=faction_a.id, side="SIDE_A",
+        joined_turn=1, is_original_declarer=True, guild_id=TEST_GUILD_ID
+    )
+    participant_b = WarParticipant(
+        war_id=war.id, faction_id=faction_b.id, side="SIDE_A",
+        joined_turn=1, is_original_declarer=False, guild_id=TEST_GUILD_ID
+    )
+    await participant_a.insert(db_conn)
+    await participant_b.insert(db_conn)
+
+    # Check if at war
+    result = await are_factions_at_war(db_conn, faction_a.id, faction_b.id, TEST_GUILD_ID)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_are_factions_at_war_no_war(db_conn, test_server):
+    """Test that factions not in any shared war are not detected as at war."""
+    # Create two factions
+    faction_a = Faction(faction_id="peace-faction-a", name="Peace A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="peace-faction-b", name="Peace B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "peace-faction-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "peace-faction-b", TEST_GUILD_ID)
+
+    # Check if at war (no war exists)
+    result = await are_factions_at_war(db_conn, faction_a.id, faction_b.id, TEST_GUILD_ID)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_are_factions_allied_active(db_conn, test_server):
+    """Test that factions with active alliance are detected as allied."""
+    # Create two factions
+    faction_a = Faction(faction_id="alliance-a", name="Alliance A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="alliance-b", name="Alliance B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "alliance-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "alliance-b", TEST_GUILD_ID)
+
+    # Create active alliance (ensure canonical ordering)
+    min_id = min(faction_a.id, faction_b.id)
+    max_id = max(faction_a.id, faction_b.id)
+    alliance = Alliance(
+        faction_a_id=min_id, faction_b_id=max_id,
+        status="ACTIVE", initiated_by_faction_id=min_id,
+        guild_id=TEST_GUILD_ID
+    )
+    await alliance.upsert(db_conn)
+
+    # Check if allied
+    result = await are_factions_allied(db_conn, faction_a.id, faction_b.id, TEST_GUILD_ID)
+    assert result is True
+
+
+@pytest.mark.asyncio
+async def test_are_factions_allied_pending(db_conn, test_server):
+    """Test that factions with pending alliance are not detected as allied."""
+    # Create two factions
+    faction_a = Faction(faction_id="pending-a", name="Pending A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="pending-b", name="Pending B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "pending-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "pending-b", TEST_GUILD_ID)
+
+    # Create pending alliance (ensure canonical ordering)
+    min_id = min(faction_a.id, faction_b.id)
+    max_id = max(faction_a.id, faction_b.id)
+    alliance = Alliance(
+        faction_a_id=min_id, faction_b_id=max_id,
+        status="PENDING_FACTION_A", initiated_by_faction_id=min_id,
+        guild_id=TEST_GUILD_ID
+    )
+    await alliance.upsert(db_conn)
+
+    # Check if allied
+    result = await are_factions_allied(db_conn, faction_a.id, faction_b.id, TEST_GUILD_ID)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_are_factions_allied_no_alliance(db_conn, test_server):
+    """Test that factions with no alliance are not detected as allied."""
+    # Create two factions
+    faction_a = Faction(faction_id="no-alliance-a", name="No Alliance A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="no-alliance-b", name="No Alliance B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "no-alliance-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "no-alliance-b", TEST_GUILD_ID)
+
+    # Check if allied (no alliance exists)
+    result = await are_factions_allied(db_conn, faction_a.id, faction_b.id, TEST_GUILD_ID)
+    assert result is False
+
+
+@pytest.mark.asyncio
+async def test_are_unit_groups_hostile_at_war(db_conn, test_server):
+    """Test that unit groups from factions at war are hostile."""
+    # Create two factions at war
+    faction_a = Faction(faction_id="hostile-war-a", name="Hostile A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="hostile-war-b", name="Hostile B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "hostile-war-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "hostile-war-b", TEST_GUILD_ID)
+
+    # Create war
+    war = War(war_id="WAR-HOSTILE-01", objective="Hostile Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-HOSTILE-01", TEST_GUILD_ID)
+
+    # Add to opposite sides
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    # Create territory
+    territory = Territory(territory_id="T-HOSTILE", name="Hostile Territory", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await territory.upsert(db_conn)
+
+    # Create units
+    unit_a = Unit(unit_id="unit-hostile-a", unit_type="infantry", owner_faction_id=faction_a.id, movement=2, guild_id=TEST_GUILD_ID)
+    unit_b = Unit(unit_id="unit-hostile-b", unit_type="infantry", owner_faction_id=faction_b.id, movement=2, guild_id=TEST_GUILD_ID)
+    await unit_a.upsert(db_conn)
+    await unit_b.upsert(db_conn)
+    unit_a = await Unit.fetch_by_unit_id(db_conn, "unit-hostile-a", TEST_GUILD_ID)
+    unit_b = await Unit.fetch_by_unit_id(db_conn, "unit-hostile-b", TEST_GUILD_ID)
+
+    # Check hostility
+    is_hostile, reason = await are_unit_groups_hostile(
+        db_conn, [unit_a], [unit_b], "T-HOSTILE", "transit", "transit", TEST_GUILD_ID
+    )
+    assert is_hostile is True
+    assert reason == "war"
+
+
+@pytest.mark.asyncio
+async def test_are_unit_groups_hostile_same_faction(db_conn, test_server):
+    """Test that unit groups from the same faction are not hostile."""
+    # Create faction
+    faction = Faction(faction_id="same-faction", name="Same Faction", guild_id=TEST_GUILD_ID)
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "same-faction", TEST_GUILD_ID)
+
+    # Create territory
+    territory = Territory(territory_id="T-SAME", name="Same Territory", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await territory.upsert(db_conn)
+
+    # Create units from same faction
+    unit_a = Unit(unit_id="unit-same-a", unit_type="infantry", owner_faction_id=faction.id, movement=2, guild_id=TEST_GUILD_ID)
+    unit_b = Unit(unit_id="unit-same-b", unit_type="infantry", owner_faction_id=faction.id, movement=2, guild_id=TEST_GUILD_ID)
+    await unit_a.upsert(db_conn)
+    await unit_b.upsert(db_conn)
+    unit_a = await Unit.fetch_by_unit_id(db_conn, "unit-same-a", TEST_GUILD_ID)
+    unit_b = await Unit.fetch_by_unit_id(db_conn, "unit-same-b", TEST_GUILD_ID)
+
+    # Check hostility
+    is_hostile, reason = await are_unit_groups_hostile(
+        db_conn, [unit_a], [unit_b], "T-SAME", "transit", "transit", TEST_GUILD_ID
+    )
+    assert is_hostile is False
+    assert reason is None
+
+
+@pytest.mark.asyncio
+async def test_are_unit_groups_hostile_raid_vs_controller(db_conn, test_server):
+    """Test that raiding units are hostile to territory controller."""
+    # Create two factions (not at war)
+    faction_raider = Faction(faction_id="raider-faction", name="Raider", guild_id=TEST_GUILD_ID)
+    faction_defender = Faction(faction_id="defender-faction", name="Defender", guild_id=TEST_GUILD_ID)
+    await faction_raider.upsert(db_conn)
+    await faction_defender.upsert(db_conn)
+    faction_raider = await Faction.fetch_by_faction_id(db_conn, "raider-faction", TEST_GUILD_ID)
+    faction_defender = await Faction.fetch_by_faction_id(db_conn, "defender-faction", TEST_GUILD_ID)
+
+    # Create territory controlled by defender
+    territory = Territory(
+        territory_id="T-RAID", name="Raid Territory", terrain_type="plains",
+        controller_faction_id=faction_defender.id, guild_id=TEST_GUILD_ID
+    )
+    await territory.upsert(db_conn)
+
+    # Create units
+    unit_raider = Unit(unit_id="unit-raider", unit_type="infantry", owner_faction_id=faction_raider.id, movement=2, guild_id=TEST_GUILD_ID)
+    unit_defender = Unit(unit_id="unit-defender", unit_type="infantry", owner_faction_id=faction_defender.id, movement=2, guild_id=TEST_GUILD_ID)
+    await unit_raider.upsert(db_conn)
+    await unit_defender.upsert(db_conn)
+    unit_raider = await Unit.fetch_by_unit_id(db_conn, "unit-raider", TEST_GUILD_ID)
+    unit_defender = await Unit.fetch_by_unit_id(db_conn, "unit-defender", TEST_GUILD_ID)
+
+    # Check hostility when raider is raiding
+    is_hostile, reason = await are_unit_groups_hostile(
+        db_conn, [unit_raider], [unit_defender], "T-RAID", "raid", None, TEST_GUILD_ID
+    )
+    assert is_hostile is True
+    assert reason == "raid_defense"
+
+
+@pytest.mark.asyncio
+async def test_engagement_detection_two_hostile_moving_groups(db_conn, test_server):
+    """Test that two hostile moving groups become engaged when they meet."""
+    # Setup: Create two factions at war
+    faction_a = Faction(faction_id="engage-faction-a", name="Engage A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="engage-faction-b", name="Engage B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "engage-faction-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "engage-faction-b", TEST_GUILD_ID)
+
+    # Create war
+    war = War(war_id="WAR-ENGAGE-01", objective="Engagement Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-ENGAGE-01", TEST_GUILD_ID)
+
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    # Create characters for unit ownership
+    char_a = Character(identifier="engage-char-a", name="Engage Char A", channel_id=999000000000000102, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    char_b = Character(identifier="engage-char-b", name="Engage Char B", channel_id=999000000000000103, represented_faction_id=faction_b.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    await char_b.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "engage-char-a", TEST_GUILD_ID)
+    char_b = await Character.fetch_by_identifier(db_conn, "engage-char-b", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="ENG1", name="Engage 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="ENG2", name="Engage 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t3 = Territory(territory_id="ENG3", name="Engage 3", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+    await t3.upsert(db_conn)
+
+    # Create units starting from opposite ends
+    unit_a = Unit(
+        unit_id="unit-engage-a", name="Unit A", unit_type="infantry",
+        owner_character_id=char_a.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="ENG1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    unit_b = Unit(
+        unit_id="unit-engage-b", name="Unit B", unit_type="infantry",
+        owner_character_id=char_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="ENG3", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await unit_a.upsert(db_conn)
+    await unit_b.upsert(db_conn)
+    unit_a = await Unit.fetch_by_unit_id(db_conn, "unit-engage-a", TEST_GUILD_ID)
+    unit_b = await Unit.fetch_by_unit_id(db_conn, "unit-engage-b", TEST_GUILD_ID)
+
+    # Create wargame config
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create transit orders heading toward each other (both will meet at ENG2)
+    order_a = Order(
+        order_id="order-engage-a", order_type=OrderType.UNIT.value,
+        unit_ids=[unit_a.id], character_id=char_a.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'transit', 'path': ['ENG1', 'ENG2', 'ENG3'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    order_b = Order(
+        order_id="order-engage-b", order_type=OrderType.UNIT.value,
+        unit_ids=[unit_b.id], character_id=char_b.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'transit', 'path': ['ENG3', 'ENG2', 'ENG1'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await order_a.upsert(db_conn)
+    await order_b.upsert(db_conn)
+
+    # Execute movement phase
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Check that ENGAGEMENT_DETECTED events were generated
+    engagement_events = [e for e in events if e.event_type == 'ENGAGEMENT_DETECTED']
+    assert len(engagement_events) == 2  # One for each unit group
+
+    # Both orders should have engaged status
+    updated_order_a = await Order.fetch_by_order_id(db_conn, "order-engage-a", TEST_GUILD_ID)
+    updated_order_b = await Order.fetch_by_order_id(db_conn, "order-engage-b", TEST_GUILD_ID)
+
+    # Orders should be ONGOING (not SUCCESS since they were interrupted)
+    assert updated_order_a.status == OrderStatus.ONGOING.value
+    assert updated_order_b.status == OrderStatus.ONGOING.value
+
+
+@pytest.mark.asyncio
+async def test_engagement_moving_vs_stationary(db_conn, test_server):
+    """Test that moving units become engaged with hostile stationary units."""
+    # Setup: Create two factions at war
+    faction_a = Faction(faction_id="stat-engage-a", name="Stat Engage A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="stat-engage-b", name="Stat Engage B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "stat-engage-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "stat-engage-b", TEST_GUILD_ID)
+
+    # Create war
+    war = War(war_id="WAR-STAT-01", objective="Stationary Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-STAT-01", TEST_GUILD_ID)
+
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    # Create character for moving unit
+    char_a = Character(identifier="stat-char-a", name="Stat Char A", channel_id=999000000000000104, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "stat-char-a", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="STAT1", name="Stat 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="STAT2", name="Stat 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    # Create moving unit (faction A)
+    unit_moving = Unit(
+        unit_id="unit-stat-moving", name="Moving Unit", unit_type="infantry",
+        owner_character_id=char_a.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="STAT1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    # Create stationary unit (faction B) at destination
+    unit_stationary = Unit(
+        unit_id="unit-stat-stationary", name="Stationary Unit", unit_type="infantry",
+        owner_faction_id=faction_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="STAT2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await unit_moving.upsert(db_conn)
+    await unit_stationary.upsert(db_conn)
+    unit_moving = await Unit.fetch_by_unit_id(db_conn, "unit-stat-moving", TEST_GUILD_ID)
+    unit_stationary = await Unit.fetch_by_unit_id(db_conn, "unit-stat-stationary", TEST_GUILD_ID)
+
+    # Create wargame config
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create transit order for moving unit
+    order = Order(
+        order_id="order-stat-move", order_type=OrderType.UNIT.value,
+        unit_ids=[unit_moving.id], character_id=char_a.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'transit', 'path': ['STAT1', 'STAT2'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute movement phase
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Check that ENGAGEMENT_DETECTED events were generated
+    engagement_events = [e for e in events if e.event_type == 'ENGAGEMENT_DETECTED']
+    assert len(engagement_events) == 2  # One for moving, one for stationary
+
+    # Both sides should be notified
+    moving_event = [e for e in engagement_events if 'unit-stat-moving' in e.event_data.get('units', [])]
+    stationary_event = [e for e in engagement_events if 'unit-stat-stationary' in e.event_data.get('units', [])]
+    assert len(moving_event) == 1
+    assert len(stationary_event) == 1
+
+
+@pytest.mark.asyncio
+async def test_no_engagement_friendly_units(db_conn, test_server):
+    """Test that friendly units do not engage each other."""
+    # Create faction
+    faction = Faction(faction_id="friendly-faction", name="Friendly Faction", guild_id=TEST_GUILD_ID)
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "friendly-faction", TEST_GUILD_ID)
+
+    # Create character
+    char = Character(identifier="friendly-char", name="Friendly Char", channel_id=999000000000000105, represented_faction_id=faction.id, guild_id=TEST_GUILD_ID)
+    await char.upsert(db_conn)
+    char = await Character.fetch_by_identifier(db_conn, "friendly-char", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="FRIEND1", name="Friend 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="FRIEND2", name="Friend 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    # Create moving unit
+    unit_moving = Unit(
+        unit_id="unit-friendly-moving", name="Moving Unit", unit_type="infantry",
+        owner_character_id=char.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="FRIEND1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    # Create stationary unit from same faction at destination
+    unit_stationary = Unit(
+        unit_id="unit-friendly-stationary", name="Stationary Unit", unit_type="infantry",
+        owner_faction_id=faction.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="FRIEND2", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await unit_moving.upsert(db_conn)
+    await unit_stationary.upsert(db_conn)
+    unit_moving = await Unit.fetch_by_unit_id(db_conn, "unit-friendly-moving", TEST_GUILD_ID)
+
+    # Create wargame config
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create transit order
+    order = Order(
+        order_id="order-friendly-move", order_type=OrderType.UNIT.value,
+        unit_ids=[unit_moving.id], character_id=char.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'transit', 'path': ['FRIEND1', 'FRIEND2'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute movement phase
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # No engagement events should be generated
+    engagement_events = [e for e in events if e.event_type == 'ENGAGEMENT_DETECTED']
+    assert len(engagement_events) == 0
+
+    # Order should complete successfully
+    updated_order = await Order.fetch_by_order_id(db_conn, "order-friendly-move", TEST_GUILD_ID)
+    assert updated_order.status == OrderStatus.SUCCESS.value
+
+
+# ============================================================================
+# Event Formatting Tests for Engagement
+# ============================================================================
+
+def test_engagement_detected_character_line_format():
+    """Test ENGAGEMENT_DETECTED character line formatting."""
+    event_data = {
+        'units': ['unit-1', 'unit-2'],
+        'territory': 'T5',
+        'engaged_with': ['enemy-1'],
+        'reason': 'war',
+        'affected_character_ids': [123]
+    }
+    line = engagement_detected_character_line(event_data)
+    assert 'unit-1' in line
+    assert 'unit-2' in line
+    assert 'T5' in line
+    assert 'enemy-1' in line
+    assert 'war' in line
+
+
+def test_engagement_detected_gm_line_format():
+    """Test ENGAGEMENT_DETECTED GM line formatting."""
+    event_data = {
+        'units': ['unit-1'],
+        'territory': 'T5',
+        'engaged_with': ['enemy-1'],
+        'reason': 'raid_defense',
+        'affected_character_ids': [123]
+    }
+    line = engagement_detected_gm_line(event_data)
+    assert 'unit-1' in line
+    assert 'T5' in line
+    assert 'enemy-1' in line
+    assert 'raid_defense' in line
