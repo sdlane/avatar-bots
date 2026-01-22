@@ -202,19 +202,35 @@ async def test_submit_unit_order_capture(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_submit_unit_order_transport(db_conn, test_server):
-    """Test submitting a transport order."""
+    """Test submitting a transport order with valid land-water-land path."""
     char = await create_test_character(db_conn)
-    await create_test_territories(db_conn, ["101", "102"])
-    await create_adjacencies(db_conn, [("101", "102")])
-    await create_test_unit(db_conn, "TEST-001", char.id, "101", is_naval=False)
+    # Create land-water-land territories for valid transport path
+    await create_test_territories(db_conn, ["TCOAST1"], terrain_type="plains")
+    await create_test_territories(db_conn, ["TWATER1", "TWATER2"], terrain_type="ocean")
+    await create_test_territories(db_conn, ["TCOAST2"], terrain_type="plains")
+    await create_adjacencies(db_conn, [
+        ("TCOAST1", "TWATER1"),
+        ("TWATER1", "TWATER2"),
+        ("TWATER2", "TCOAST2")
+    ])
+    await create_test_unit(db_conn, "TEST-001", char.id, "TCOAST1", is_naval=False)
     await create_wargame_config(db_conn)
 
     success, message, extra = await submit_unit_order(
-        db_conn, ["TEST-001"], "transport", ["101", "102"], TEST_GUILD_ID, char.id
+        db_conn, ["TEST-001"], "transport",
+        ["TCOAST1", "TWATER1", "TWATER2", "TCOAST2"],
+        TEST_GUILD_ID, char.id
     )
 
-    assert success is True
+    assert success is True, f"Failed with: {message}"
     assert "transport" in message.lower()
+
+    # Verify order data includes transport-specific fields
+    order = await Order.fetch_by_order_id(db_conn, "ORD-0001", TEST_GUILD_ID)
+    assert order is not None
+    assert order.order_data.get('water_path') == ["TWATER1", "TWATER2"]
+    assert order.order_data.get('coast_territory') == "TCOAST1"
+    assert order.order_data.get('disembark_territory') == "TCOAST2"
 
     await full_cleanup(db_conn)
 

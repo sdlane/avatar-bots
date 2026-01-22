@@ -55,6 +55,14 @@ from .movement_events import (
     unit_observed_gm_line,
     patrol_engagement_character_line,
     patrol_engagement_gm_line,
+    transport_boarding_character_line,
+    transport_boarding_gm_line,
+    transport_disembark_character_line,
+    transport_disembark_gm_line,
+    transport_waiting_character_line,
+    transport_waiting_gm_line,
+    transport_progress_character_line,
+    transport_progress_gm_line,
 )
 
 from .resource_events import (
@@ -227,6 +235,24 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'PATROL_ENGAGEMENT': EventHandler(
         get_character_line=patrol_engagement_character_line,
         get_gm_line=patrol_engagement_gm_line
+    ),
+
+    # Transport events
+    'TRANSPORT_BOARDING': EventHandler(
+        get_character_line=transport_boarding_character_line,
+        get_gm_line=transport_boarding_gm_line
+    ),
+    'TRANSPORT_DISEMBARK': EventHandler(
+        get_character_line=transport_disembark_character_line,
+        get_gm_line=transport_disembark_gm_line
+    ),
+    'TRANSPORT_WAITING': EventHandler(
+        get_character_line=transport_waiting_character_line,
+        get_gm_line=transport_waiting_gm_line
+    ),
+    'TRANSPORT_PROGRESS': EventHandler(
+        get_character_line=transport_progress_character_line,
+        get_gm_line=transport_progress_gm_line
     ),
 
     # Resource events

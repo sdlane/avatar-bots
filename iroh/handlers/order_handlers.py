@@ -481,6 +481,96 @@ VALID_UNIT_ACTIONS = VALID_LAND_ACTIONS + VALID_NAVAL_ACTIONS
 WATER_TERRAIN_TYPES = ['ocean', 'lake', 'sea', 'water']
 
 
+async def validate_transport_path(
+    conn: asyncpg.Connection,
+    path: List[str],
+    guild_id: int
+) -> Tuple[bool, str, Optional[dict]]:
+    """
+    Validate and extract transport path data for land transport orders.
+
+    Transport paths must follow the format: [land1, water1, water2, ..., land2]
+    - Must start with a land territory (coast_territory)
+    - Must have a contiguous water section (water_path)
+    - Must end with a land territory (disembark_territory)
+
+    Args:
+        conn: Database connection
+        path: Full path including land start/end and water portion
+        guild_id: Guild ID
+
+    Returns:
+        (success, error_message, transport_data)
+        - transport_data contains: water_path, coast_territory, disembark_territory
+    """
+    if len(path) < 3:
+        return False, "Transport path must have at least 3 territories (land-water-land).", None
+
+    # Classify each territory as land or water
+    territory_types = []
+    for territory_id in path:
+        territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+        if not territory:
+            return False, f"Territory '{territory_id}' not found.", None
+        is_water = territory.terrain_type.lower() in WATER_TERRAIN_TYPES
+        territory_types.append((territory_id, is_water))
+
+    # Path must start with land
+    if territory_types[0][1]:  # First territory is water
+        return False, f"Transport path must start with a land territory, but '{path[0]}' is water.", None
+
+    # Path must end with land
+    if territory_types[-1][1]:  # Last territory is water
+        return False, f"Transport path must end with a land territory, but '{path[-1]}' is water.", None
+
+    # Find the water section - it must be contiguous
+    water_start = None
+    water_end = None
+    in_water = False
+
+    for i, (territory_id, is_water) in enumerate(territory_types):
+        if is_water and not in_water:
+            # Started water section
+            water_start = i
+            in_water = True
+        elif not is_water and in_water:
+            # Ended water section
+            water_end = i
+            in_water = False
+            break
+
+    # If we're still in water at the end, something is wrong (but we already checked end is land)
+    # This shouldn't happen given the end-is-land check above
+    if in_water:
+        water_end = len(territory_types)
+
+    # Validate water section exists
+    if water_start is None:
+        return False, "Transport path must include at least one water territory.", None
+
+    # Extract the water path
+    water_path = [t[0] for t in territory_types[water_start:water_end]]
+
+    # Check there's no more water after the first water section ends
+    for i in range(water_end, len(territory_types)):
+        if territory_types[i][1]:
+            return False, f"Transport path water section must be contiguous. Found land at '{territory_types[water_end-1][0]}' followed by water at '{territory_types[i][0]}'.", None
+
+    # The coast territory is the last land territory before water
+    coast_territory = territory_types[water_start - 1][0]
+
+    # The disembark territory is the first land territory after water
+    disembark_territory = territory_types[water_end][0]
+
+    transport_data = {
+        'water_path': water_path,
+        'coast_territory': coast_territory,
+        'disembark_territory': disembark_territory
+    }
+
+    return True, "", transport_data
+
+
 async def submit_unit_order(
     conn: asyncpg.Connection,
     unit_ids: List[str],
@@ -583,6 +673,13 @@ async def submit_unit_order(
         if final_territory and final_territory.terrain_type.lower() != 'city':
             return False, f"Siege action requires a city at the destination. Territory '{path[-1]}' is '{final_territory.terrain_type}'.", None
 
+    # Action-specific validation: Land transport path validation
+    transport_data = None
+    if action == 'transport':
+        valid, error_msg, transport_data = await validate_transport_path(conn, path, guild_id)
+        if not valid:
+            return False, error_msg, None
+
     # Validate speed parameter for patrol actions
     if action in ['patrol', 'naval_patrol']:
         if speed is not None and speed < 1:
@@ -654,6 +751,12 @@ async def submit_unit_order(
     }
     if speed is not None:
         order_data['speed'] = speed
+
+    # Add transport-specific data for land transport orders
+    if transport_data is not None:
+        order_data['water_path'] = transport_data['water_path']
+        order_data['coast_territory'] = transport_data['coast_territory']
+        order_data['disembark_territory'] = transport_data['disembark_territory']
 
     # Create order
     order = Order(

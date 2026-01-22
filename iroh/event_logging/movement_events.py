@@ -141,3 +141,81 @@ def patrol_engagement_gm_line(event_data: Dict[str, Any]) -> str:
         return f"{engaged_with} intercepted {units} at T{to_territory} ({reason})"
     else:
         return f"{units} T{from_territory}->T{to_territory} engaged {engaged_with} ({reason})"
+
+
+# ============================================================================
+# Transport Event Formatters
+# ============================================================================
+
+def transport_boarding_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for TRANSPORT_BOARDING event."""
+    units = ', '.join(event_data.get('units', []))
+    naval_units = ', '.join(event_data.get('naval_units', []))
+    from_territory = event_data.get('from_territory', 'Unknown')
+    to_territory = event_data.get('to_territory', 'Unknown')
+    return f"Boarding: {units} boarded transport {naval_units} at {to_territory} (from {from_territory})"
+
+
+def transport_boarding_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for TRANSPORT_BOARDING event."""
+    units = ', '.join(event_data.get('units', []))
+    naval_units = ', '.join(event_data.get('naval_units', []))
+    to_territory = event_data.get('to_territory', 'Unknown')
+    return f"{units} boarded {naval_units} at T{to_territory}"
+
+
+def transport_disembark_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for TRANSPORT_DISEMBARK event."""
+    units = ', '.join(event_data.get('units', []))
+    from_territory = event_data.get('from_territory', 'Unknown')
+    to_territory = event_data.get('to_territory', 'Unknown')
+    return f"Disembarkation: {units} disembarked to Territory {to_territory} (from {from_territory})"
+
+
+def transport_disembark_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for TRANSPORT_DISEMBARK event."""
+    units = ', '.join(event_data.get('units', []))
+    to_territory = event_data.get('to_territory', 'Unknown')
+    return f"{units} disembarked at T{to_territory}"
+
+
+def transport_waiting_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for TRANSPORT_WAITING event."""
+    units = ', '.join(event_data.get('units', []))
+    territory = event_data.get('territory', 'Unknown')
+    reason = event_data.get('reason', 'unknown')
+
+    if reason == 'no_matching_naval':
+        reason_text = "no matching naval transport found"
+    elif reason == 'water_not_adjacent':
+        reason_text = "water territory not adjacent"
+    else:
+        reason_text = reason
+
+    return f"Waiting for transport: {units} at Territory {territory} ({reason_text})"
+
+
+def transport_waiting_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for TRANSPORT_WAITING event."""
+    units = ', '.join(event_data.get('units', []))
+    territory = event_data.get('territory', 'Unknown')
+    reason = event_data.get('reason', 'unknown')
+    return f"{units} waiting at T{territory} ({reason})"
+
+
+def transport_progress_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """Generate character report line for TRANSPORT_PROGRESS event."""
+    units = ', '.join(event_data.get('units', []))
+    to_territory = event_data.get('to_territory', 'Unknown')
+    water_path_index = event_data.get('water_path_index', 0)
+    water_path_length = event_data.get('water_path_length', 0)
+    return f"Transport progress: {units} at {to_territory} ({water_path_index}/{water_path_length} water tiles)"
+
+
+def transport_progress_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for TRANSPORT_PROGRESS event."""
+    units = ', '.join(event_data.get('units', []))
+    to_territory = event_data.get('to_territory', 'Unknown')
+    water_path_index = event_data.get('water_path_index', 0)
+    water_path_length = event_data.get('water_path_length', 0)
+    return f"{units} transported to T{to_territory} ({water_path_index}/{water_path_length})"

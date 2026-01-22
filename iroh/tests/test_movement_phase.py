@@ -3084,3 +3084,570 @@ def test_patrol_engagement_gm_line_intercepted_side():
     assert 'intercepted' in line
     assert 'FN-INF-001' in line
     assert 'EK-CAV-001' in line
+
+
+# ============================================================================
+# Transport Order Validation Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_transport_path_must_start_with_land(db_conn, test_server):
+    """Test that transport path validation fails if path starts with water."""
+    from handlers.order_handlers import validate_transport_path
+
+    # Create territories
+    w1 = Territory(territory_id="TW1", name="Water 1", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    w2 = Territory(territory_id="TW2", name="Water 2", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    l1 = Territory(territory_id="TL1", name="Land 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await w1.upsert(db_conn)
+    await w2.upsert(db_conn)
+    await l1.upsert(db_conn)
+
+    # Path starts with water - should fail
+    valid, error, _ = await validate_transport_path(db_conn, ["TW1", "TW2", "TL1"], TEST_GUILD_ID)
+    assert valid is False
+    assert "must start with a land territory" in error
+
+
+@pytest.mark.asyncio
+async def test_transport_path_must_end_with_land(db_conn, test_server):
+    """Test that transport path validation fails if path ends with water."""
+    from handlers.order_handlers import validate_transport_path
+
+    # Create territories
+    l1 = Territory(territory_id="TEL1", name="Land 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    w1 = Territory(territory_id="TEW1", name="Water 1", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    w2 = Territory(territory_id="TEW2", name="Water 2", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    await l1.upsert(db_conn)
+    await w1.upsert(db_conn)
+    await w2.upsert(db_conn)
+
+    # Path ends with water - should fail
+    valid, error, _ = await validate_transport_path(db_conn, ["TEL1", "TEW1", "TEW2"], TEST_GUILD_ID)
+    assert valid is False
+    assert "must end with a land territory" in error
+
+
+@pytest.mark.asyncio
+async def test_transport_path_water_must_be_contiguous(db_conn, test_server):
+    """Test that transport path validation fails if water section is not contiguous."""
+    from handlers.order_handlers import validate_transport_path
+
+    # Create territories: land-water-land-water-land
+    l1 = Territory(territory_id="TCL1", name="Land 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    w1 = Territory(territory_id="TCW1", name="Water 1", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    l2 = Territory(territory_id="TCL2", name="Land 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    w2 = Territory(territory_id="TCW2", name="Water 2", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    l3 = Territory(territory_id="TCL3", name="Land 3", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await l1.upsert(db_conn)
+    await w1.upsert(db_conn)
+    await l2.upsert(db_conn)
+    await w2.upsert(db_conn)
+    await l3.upsert(db_conn)
+
+    # Path has non-contiguous water - should fail
+    valid, error, _ = await validate_transport_path(
+        db_conn, ["TCL1", "TCW1", "TCL2", "TCW2", "TCL3"], TEST_GUILD_ID
+    )
+    assert valid is False
+    assert "contiguous" in error
+
+
+@pytest.mark.asyncio
+async def test_transport_path_valid_extracts_data(db_conn, test_server):
+    """Test that valid transport path extracts correct data."""
+    from handlers.order_handlers import validate_transport_path
+
+    # Create territories: land-water-water-land
+    l1 = Territory(territory_id="TVL1", name="Coast", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    w1 = Territory(territory_id="TVW1", name="Water 1", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    w2 = Territory(territory_id="TVW2", name="Water 2", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    l2 = Territory(territory_id="TVL2", name="Destination", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await l1.upsert(db_conn)
+    await w1.upsert(db_conn)
+    await w2.upsert(db_conn)
+    await l2.upsert(db_conn)
+
+    # Valid path
+    valid, error, data = await validate_transport_path(
+        db_conn, ["TVL1", "TVW1", "TVW2", "TVL2"], TEST_GUILD_ID
+    )
+    assert valid is True
+    assert data['water_path'] == ["TVW1", "TVW2"]
+    assert data['coast_territory'] == "TVL1"
+    assert data['disembark_territory'] == "TVL2"
+
+
+# ============================================================================
+# Transport Boarding Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_boarding_success_same_faction(db_conn, test_server):
+    """Test that land units can board naval transport of same faction."""
+    from handlers.movement_handlers import process_transport_boarding, build_movement_states, build_naval_transport_states
+    from db import TerritoryAdjacency, FactionMember
+
+    # Create character
+    character = Character(
+        identifier="board-char-1", name="Boarding Tester",
+        channel_id=999000000000000101, guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "board-char-1", TEST_GUILD_ID)
+
+    # Create faction
+    faction = Faction(
+        faction_id="transport-faction", name="Transport Faction",
+        leader_character_id=character.id, guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "transport-faction", TEST_GUILD_ID)
+
+    # Add character to faction
+    membership = FactionMember(
+        character_id=character.id,
+        faction_id=faction.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await membership.upsert(db_conn)
+
+    # Create territories
+    coast = Territory(territory_id="BCOAST", name="Coast", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    water1 = Territory(territory_id="BWATER1", name="Water 1", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    water2 = Territory(territory_id="BWATER2", name="Water 2", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    dest = Territory(territory_id="BDEST", name="Destination", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await coast.upsert(db_conn)
+    await water1.upsert(db_conn)
+    await water2.upsert(db_conn)
+    await dest.upsert(db_conn)
+
+    # Add adjacency
+    adj1 = TerritoryAdjacency(territory_a_id="BCOAST", territory_b_id="BWATER1", guild_id=TEST_GUILD_ID)
+    adj2 = TerritoryAdjacency(territory_a_id="BWATER1", territory_b_id="BWATER2", guild_id=TEST_GUILD_ID)
+    adj3 = TerritoryAdjacency(territory_a_id="BWATER2", territory_b_id="BDEST", guild_id=TEST_GUILD_ID)
+    await adj1.upsert(db_conn)
+    await adj2.upsert(db_conn)
+    await adj3.upsert(db_conn)
+
+    # Create land unit at coast
+    land_unit = Unit(
+        unit_id="board-land-1", name="Land Unit", unit_type="infantry",
+        owner_character_id=character.id, faction_id=faction.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="BCOAST", is_naval=False,
+        size=2, guild_id=TEST_GUILD_ID
+    )
+    await land_unit.upsert(db_conn)
+    land_unit = await Unit.fetch_by_unit_id(db_conn, "board-land-1", TEST_GUILD_ID)
+
+    # Create naval unit at water1
+    naval_unit = Unit(
+        unit_id="board-naval-1", name="Naval Transport", unit_type="transport",
+        owner_character_id=character.id, faction_id=faction.id,
+        movement=3, organization=10, max_organization=10,
+        current_territory_id="BWATER1", is_naval=True,
+        capacity=5, guild_id=TEST_GUILD_ID
+    )
+    await naval_unit.upsert(db_conn)
+    naval_unit = await Unit.fetch_by_unit_id(db_conn, "board-naval-1", TEST_GUILD_ID)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create land transport order
+    land_order = Order(
+        order_id="board-land-order-1",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[land_unit.id],
+        character_id=character.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'transport',
+            'path': ['BCOAST', 'BWATER1', 'BWATER2', 'BDEST'],
+            'path_index': 0,
+            'water_path': ['BWATER1', 'BWATER2'],
+            'coast_territory': 'BCOAST',
+            'disembark_territory': 'BDEST'
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await land_order.upsert(db_conn)
+
+    # Create naval transport order
+    naval_order = Order(
+        order_id="board-naval-order-1",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[naval_unit.id],
+        character_id=character.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'naval_transport',
+            'path': ['BWATER1', 'BWATER2'],
+            'path_index': 0
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await naval_order.upsert(db_conn)
+
+    # Build states
+    land_order = await Order.fetch_by_order_id(db_conn, "board-land-order-1", TEST_GUILD_ID)
+    naval_order = await Order.fetch_by_order_id(db_conn, "board-naval-order-1", TEST_GUILD_ID)
+
+    land_states, _ = await build_movement_states(db_conn, [land_order], TEST_GUILD_ID)
+    naval_states, _ = await build_naval_transport_states(db_conn, [naval_order], TEST_GUILD_ID)
+
+    # Process boarding
+    events = await process_transport_boarding(db_conn, land_states, naval_states, TEST_GUILD_ID, 1)
+
+    # Verify boarding occurred
+    assert len(events) == 1
+    assert events[0].event_type == 'TRANSPORT_BOARDING'
+    assert events[0].event_data['to_territory'] == 'BWATER1'
+
+    # Verify land unit moved to water territory
+    updated_land = await Unit.fetch_by_unit_id(db_conn, "board-land-1", TEST_GUILD_ID)
+    assert updated_land.current_territory_id == "BWATER1"
+
+    # Verify state updated
+    assert land_states[0].status == MovementStatus.TRANSPORTED
+    assert land_states[0].transport_naval_order_id == naval_order.id
+
+
+@pytest.mark.asyncio
+async def test_boarding_fails_insufficient_capacity(db_conn, test_server):
+    """Test that boarding fails when naval capacity is insufficient."""
+    from handlers.movement_handlers import process_transport_boarding, build_movement_states, build_naval_transport_states
+    from db import TerritoryAdjacency, FactionMember
+
+    # Create character
+    character = Character(
+        identifier="cap-char-1", name="Capacity Tester",
+        channel_id=999000000000000102, guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "cap-char-1", TEST_GUILD_ID)
+
+    # Create faction
+    faction = Faction(
+        faction_id="cap-faction", name="Capacity Faction",
+        leader_character_id=character.id, guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "cap-faction", TEST_GUILD_ID)
+
+    # Add character to faction
+    membership = FactionMember(
+        character_id=character.id,
+        faction_id=faction.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await membership.upsert(db_conn)
+
+    # Create territories
+    coast = Territory(territory_id="CCOAST", name="Coast", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    water1 = Territory(territory_id="CWATER1", name="Water 1", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    water2 = Territory(territory_id="CWATER2", name="Water 2", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    dest = Territory(territory_id="CDEST", name="Destination", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await coast.upsert(db_conn)
+    await water1.upsert(db_conn)
+    await water2.upsert(db_conn)
+    await dest.upsert(db_conn)
+
+    # Add adjacency
+    adj1 = TerritoryAdjacency(territory_a_id="CCOAST", territory_b_id="CWATER1", guild_id=TEST_GUILD_ID)
+    adj2 = TerritoryAdjacency(territory_a_id="CWATER1", territory_b_id="CWATER2", guild_id=TEST_GUILD_ID)
+    adj3 = TerritoryAdjacency(territory_a_id="CWATER2", territory_b_id="CDEST", guild_id=TEST_GUILD_ID)
+    await adj1.upsert(db_conn)
+    await adj2.upsert(db_conn)
+    await adj3.upsert(db_conn)
+
+    # Create land unit with large size
+    land_unit = Unit(
+        unit_id="cap-land-1", name="Big Army", unit_type="infantry",
+        owner_character_id=character.id, faction_id=faction.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="CCOAST", is_naval=False,
+        size=10, guild_id=TEST_GUILD_ID  # Size 10
+    )
+    await land_unit.upsert(db_conn)
+    land_unit = await Unit.fetch_by_unit_id(db_conn, "cap-land-1", TEST_GUILD_ID)
+
+    # Create naval unit with small capacity
+    naval_unit = Unit(
+        unit_id="cap-naval-1", name="Small Boat", unit_type="transport",
+        owner_character_id=character.id, faction_id=faction.id,
+        movement=3, organization=10, max_organization=10,
+        current_territory_id="CWATER1", is_naval=True,
+        capacity=2, guild_id=TEST_GUILD_ID  # Capacity 2
+    )
+    await naval_unit.upsert(db_conn)
+    naval_unit = await Unit.fetch_by_unit_id(db_conn, "cap-naval-1", TEST_GUILD_ID)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create orders
+    land_order = Order(
+        order_id="cap-land-order-1",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[land_unit.id],
+        character_id=character.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'transport',
+            'path': ['CCOAST', 'CWATER1', 'CWATER2', 'CDEST'],
+            'path_index': 0,
+            'water_path': ['CWATER1', 'CWATER2'],
+            'coast_territory': 'CCOAST',
+            'disembark_territory': 'CDEST'
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await land_order.upsert(db_conn)
+
+    naval_order = Order(
+        order_id="cap-naval-order-1",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[naval_unit.id],
+        character_id=character.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'naval_transport',
+            'path': ['CWATER1', 'CWATER2'],
+            'path_index': 0
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await naval_order.upsert(db_conn)
+
+    # Build states
+    land_order = await Order.fetch_by_order_id(db_conn, "cap-land-order-1", TEST_GUILD_ID)
+    naval_order = await Order.fetch_by_order_id(db_conn, "cap-naval-order-1", TEST_GUILD_ID)
+
+    land_states, _ = await build_movement_states(db_conn, [land_order], TEST_GUILD_ID)
+    naval_states, _ = await build_naval_transport_states(db_conn, [naval_order], TEST_GUILD_ID)
+
+    # Process boarding
+    events = await process_transport_boarding(db_conn, land_states, naval_states, TEST_GUILD_ID, 1)
+
+    # Verify boarding failed - should get TRANSPORT_WAITING event
+    assert len(events) == 1
+    assert events[0].event_type == 'TRANSPORT_WAITING'
+    assert events[0].event_data['reason'] == 'no_matching_naval'
+
+    # Verify land unit still at coast
+    updated_land = await Unit.fetch_by_unit_id(db_conn, "cap-land-1", TEST_GUILD_ID)
+    assert updated_land.current_territory_id == "CCOAST"
+
+
+@pytest.mark.asyncio
+async def test_boarding_fails_path_mismatch(db_conn, test_server):
+    """Test that boarding fails when water paths don't match."""
+    from handlers.movement_handlers import process_transport_boarding, build_movement_states, build_naval_transport_states
+    from db import TerritoryAdjacency, FactionMember
+
+    # Create character
+    character = Character(
+        identifier="path-char-1", name="Path Tester",
+        channel_id=999000000000000103, guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "path-char-1", TEST_GUILD_ID)
+
+    # Create faction
+    faction = Faction(
+        faction_id="path-faction", name="Path Faction",
+        leader_character_id=character.id, guild_id=TEST_GUILD_ID
+    )
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "path-faction", TEST_GUILD_ID)
+
+    # Add character to faction
+    membership = FactionMember(
+        character_id=character.id,
+        faction_id=faction.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await membership.upsert(db_conn)
+
+    # Create territories - two different water routes
+    coast = Territory(territory_id="PCOAST", name="Coast", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    water1 = Territory(territory_id="PWATER1", name="Water 1", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    water2 = Territory(territory_id="PWATER2", name="Water 2", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    water3 = Territory(territory_id="PWATER3", name="Water 3", terrain_type="ocean", guild_id=TEST_GUILD_ID)
+    dest = Territory(territory_id="PDEST", name="Destination", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await coast.upsert(db_conn)
+    await water1.upsert(db_conn)
+    await water2.upsert(db_conn)
+    await water3.upsert(db_conn)
+    await dest.upsert(db_conn)
+
+    # Add adjacency
+    adj1 = TerritoryAdjacency(territory_a_id="PCOAST", territory_b_id="PWATER1", guild_id=TEST_GUILD_ID)
+    await adj1.upsert(db_conn)
+
+    # Create units
+    land_unit = Unit(
+        unit_id="path-land-1", name="Land Unit", unit_type="infantry",
+        owner_character_id=character.id, faction_id=faction.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="PCOAST", is_naval=False,
+        size=2, guild_id=TEST_GUILD_ID
+    )
+    await land_unit.upsert(db_conn)
+    land_unit = await Unit.fetch_by_unit_id(db_conn, "path-land-1", TEST_GUILD_ID)
+
+    naval_unit = Unit(
+        unit_id="path-naval-1", name="Naval Transport", unit_type="transport",
+        owner_character_id=character.id, faction_id=faction.id,
+        movement=3, organization=10, max_organization=10,
+        current_territory_id="PWATER1", is_naval=True,
+        capacity=5, guild_id=TEST_GUILD_ID
+    )
+    await naval_unit.upsert(db_conn)
+    naval_unit = await Unit.fetch_by_unit_id(db_conn, "path-naval-1", TEST_GUILD_ID)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create orders with DIFFERENT water paths
+    land_order = Order(
+        order_id="path-land-order-1",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[land_unit.id],
+        character_id=character.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'transport',
+            'path': ['PCOAST', 'PWATER1', 'PWATER2', 'PDEST'],
+            'path_index': 0,
+            'water_path': ['PWATER1', 'PWATER2'],  # Different path
+            'coast_territory': 'PCOAST',
+            'disembark_territory': 'PDEST'
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await land_order.upsert(db_conn)
+
+    naval_order = Order(
+        order_id="path-naval-order-1",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[naval_unit.id],
+        character_id=character.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'naval_transport',
+            'path': ['PWATER1', 'PWATER3'],  # Different path - goes to PWATER3 not PWATER2
+            'path_index': 0
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await naval_order.upsert(db_conn)
+
+    # Build states
+    land_order = await Order.fetch_by_order_id(db_conn, "path-land-order-1", TEST_GUILD_ID)
+    naval_order = await Order.fetch_by_order_id(db_conn, "path-naval-order-1", TEST_GUILD_ID)
+
+    land_states, _ = await build_movement_states(db_conn, [land_order], TEST_GUILD_ID)
+    naval_states, _ = await build_naval_transport_states(db_conn, [naval_order], TEST_GUILD_ID)
+
+    # Process boarding
+    events = await process_transport_boarding(db_conn, land_states, naval_states, TEST_GUILD_ID, 1)
+
+    # Verify boarding failed due to path mismatch
+    assert len(events) == 1
+    assert events[0].event_type == 'TRANSPORT_WAITING'
+    assert events[0].event_data['reason'] == 'no_matching_naval'
+
+
+# ============================================================================
+# Transport Event Formatter Tests
+# ============================================================================
+
+def test_transport_boarding_character_line():
+    """Test TRANSPORT_BOARDING character report line."""
+    from event_logging.movement_events import transport_boarding_character_line
+
+    event_data = {
+        'units': ['LAND-001'],
+        'naval_units': ['SHIP-001'],
+        'from_territory': 'Coast',
+        'to_territory': 'Water1'
+    }
+    line = transport_boarding_character_line(event_data)
+    assert 'Boarding' in line
+    assert 'LAND-001' in line
+    assert 'SHIP-001' in line
+    assert 'Water1' in line
+
+
+def test_transport_disembark_character_line():
+    """Test TRANSPORT_DISEMBARK character report line."""
+    from event_logging.movement_events import transport_disembark_character_line
+
+    event_data = {
+        'units': ['LAND-001'],
+        'from_territory': 'Water3',
+        'to_territory': 'Destination'
+    }
+    line = transport_disembark_character_line(event_data)
+    assert 'Disembark' in line
+    assert 'LAND-001' in line
+    assert 'Destination' in line
+
+
+def test_transport_waiting_character_line():
+    """Test TRANSPORT_WAITING character report line."""
+    from event_logging.movement_events import transport_waiting_character_line
+
+    event_data = {
+        'units': ['LAND-001'],
+        'territory': 'Coast',
+        'reason': 'no_matching_naval'
+    }
+    line = transport_waiting_character_line(event_data)
+    assert 'Waiting' in line
+    assert 'LAND-001' in line
+    assert 'no matching naval' in line
+
+
+def test_transport_progress_character_line():
+    """Test TRANSPORT_PROGRESS character report line."""
+    from event_logging.movement_events import transport_progress_character_line
+
+    event_data = {
+        'units': ['LAND-001'],
+        'to_territory': 'Water2',
+        'water_path_index': 2,
+        'water_path_length': 3
+    }
+    line = transport_progress_character_line(event_data)
+    assert 'Transport progress' in line
+    assert 'LAND-001' in line
+    assert 'Water2' in line
+    assert '2/3' in line

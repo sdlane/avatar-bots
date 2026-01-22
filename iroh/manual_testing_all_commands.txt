@@ -3003,6 +3003,174 @@ STEPS:
 
 
 ================================================================================
+SECTION 16: TRANSPORT ORDERS
+================================================================================
+
+Tests for land and naval transport functionality.
+
+--------------------------------------------------------------------------------
+TEST 16.1: Transport - Basic Flow
+--------------------------------------------------------------------------------
+PURPOSE: Test complete transport cycle
+
+SETUP:
+1. Create territories with water and land:
+    /create-territory territory_id:TL1 terrain_type:plains name:Coast Origin
+    /create-territory territory_id:TW1 terrain_type:ocean name:Water 1
+    /create-territory territory_id:TW2 terrain_type:ocean name:Water 2
+    /create-territory territory_id:TW3 terrain_type:ocean name:Water 3
+    /create-territory territory_id:TL2 terrain_type:plains name:Coast Destination
+
+2. Set adjacencies:
+    /add-adjacency territory1:TL1 territory2:TW1
+    /add-adjacency territory1:TW1 territory2:TW2
+    /add-adjacency territory1:TW2 territory2:TW3
+    /add-adjacency territory1:TW3 territory2:TL2
+
+3. Create units:
+    - Naval transport SHIP-001 at TW1, capacity=5, movement=2
+    - Land unit UNIT-001 at TL1, size=2
+
+STEPS:
+16.1.1 Submit naval transport order:
+    /unit-order units:SHIP-001 action:naval_transport path:TW1,TW2,TW3
+
+    EXPECTED: Order confirmed
+
+16.1.2 Submit land transport order:
+    /unit-order units:UNIT-001 action:transport path:TL1,TW1,TW2,TW3,TL2
+
+    EXPECTED: Order confirmed with water_path, coast_territory, disembark_territory extracted
+
+16.1.3 Resolve Turn 1:
+    /resolve-turn
+
+    EXPECTED (Turn 1):
+    - UNIT-001 boards at TW1 (TRANSPORT_BOARDING event)
+    - UNIT-001 moves through water (transport MP = 2+1 = 3)
+    - UNIT-001 at TW3 by end of turn (moved 3 water tiles in 3 ticks)
+    - SHIP-001 stays at TW1 (naval doesn't move yet)
+
+16.1.4 Resolve Turn 2:
+    /resolve-turn
+
+    EXPECTED (Turn 2):
+    - UNIT-001 disembarks to TL2 (TRANSPORT_DISEMBARK event)
+    - UNIT-001 can continue moving on land if it has more destinations
+
+
+--------------------------------------------------------------------------------
+TEST 16.2: Transport - Capacity Insufficient
+--------------------------------------------------------------------------------
+PURPOSE: Test boarding fails with insufficient capacity
+
+SETUP:
+1. Naval unit with capacity=2
+2. Land unit with size=5
+
+STEPS:
+16.2.1 Submit orders as in 16.1
+
+16.2.2 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Land unit waits at coast (TRANSPORT_WAITING event)
+    - Reason: "no_matching_naval" (capacity check failed)
+
+
+--------------------------------------------------------------------------------
+TEST 16.3: Transport - Allied Factions
+--------------------------------------------------------------------------------
+PURPOSE: Test boarding works with allied factions
+
+SETUP:
+1. Create alliance between Faction A and B:
+    - Faction A: /make-alliance target_faction:FactionB
+    - Faction B: /make-alliance target_faction:FactionA
+    /resolve-turn  (to form alliance)
+
+2. Naval unit owned by Faction A
+3. Land unit owned by Faction B
+4. Same paths as TEST 16.1
+
+STEPS:
+16.3.1 Submit orders and resolve turn
+
+    EXPECTED: Boarding succeeds (same as 16.1)
+
+
+--------------------------------------------------------------------------------
+TEST 16.4: Transport - Path Mismatch
+--------------------------------------------------------------------------------
+PURPOSE: Test boarding fails with mismatched paths
+
+SETUP:
+1. Naval transport path: TW1,TW2,TW3
+2. Land transport water path: TW1,TW2,TW4 (different destination)
+
+STEPS:
+16.4.1 Submit orders and resolve turn
+
+    EXPECTED:
+    - Land unit waits (TRANSPORT_WAITING event)
+    - Reason: "no_matching_naval" (path mismatch)
+
+
+--------------------------------------------------------------------------------
+TEST 16.5: Transport - Path Validation
+--------------------------------------------------------------------------------
+PURPOSE: Test transport path validation rules
+
+STEPS:
+16.5.1 Try path starting with water:
+    /unit-order units:UNIT-001 action:transport path:TW1,TW2,TL2
+
+    EXPECTED: Error - "must start with a land territory"
+
+16.5.2 Try path ending with water:
+    /unit-order units:UNIT-001 action:transport path:TL1,TW1,TW2
+
+    EXPECTED: Error - "must end with a land territory"
+
+16.5.3 Try path with non-contiguous water:
+    /unit-order units:UNIT-001 action:transport path:TL1,TW1,TL2,TW2,TL3
+
+    EXPECTED: Error - "water section must be contiguous"
+
+
+--------------------------------------------------------------------------------
+TEST 16.6: Transport - Multi-Turn Persistence
+--------------------------------------------------------------------------------
+PURPOSE: Test that transport state persists across turns
+
+SETUP:
+- Long water path that takes more than one turn
+
+STEPS:
+16.6.1 Submit orders with long path (e.g., 5 water territories)
+
+16.6.2 Resolve Turn 1:
+    /resolve-turn
+
+    EXPECTED:
+    - Land unit boards and moves some distance
+    - Order status ONGOING with water_path_index saved
+
+16.6.3 Check order status:
+    /list-orders
+
+    EXPECTED: Order shows as ONGOING with progress
+
+16.6.4 Resolve Turn 2:
+    /resolve-turn
+
+    EXPECTED:
+    - Land unit continues through water
+    - Disembarks when reaching destination
+
+
+================================================================================
 CLEANUP
 ================================================================================
 

@@ -477,20 +477,40 @@ async def build_movement_states(
         # Calculate movement points
         total_mp = calculate_movement_points(units, action)
 
+        # Extract transport-specific data from order_data
+        water_path = order_data.get('water_path')
+        coast_territory = order_data.get('coast_territory')
+        disembark_territory = order_data.get('disembark_territory')
+
+        # Get water_path_index from result_data for ongoing transport orders
+        water_path_index = result_data.get('water_path_index', 0)
+
+        # Determine initial status for transport orders
+        initial_status = MovementStatus.MOVING
+        if action == 'transport' and water_path:
+            # Check if this is a resuming transported state
+            if result_data.get('transported'):
+                initial_status = MovementStatus.TRANSPORTED
+
         # Build the state
         state = MovementUnitState(
             units=units,
             order=order,
             total_movement_points=total_mp,
             remaining_mp=total_mp,
-            status=MovementStatus.MOVING,
+            status=initial_status,
             current_territory_id=territory_id,
             path_index=path_index,
             action=action,
             speed=speed,
             territories_entered=[],
             blocked_at=None,
-            mp_expended_this_turn=0
+            mp_expended_this_turn=0,
+            # Transport-specific fields
+            water_path=water_path,
+            water_path_index=water_path_index,
+            coast_territory=coast_territory,
+            disembark_territory=disembark_territory
         )
 
         states.append(state)
@@ -1436,6 +1456,12 @@ async def finalize_movement_order(
         'blocked': state.blocked_at is not None,
         'completed': is_complete and not state.is_patrol()
     }
+
+    # Add transport-specific data for land transport orders
+    if state.is_transport():
+        order.result_data['water_path_index'] = state.water_path_index
+        order.result_data['transported'] = state.status == MovementStatus.TRANSPORTED
+
     order.updated_at = datetime.now()
     order.updated_turn = turn_number
     await order.upsert(conn)
@@ -1482,3 +1508,629 @@ async def finalize_movement_order(
             },
             guild_id=guild_id
         )
+
+
+# ============================================================================
+# Transport Helper Functions
+# ============================================================================
+
+# Water terrain types (for transport validation)
+WATER_TERRAIN_TYPES = ['ocean', 'lake', 'sea', 'water']
+
+
+async def is_water_territory(
+    conn: asyncpg.Connection,
+    territory_id: str,
+    guild_id: int
+) -> bool:
+    """Check if a territory is a water territory."""
+    territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+    if not territory:
+        return False
+    return territory.terrain_type.lower() in WATER_TERRAIN_TYPES
+
+
+async def get_naval_transport_capacity(
+    conn: asyncpg.Connection,
+    order: Order,
+    guild_id: int
+) -> int:
+    """
+    Get total capacity of naval units in a naval_transport order.
+
+    Args:
+        conn: Database connection
+        order: The naval transport order
+        guild_id: Guild ID
+
+    Returns:
+        Total capacity (sum of all naval unit capacities)
+    """
+    total_capacity = 0
+    for unit_id in order.unit_ids:
+        unit = await Unit.fetch_by_id(conn, unit_id)
+        if unit and unit.is_naval and unit.status == 'ACTIVE':
+            # Capacity is stored on the unit (default to 0 if not set)
+            total_capacity += getattr(unit, 'capacity', 0) or 0
+    return total_capacity
+
+
+async def get_land_unit_group_size(
+    conn: asyncpg.Connection,
+    order: Order,
+    guild_id: int
+) -> int:
+    """
+    Get total size of land units in a transport order.
+
+    Args:
+        conn: Database connection
+        order: The land transport order
+        guild_id: Guild ID
+
+    Returns:
+        Total size (sum of all land unit sizes)
+    """
+    total_size = 0
+    for unit_id in order.unit_ids:
+        unit = await Unit.fetch_by_id(conn, unit_id)
+        if unit and not unit.is_naval and unit.status == 'ACTIVE':
+            # Size is stored on the unit (default to 1 if not set)
+            total_size += getattr(unit, 'size', 1) or 1
+    return total_size
+
+
+def get_unit_group_direct_faction_id(units: List[Unit]) -> Optional[int]:
+    """
+    Get the direct faction_id from units (for transport matching).
+
+    This checks the unit's faction_id field directly, not the owner's faction.
+
+    Args:
+        units: List of units in the group
+
+    Returns:
+        The faction_id of the first unit that has one, or None
+    """
+    for unit in units:
+        if unit.faction_id:
+            return unit.faction_id
+    return None
+
+
+async def find_matching_naval_transport(
+    conn: asyncpg.Connection,
+    land_state: MovementUnitState,
+    naval_states: List[MovementUnitState],
+    guild_id: int
+) -> Optional[MovementUnitState]:
+    """
+    Find a naval transport order that matches a land unit's transport requirements.
+
+    Matching conditions:
+    1. Naval's water path == land's water_path (exact match)
+    2. Naval unit is not engaged
+    3. Naval capacity >= land unit size
+    4. Naval and land are same faction OR allied factions
+
+    Args:
+        conn: Database connection
+        land_state: The land transport MovementUnitState
+        naval_states: List of naval_transport MovementUnitStates to check
+        guild_id: Guild ID
+
+    Returns:
+        Matching naval MovementUnitState, or None if no match found
+    """
+    if not land_state.water_path:
+        logger.debug(f"find_matching_naval_transport: land state has no water_path")
+        return None
+
+    land_water_path = land_state.water_path
+    land_size = await get_land_unit_group_size(conn, land_state.order, guild_id)
+    # Use direct faction_id from unit for transport matching
+    land_faction_id = get_unit_group_direct_faction_id(land_state.units)
+
+    logger.debug(f"find_matching_naval_transport: looking for match for land units {[u.unit_id for u in land_state.units]}, "
+                 f"water_path={land_water_path}, size={land_size}, faction={land_faction_id}")
+
+    for naval_state in naval_states:
+        # Skip if naval is engaged
+        if naval_state.status == MovementStatus.ENGAGED:
+            logger.debug(f"find_matching_naval_transport: skipping naval {naval_state.order.order_id} - engaged")
+            continue
+
+        # Get naval's water path from order_data (the full path for naval_transport is all water)
+        naval_path = naval_state.order.order_data.get('path', [])
+
+        # Check path match
+        if naval_path != land_water_path:
+            logger.debug(f"find_matching_naval_transport: naval {naval_state.order.order_id} path mismatch: "
+                         f"{naval_path} != {land_water_path}")
+            continue
+
+        # Check capacity
+        naval_capacity = await get_naval_transport_capacity(conn, naval_state.order, guild_id)
+        if naval_capacity < land_size:
+            logger.debug(f"find_matching_naval_transport: naval {naval_state.order.order_id} insufficient capacity: "
+                         f"{naval_capacity} < {land_size}")
+            continue
+
+        # Check faction/alliance using direct faction_id from units
+        naval_faction_id = get_unit_group_direct_faction_id(naval_state.units)
+
+        if land_faction_id is None or naval_faction_id is None:
+            logger.debug(f"find_matching_naval_transport: naval {naval_state.order.order_id} - one faction is None")
+            continue
+
+        if land_faction_id != naval_faction_id:
+            # Check if allied
+            allied = await are_factions_allied(conn, land_faction_id, naval_faction_id, guild_id)
+            if not allied:
+                logger.debug(f"find_matching_naval_transport: naval {naval_state.order.order_id} - not same faction or allied")
+                continue
+
+        logger.info(f"find_matching_naval_transport: found match - naval {naval_state.order.order_id}")
+        return naval_state
+
+    logger.debug(f"find_matching_naval_transport: no matching naval transport found")
+    return None
+
+
+async def process_transport_disembarkation(
+    conn: asyncpg.Connection,
+    land_states: List[MovementUnitState],
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Process disembarkation for transported land units at the end of their water path.
+
+    At the beginning of the movement phase, transported land units that are at
+    the last water territory in their water_path disembark to their disembark_territory.
+    Disembarkation is FREE (no MP cost).
+
+    Args:
+        conn: Database connection
+        land_states: List of land MovementUnitStates (including transported ones)
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog events for disembarkations
+    """
+    events: List[TurnLog] = []
+
+    for state in land_states:
+        # Only process transported land units
+        if state.status != MovementStatus.TRANSPORTED:
+            continue
+
+        # Check if at end of water path
+        if not state.is_at_water_path_end():
+            continue
+
+        # Check adjacency to disembark territory
+        if not state.disembark_territory:
+            logger.warning(f"process_transport_disembarkation: transported unit has no disembark_territory")
+            continue
+
+        current_water = state.current_territory_id
+        adjacent = await TerritoryAdjacency.fetch_adjacent(conn, current_water, guild_id)
+
+        if state.disembark_territory not in adjacent:
+            logger.warning(f"process_transport_disembarkation: disembark territory {state.disembark_territory} "
+                           f"is not adjacent to current water territory {current_water}")
+            continue
+
+        # Disembark - move land unit to disembark territory (FREE - no MP cost)
+        old_territory = state.current_territory_id
+        state.current_territory_id = state.disembark_territory
+        state.territories_entered.append(state.disembark_territory)
+        state.status = MovementStatus.MOVING  # Can continue moving on land
+        state.transport_naval_order_id = None  # Unlink from naval
+
+        # Update path_index to match the disembark position in the full path
+        full_path = state.get_path()
+        try:
+            state.path_index = full_path.index(state.disembark_territory)
+        except ValueError:
+            # Disembark territory should be in the path
+            logger.warning(f"process_transport_disembarkation: disembark territory not in path")
+
+        # Update unit positions in database
+        for unit in state.units:
+            unit.current_territory_id = state.disembark_territory
+            await unit.upsert(conn)
+
+        # Generate event
+        affected_ids = await get_affected_character_ids(conn, state.units, guild_id)
+
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.MOVEMENT.value,
+            event_type='TRANSPORT_DISEMBARK',
+            entity_type='order',
+            entity_id=state.order.id,
+            event_data={
+                'order_id': state.order.order_id,
+                'units': [u.unit_id for u in state.units],
+                'from_territory': old_territory,
+                'to_territory': state.disembark_territory,
+                'affected_character_ids': affected_ids
+            },
+            guild_id=guild_id
+        ))
+
+        logger.info(f"process_transport_disembarkation: units {[u.unit_id for u in state.units]} "
+                    f"disembarked from {old_territory} to {state.disembark_territory}")
+
+    return events
+
+
+async def process_transport_boarding(
+    conn: asyncpg.Connection,
+    land_states: List[MovementUnitState],
+    naval_states: List[MovementUnitState],
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Process boarding for land units at their coast territory.
+
+    At the beginning of the movement phase, land units with transport orders
+    that are at their coast_territory attempt to board matching naval transports.
+
+    Processing order: Land orders are processed by order.id ascending (oldest first).
+
+    Args:
+        conn: Database connection
+        land_states: List of land transport MovementUnitStates
+        naval_states: List of naval_transport MovementUnitStates
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog events for boarding attempts
+    """
+    events: List[TurnLog] = []
+
+    # Filter to land transport states that are MOVING and at their coast territory
+    transport_states = [s for s in land_states
+                        if s.is_transport() and s.status == MovementStatus.MOVING]
+
+    # Sort by order.id (oldest first)
+    transport_states.sort(key=lambda s: s.order.id)
+
+    logger.info(f"process_transport_boarding: processing {len(transport_states)} land transport states")
+
+    for land_state in transport_states:
+        # Skip if not at coast territory
+        coast = land_state.coast_territory
+        if not coast or land_state.current_territory_id != coast:
+            logger.debug(f"process_transport_boarding: land units {[u.unit_id for u in land_state.units]} "
+                         f"not at coast territory {coast}, currently at {land_state.current_territory_id}")
+            continue
+
+        # Skip if already engaged
+        if land_state.status == MovementStatus.ENGAGED:
+            logger.debug(f"process_transport_boarding: land units engaged, skipping")
+            continue
+
+        # Check adjacency to first water territory
+        if not land_state.water_path:
+            logger.warning(f"process_transport_boarding: land state has no water_path")
+            continue
+
+        first_water = land_state.water_path[0]
+        adjacent = await TerritoryAdjacency.fetch_adjacent(conn, coast, guild_id)
+
+        if first_water not in adjacent:
+            logger.warning(f"process_transport_boarding: first water {first_water} not adjacent to coast {coast}")
+            land_state.status = MovementStatus.WAITING_FOR_TRANSPORT
+            affected_ids = await get_affected_character_ids(conn, land_state.units, guild_id)
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.MOVEMENT.value,
+                event_type='TRANSPORT_WAITING',
+                entity_type='order',
+                entity_id=land_state.order.id,
+                event_data={
+                    'order_id': land_state.order.order_id,
+                    'units': [u.unit_id for u in land_state.units],
+                    'territory': coast,
+                    'reason': 'water_not_adjacent',
+                    'affected_character_ids': affected_ids
+                },
+                guild_id=guild_id
+            ))
+            continue
+
+        # Find matching naval transport
+        naval_state = await find_matching_naval_transport(conn, land_state, naval_states, guild_id)
+
+        if not naval_state:
+            # No match found - wait
+            land_state.status = MovementStatus.WAITING_FOR_TRANSPORT
+            affected_ids = await get_affected_character_ids(conn, land_state.units, guild_id)
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.MOVEMENT.value,
+                event_type='TRANSPORT_WAITING',
+                entity_type='order',
+                entity_id=land_state.order.id,
+                event_data={
+                    'order_id': land_state.order.order_id,
+                    'units': [u.unit_id for u in land_state.units],
+                    'territory': coast,
+                    'reason': 'no_matching_naval',
+                    'affected_character_ids': affected_ids
+                },
+                guild_id=guild_id
+            ))
+            logger.debug(f"process_transport_boarding: no matching naval transport for land units")
+            continue
+
+        # Board - move land unit to first water territory
+        old_territory = land_state.current_territory_id
+        land_state.current_territory_id = first_water
+        land_state.territories_entered.append(first_water)
+        land_state.water_path_index = 0
+        land_state.status = MovementStatus.TRANSPORTED
+        land_state.transport_naval_order_id = naval_state.order.id
+
+        # Link naval to land
+        naval_state.transported_land_order_ids.append(land_state.order.id)
+
+        # Update unit positions in database
+        for unit in land_state.units:
+            unit.current_territory_id = first_water
+            await unit.upsert(conn)
+
+        # Generate boarding event
+        affected_ids = await get_affected_character_ids(conn, land_state.units, guild_id)
+        naval_unit_ids = [u.unit_id for u in naval_state.units]
+
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.MOVEMENT.value,
+            event_type='TRANSPORT_BOARDING',
+            entity_type='order',
+            entity_id=land_state.order.id,
+            event_data={
+                'order_id': land_state.order.order_id,
+                'units': [u.unit_id for u in land_state.units],
+                'naval_units': naval_unit_ids,
+                'naval_order_id': naval_state.order.order_id,
+                'from_territory': old_territory,
+                'to_territory': first_water,
+                'affected_character_ids': affected_ids
+            },
+            guild_id=guild_id
+        ))
+
+        logger.info(f"process_transport_boarding: units {[u.unit_id for u in land_state.units]} "
+                    f"boarded naval {naval_unit_ids} at {first_water}")
+
+    return events
+
+
+async def process_transport_movement_tick(
+    conn: asyncpg.Connection,
+    land_states: List[MovementUnitState],
+    naval_states: List[MovementUnitState],
+    tick: int,
+    guild_id: int,
+    turn_number: int
+) -> List[TurnLog]:
+    """
+    Move transported land units through water one step per tick.
+
+    Transport speed = slowest naval unit movement + 1 bonus
+    Land units move through water territories independently (naval units don't move).
+
+    Args:
+        conn: Database connection
+        land_states: List of all land MovementUnitStates
+        naval_states: List of naval_transport MovementUnitStates
+        tick: Current tick number
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog events for transport movement
+    """
+    events: List[TurnLog] = []
+
+    # Build map of naval order ID to naval state
+    naval_by_order_id = {s.order.id: s for s in naval_states}
+
+    for land_state in land_states:
+        # Only process transported land units
+        if land_state.status != MovementStatus.TRANSPORTED:
+            continue
+
+        # Get the linked naval transport
+        naval_order_id = land_state.transport_naval_order_id
+        if not naval_order_id or naval_order_id not in naval_by_order_id:
+            logger.warning(f"process_transport_movement_tick: transported land has invalid naval_order_id")
+            continue
+
+        naval_state = naval_by_order_id[naval_order_id]
+
+        # Calculate transport MP (slowest naval + 1 bonus)
+        transport_mp = naval_state.total_movement_points  # Already includes naval's base movement
+
+        # Check if this unit moves at this tick
+        if transport_mp < tick:
+            continue
+
+        # Check if at end of water path
+        if land_state.is_at_water_path_end():
+            continue
+
+        # Get next water territory
+        next_water = land_state.get_water_path_next_territory()
+        if not next_water:
+            continue
+
+        # Move to next water territory (no terrain cost for water transport)
+        old_territory = land_state.current_territory_id
+        land_state.current_territory_id = next_water
+        land_state.water_path_index += 1
+        land_state.territories_entered.append(next_water)
+
+        # Update unit positions in database
+        for unit in land_state.units:
+            unit.current_territory_id = next_water
+            await unit.upsert(conn)
+
+        # Generate progress event
+        affected_ids = await get_affected_character_ids(conn, land_state.units, guild_id)
+
+        events.append(TurnLog(
+            turn_number=turn_number,
+            phase=TurnPhase.MOVEMENT.value,
+            event_type='TRANSPORT_PROGRESS',
+            entity_type='order',
+            entity_id=land_state.order.id,
+            event_data={
+                'order_id': land_state.order.order_id,
+                'units': [u.unit_id for u in land_state.units],
+                'from_territory': old_territory,
+                'to_territory': next_water,
+                'water_path_index': land_state.water_path_index,
+                'water_path_length': len(land_state.water_path) if land_state.water_path else 0,
+                'affected_character_ids': affected_ids
+            },
+            guild_id=guild_id
+        ))
+
+        logger.debug(f"process_transport_movement_tick: units {[u.unit_id for u in land_state.units]} "
+                     f"moved from {old_territory} to {next_water}")
+
+    return events
+
+
+async def build_naval_transport_states(
+    conn: asyncpg.Connection,
+    naval_orders: List[Order],
+    guild_id: int
+) -> Tuple[List[MovementUnitState], List[TurnLog]]:
+    """
+    Build MovementUnitState objects for naval transport orders.
+
+    Naval transport orders don't actually move in the movement phase (naval movement
+    not yet implemented), but we need their state for matching with land transports.
+
+    Args:
+        conn: Database connection
+        naval_orders: List of naval_transport orders
+        guild_id: Guild ID
+
+    Returns:
+        (valid_states, failed_events)
+    """
+    states = []
+    failed_events = []
+
+    for order in naval_orders:
+        # Get units from order
+        units = []
+        for unit_id in order.unit_ids:
+            unit = await Unit.fetch_by_id(conn, unit_id)
+            if unit and unit.is_naval and unit.status == 'ACTIVE':
+                units.append(unit)
+
+        if not units:
+            # No valid naval units - fail the order
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'No valid naval units in order'}
+            order.updated_at = datetime.now()
+            await order.upsert(conn)
+            failed_events.append(TurnLog(
+                turn_number=order.turn_number,
+                phase=TurnPhase.MOVEMENT.value,
+                event_type='ORDER_FAILED',
+                entity_type='order',
+                entity_id=order.id,
+                event_data={
+                    'order_id': order.order_id,
+                    'error': 'No valid naval units in order',
+                    'affected_character_ids': [order.character_id]
+                },
+                guild_id=guild_id
+            ))
+            continue
+
+        # All units should be in the same territory (first water territory of path)
+        territories = set(u.current_territory_id for u in units)
+        if len(territories) > 1:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'Naval units not co-located'}
+            order.updated_at = datetime.now()
+            await order.upsert(conn)
+            failed_events.append(TurnLog(
+                turn_number=order.turn_number,
+                phase=TurnPhase.MOVEMENT.value,
+                event_type='ORDER_FAILED',
+                entity_type='order',
+                entity_id=order.id,
+                event_data={
+                    'order_id': order.order_id,
+                    'error': 'Naval units not co-located',
+                    'affected_character_ids': [order.character_id]
+                },
+                guild_id=guild_id
+            ))
+            continue
+
+        territory_id = units[0].current_territory_id
+
+        # Extract order data
+        order_data = order.order_data
+        action = order_data.get('action', 'naval_transport')
+        path = order_data.get('path', [])
+
+        if not path:
+            order.status = OrderStatus.FAILED.value
+            order.result_data = {'error': 'No path specified'}
+            order.updated_at = datetime.now()
+            await order.upsert(conn)
+            failed_events.append(TurnLog(
+                turn_number=order.turn_number,
+                phase=TurnPhase.MOVEMENT.value,
+                event_type='ORDER_FAILED',
+                entity_type='order',
+                entity_id=order.id,
+                event_data={
+                    'order_id': order.order_id,
+                    'error': 'No path specified',
+                    'affected_character_ids': [order.character_id]
+                },
+                guild_id=guild_id
+            ))
+            continue
+
+        # Calculate movement points (for determining transport speed)
+        total_mp = calculate_movement_points(units, action)
+
+        # Build the state
+        state = MovementUnitState(
+            units=units,
+            order=order,
+            total_movement_points=total_mp,
+            remaining_mp=total_mp,
+            status=MovementStatus.WAITING_FOR_CARGO,  # Naval waits for land units
+            current_territory_id=territory_id,
+            path_index=0,
+            action=action,
+            speed=None,
+            territories_entered=[],
+            blocked_at=None,
+            mp_expended_this_turn=0
+        )
+
+        states.append(state)
+
+    return states, failed_events
