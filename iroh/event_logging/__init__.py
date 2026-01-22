@@ -152,6 +152,17 @@ from .combat_events import (
     building_combat_damage_gm_line,
 )
 
+from .naval_events import (
+    naval_position_set_character_line,
+    naval_position_set_gm_line,
+    naval_transit_progress_character_line,
+    naval_transit_progress_gm_line,
+    naval_transit_complete_character_line,
+    naval_transit_complete_gm_line,
+    naval_waiting_character_line,
+    naval_waiting_gm_line,
+)
+
 
 @dataclass
 class EventHandler:
@@ -428,6 +439,24 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'BUILDING_COMBAT_DAMAGE': EventHandler(
         get_character_line=building_combat_damage_character_line,
         get_gm_line=building_combat_damage_gm_line
+    ),
+
+    # Naval positioning events
+    'NAVAL_POSITION_SET': EventHandler(
+        get_character_line=naval_position_set_character_line,
+        get_gm_line=naval_position_set_gm_line
+    ),
+    'NAVAL_TRANSIT_PROGRESS': EventHandler(
+        get_character_line=naval_transit_progress_character_line,
+        get_gm_line=naval_transit_progress_gm_line
+    ),
+    'NAVAL_TRANSIT_COMPLETE': EventHandler(
+        get_character_line=naval_transit_complete_character_line,
+        get_gm_line=naval_transit_complete_gm_line
+    ),
+    'NAVAL_WAITING': EventHandler(
+        get_character_line=naval_waiting_character_line,
+        get_gm_line=naval_waiting_gm_line
     ),
 }
 

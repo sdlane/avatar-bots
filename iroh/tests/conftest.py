@@ -46,13 +46,18 @@ async def test_server(db_conn):
     yield
 
     # Cleanup in reverse dependency order
+    await db_conn.execute("DELETE FROM TurnLog WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM WarParticipant WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM War WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Alliance WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM NavalUnitPosition WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Building WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM BuildingType WHERE guild_id = $1;", TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Territory WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM PlayerResources WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -75,13 +80,18 @@ async def test_server_multi_guild(db_conn):
     yield
 
     # Cleanup in reverse dependency order
+    await db_conn.execute("DELETE FROM TurnLog WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
+    await db_conn.execute("DELETE FROM WargameOrder WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
+    await db_conn.execute("DELETE FROM WargameConfig WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM WarParticipant WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM War WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM Alliance WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
+    await db_conn.execute("DELETE FROM NavalUnitPosition WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM Building WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM BuildingType WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
+    await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM Territory WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM PlayerResources WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)
     await db_conn.execute("DELETE FROM FactionPermission WHERE guild_id IN ($1, $2);", TEST_GUILD_ID, TEST_GUILD_ID_2)

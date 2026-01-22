@@ -901,6 +901,33 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE ScheduledTurn ADD COLUMN IF NOT EXISTS status VARCHAR(50) DEFAULT 'SCHEDULED';")
     await conn.execute("ALTER TABLE ScheduledTurn ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
+    # --- NavalUnitPosition table (naval units can occupy multiple territories) ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS NavalUnitPosition (
+        id SERIAL PRIMARY KEY,
+        unit_id INTEGER NOT NULL REFERENCES Unit(id) ON DELETE CASCADE,
+        territory_id VARCHAR(50) NOT NULL,
+        position_index INTEGER NOT NULL,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(unit_id, territory_id, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE NavalUnitPosition ADD COLUMN IF NOT EXISTS unit_id INTEGER;")
+    await conn.execute("ALTER TABLE NavalUnitPosition ADD COLUMN IF NOT EXISTS territory_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE NavalUnitPosition ADD COLUMN IF NOT EXISTS position_index INTEGER;")
+    await conn.execute("ALTER TABLE NavalUnitPosition ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create indexes for NavalUnitPosition
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_naval_unit_position_territory
+        ON NavalUnitPosition(territory_id, guild_id);
+    """)
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_naval_unit_position_unit
+        ON NavalUnitPosition(unit_id, guild_id);
+    """)
+
     # --- Add foreign key constraints for faction ownership ---
     # FK for Territory.controller_faction_id -> Faction.id (ON DELETE SET NULL)
     await conn.execute("""

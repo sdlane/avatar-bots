@@ -24,6 +24,7 @@ from .territory_adjacency import *
 from .wargame_config import *
 from .order import *
 from .turn_log import *
+from .naval_unit_position import *
 
 # Herbalism models
 from .ingredient import *

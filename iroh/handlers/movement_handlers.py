@@ -10,9 +10,12 @@ from datetime import datetime
 import logging
 from collections import defaultdict
 
-from db import Order, Unit, Territory, TurnLog, FactionPermission, Character, Alliance, WarParticipant, TerritoryAdjacency, Faction
+from db import Order, Unit, Territory, TurnLog, FactionPermission, Character, Alliance, WarParticipant, TerritoryAdjacency, Faction, NavalUnitPosition
 from order_types import OrderType, OrderStatus, TurnPhase
 from orders.movement_state import MovementUnitState, MovementStatus, MovementAction
+
+# Import is deferred to avoid circular imports - loaded when needed
+# from handlers.naval_movement_handlers import update_naval_transport_cargo
 
 logger = logging.getLogger(__name__)
 
@@ -1886,6 +1889,12 @@ async def process_transport_boarding(
         for unit in land_state.units:
             unit.current_territory_id = first_water
             await unit.upsert(conn)
+
+        # Update naval transport order to mark cargo has boarded
+        # This updates the naval order's result_data to no longer wait
+        from handlers.naval_movement_handlers import update_naval_transport_cargo
+        land_unit_ids = [u.id for u in land_state.units]
+        await update_naval_transport_cargo(conn, naval_state.order, land_unit_ids, guild_id)
 
         # Generate boarding event
         affected_ids = await get_affected_character_ids(conn, land_state.units, guild_id)

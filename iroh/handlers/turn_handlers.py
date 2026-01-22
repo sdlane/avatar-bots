@@ -31,6 +31,9 @@ from handlers.movement_handlers import (
     process_transport_disembarkation,
     process_transport_movement_tick,
 )
+from handlers.naval_movement_handlers import (
+    execute_naval_movement_phase,
+)
 from handlers.combat_handlers import execute_combat_phase as _execute_combat_phase
 from handlers.encirclement_handlers import (
     check_unit_encircled,
@@ -246,6 +249,11 @@ async def execute_movement_phase(
     """
     events = []
     logger.info(f"Movement phase: starting movement phase for guild {guild_id}, turn {turn_number}")
+
+    # 0. NAVAL MOVEMENT - Process naval positioning first (before land movement)
+    naval_events = await execute_naval_movement_phase(conn, guild_id, turn_number)
+    events.extend(naval_events)
+    logger.info(f"Movement phase: naval movement generated {len(naval_events)} events")
 
     # 1. SETUP - Fetch PENDING/ONGOING UNIT orders for MOVEMENT phase
     all_orders = await Order.fetch_unresolved_by_phase(
