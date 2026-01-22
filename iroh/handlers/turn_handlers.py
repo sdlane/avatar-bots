@@ -266,6 +266,11 @@ async def execute_movement_phase(
     # Sort states by total_movement_points DESC, then order.id ASC (oldest first for ties)
     states.sort(key=lambda s: (-s.total_movement_points, s.order.id))
 
+    # Check initial engagement - units starting in same territory as hostiles can't move
+    initial_engagement_events = await check_engagement(conn, states, turn_number, guild_id)
+    events.extend(initial_engagement_events)
+    logger.info(f"Movement phase: initial engagement check found {len(initial_engagement_events)} engagements")
+
     # Calculate max_ticks as the highest total_movement_points
     max_ticks = max(s.total_movement_points for s in states)
     logger.info(f"Movement phase: max_ticks={max_ticks}, processing {len(states)} states")

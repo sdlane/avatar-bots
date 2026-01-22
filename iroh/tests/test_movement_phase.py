@@ -1792,6 +1792,82 @@ async def test_no_engagement_friendly_units(db_conn, test_server):
     assert updated_order.status == OrderStatus.SUCCESS.value
 
 
+@pytest.mark.asyncio
+async def test_units_starting_engaged_dont_move(db_conn, test_server):
+    """Test that units starting in the same territory as hostiles don't move."""
+    # Setup: Create two factions at war
+    faction_a = Faction(faction_id="start-eng-a", name="Start Eng A", guild_id=TEST_GUILD_ID)
+    faction_b = Faction(faction_id="start-eng-b", name="Start Eng B", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    await faction_b.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "start-eng-a", TEST_GUILD_ID)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "start-eng-b", TEST_GUILD_ID)
+
+    # Create war
+    war = War(war_id="WAR-START-ENG", objective="Start Engaged Test", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-START-ENG", TEST_GUILD_ID)
+
+    await WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+    await WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID).insert(db_conn)
+
+    # Create character for moving unit
+    char_a = Character(identifier="start-eng-char", name="Start Eng Char", channel_id=999000000000000106, represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID)
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "start-eng-char", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="SENG1", name="Start Eng 1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="SENG2", name="Start Eng 2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    # Both units start in T1 (same territory - engaged from the start)
+    unit_moving = Unit(
+        unit_id="unit-start-eng-moving", name="Moving Unit", unit_type="infantry",
+        owner_character_id=char_a.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="SENG1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    unit_hostile = Unit(
+        unit_id="unit-start-eng-hostile", name="Hostile Unit", unit_type="infantry",
+        owner_faction_id=faction_b.id, movement=2, organization=10, max_organization=10,
+        current_territory_id="SENG1", is_naval=False, guild_id=TEST_GUILD_ID
+    )
+    await unit_moving.upsert(db_conn)
+    await unit_hostile.upsert(db_conn)
+    unit_moving = await Unit.fetch_by_unit_id(db_conn, "unit-start-eng-moving", TEST_GUILD_ID)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create transit order trying to leave T1 -> T2
+    order = Order(
+        order_id="order-start-eng", order_type=OrderType.UNIT.value,
+        unit_ids=[unit_moving.id], character_id=char_a.id,
+        turn_number=1, phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={'action': 'transit', 'path': ['SENG1', 'SENG2'], 'path_index': 0},
+        submitted_at=datetime.now(), guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute movement phase
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Engagement should be detected at the start
+    engagement_events = [e for e in events if e.event_type == 'ENGAGEMENT_DETECTED']
+    assert len(engagement_events) >= 1
+
+    # Unit should NOT have moved - still in T1
+    updated_unit = await Unit.fetch_by_unit_id(db_conn, "unit-start-eng-moving", TEST_GUILD_ID)
+    assert updated_unit.current_territory_id == "SENG1"
+
+    # Order should be ONGOING (not completed because of engagement)
+    updated_order = await Order.fetch_by_order_id(db_conn, "order-start-eng", TEST_GUILD_ID)
+    assert updated_order.status == OrderStatus.ONGOING.value
+
+
 # ============================================================================
 # Event Formatting Tests for Engagement
 # ============================================================================
