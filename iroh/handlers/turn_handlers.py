@@ -21,12 +21,17 @@ from orders.faction_orders import handle_declare_war_order
 from orders.construction_orders import handle_mobilization_order, handle_construction_order
 from handlers.movement_handlers import (
     build_movement_states,
+    build_naval_transport_states,
     process_movement_tick,
     process_patrol_engagement,
     check_engagement,
     generate_observation_reports,
     finalize_movement_order,
+    process_transport_boarding,
+    process_transport_disembarkation,
+    process_transport_movement_tick,
 )
+from orders.movement_state import MovementStatus
 
 
 def deduplicate_observation_events(obs_events: List[TurnLog]) -> List[TurnLog]:
@@ -213,14 +218,17 @@ async def execute_movement_phase(
     Units move when tick <= their movement stat.
 
     Algorithm:
-    1. SETUP - Fetch UNIT orders, filter to land units, build states, validate
-    2. TICK LOOP - For each tick from max_mp down to 1:
-       a. Process patrol engagement (placeholder)
-       b. For each state where total_mp >= tick: try to move
-       c. Check engagement (placeholder)
-       d. Generate observation reports (placeholder)
-    3. POST-LOOP - Final engagement, observation reports
-    4. FINALIZE - Update orders, generate events
+    1. SETUP - Fetch UNIT orders, separate land and naval transport orders, build states
+    2. PRE-TICK - Process transport disembarkation, then boarding
+    3. PRE-TICK - Check initial engagement
+    4. TICK LOOP - For each tick from max_mp down to 1:
+       a. Process patrol engagement
+       b. Process transport movement (transported land units move through water)
+       c. Process regular land movement (skip TRANSPORTED units)
+       d. Check engagement (skip TRANSPORTED units)
+       e. Generate observation reports
+    5. POST-LOOP - Final engagement, observation reports
+    6. FINALIZE - Update orders, generate events
 
     Args:
         conn: Database connection
@@ -249,13 +257,28 @@ async def execute_movement_phase(
         logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}")
         return events
 
-    logger.info(f"Movement phase: processing {len(unit_orders)} unit orders for guild {guild_id}")
+    # Separate land orders from naval orders
+    # Naval actions start with 'naval_' - they should not go through land movement processing
+    land_orders = [o for o in unit_orders if not o.order_data.get('action', '').startswith('naval_')]
+    naval_transport_orders = [o for o in unit_orders if o.order_data.get('action') == 'naval_transport']
+    # Note: Other naval actions (naval_transit, naval_patrol, etc.) are currently not processed
+    # in the movement phase - naval movement is not yet implemented
 
-    # Build movement states (validates orders, fails invalid ones)
-    states, failed_events = await build_movement_states(conn, unit_orders, guild_id)
+    logger.info(f"Movement phase: processing {len(land_orders)} land orders, "
+                f"{len(naval_transport_orders)} naval transport orders for guild {guild_id}")
+
+    # Build land movement states (validates orders, fails invalid ones)
+    land_states, failed_events = await build_movement_states(conn, land_orders, guild_id)
     events.extend(failed_events)
 
-    if not states:
+    # Build naval transport states
+    naval_states, naval_failed_events = await build_naval_transport_states(conn, naval_transport_orders, guild_id)
+    events.extend(naval_failed_events)
+
+    # Combine for max_ticks calculation
+    all_states = land_states + naval_states
+
+    if not land_states and not naval_states:
         logger.info(f"Movement phase: no valid movement states after validation")
         # Still generate observation reports for stationary units
         obs_events, _ = await generate_observation_reports(conn, [], guild_id, turn_number, tick=0)
@@ -263,60 +286,91 @@ async def execute_movement_phase(
         logger.info(f"Movement phase: finished movement phase for guild {guild_id}, turn {turn_number}")
         return events
 
-    # Sort states by total_movement_points DESC, then order.id ASC (oldest first for ties)
-    states.sort(key=lambda s: (-s.total_movement_points, s.order.id))
+    # Sort land states by total_movement_points DESC, then order.id ASC (oldest first for ties)
+    land_states.sort(key=lambda s: (-s.total_movement_points, s.order.id))
 
-    # Check initial engagement - units starting in same territory as hostiles can't move
-    initial_engagement_events = await check_engagement(conn, states, turn_number, guild_id)
+    # 2. PRE-TICK - Process transport disembarkation first (for units already transported)
+    disembark_events = await process_transport_disembarkation(conn, land_states, guild_id, turn_number)
+    events.extend(disembark_events)
+    logger.info(f"Movement phase: processed {len(disembark_events)} disembarkations")
+
+    # 2. PRE-TICK - Process transport boarding
+    boarding_events = await process_transport_boarding(conn, land_states, naval_states, guild_id, turn_number)
+    events.extend(boarding_events)
+    logger.info(f"Movement phase: processed {len(boarding_events)} boarding events")
+
+    # 3. PRE-TICK - Check initial engagement - units starting in same territory as hostiles can't move
+    # Only check non-transported land units
+    non_transported_states = [s for s in land_states if s.status != MovementStatus.TRANSPORTED]
+    initial_engagement_events = await check_engagement(conn, non_transported_states, turn_number, guild_id)
     events.extend(initial_engagement_events)
     logger.info(f"Movement phase: initial engagement check found {len(initial_engagement_events)} engagements")
 
     # Calculate max_ticks as the highest total_movement_points
-    max_ticks = max(s.total_movement_points for s in states)
-    logger.info(f"Movement phase: max_ticks={max_ticks}, processing {len(states)} states")
+    if all_states:
+        max_ticks = max(s.total_movement_points for s in all_states)
+    else:
+        max_ticks = 0
+    logger.info(f"Movement phase: max_ticks={max_ticks}, processing {len(land_states)} land states, "
+                f"{len(naval_states)} naval states")
 
     # Initialize observation tracker for deduplication
     # Tracks (recipient_char_id, observed_unit_id) -> tick
     observation_tracker = {}
     all_obs_events = []
 
-    # 2. TICK LOOP - From max_ticks down to 1
+    # 4. TICK LOOP - From max_ticks down to 1
     for tick in range(max_ticks, 0, -1):
         logger.debug(f"Movement phase: tick {tick}")
 
-        # a. Process patrol engagement (placeholder)
-        patrol_events = await process_patrol_engagement(conn, states, guild_id, turn_number)
+        # a. Process patrol engagement
+        non_transported_states = [s for s in land_states if s.status != MovementStatus.TRANSPORTED]
+        patrol_events = await process_patrol_engagement(conn, non_transported_states, guild_id, turn_number)
         events.extend(patrol_events)
 
-        # b. Process movement for each state where total_mp >= tick
-        tick_events = await process_movement_tick(conn, states, tick, guild_id)
+        # b. Process transport movement (transported land units move through water)
+        transport_tick_events = await process_transport_movement_tick(
+            conn, land_states, naval_states, tick, guild_id, turn_number
+        )
+        events.extend(transport_tick_events)
+
+        # c. Process regular land movement (skip TRANSPORTED units)
+        non_transported_states = [s for s in land_states if s.status != MovementStatus.TRANSPORTED]
+        tick_events = await process_movement_tick(conn, non_transported_states, tick, guild_id)
         events.extend(tick_events)
 
-        # c. Check engagement
-        engagement_events = await check_engagement(conn, states, turn_number, guild_id)
+        # d. Check engagement (skip TRANSPORTED units - they're on water)
+        non_transported_states = [s for s in land_states if s.status != MovementStatus.TRANSPORTED]
+        engagement_events = await check_engagement(conn, non_transported_states, turn_number, guild_id)
         events.extend(engagement_events)
 
-        # d. Generate observation reports
+        # e. Generate observation reports (include all states for observation)
         obs_events, observation_tracker = await generate_observation_reports(
-            conn, states, guild_id, turn_number, tick, observation_tracker
+            conn, land_states, guild_id, turn_number, tick, observation_tracker
         )
         all_obs_events.extend(obs_events)
 
-    # 3. POST-LOOP - Run engagement and observation one more time
-    patrol_events = await process_patrol_engagement(conn, states, guild_id, turn_number)
+    # 5. POST-LOOP - Run engagement and observation one more time
+    non_transported_states = [s for s in land_states if s.status != MovementStatus.TRANSPORTED]
+    patrol_events = await process_patrol_engagement(conn, non_transported_states, guild_id, turn_number)
     events.extend(patrol_events)
-    engagement_events = await check_engagement(conn, states, turn_number, guild_id)
+    engagement_events = await check_engagement(conn, non_transported_states, turn_number, guild_id)
     events.extend(engagement_events)
     obs_events, observation_tracker = await generate_observation_reports(
-        conn, states, guild_id, turn_number, 0, observation_tracker
+        conn, land_states, guild_id, turn_number, 0, observation_tracker
     )
     all_obs_events.extend(obs_events)
 
     # Deduplicate observation events - keep only one per (recipient, observed_unit)
     events.extend(deduplicate_observation_events(all_obs_events))
 
-    # 4. FINALIZE - Update orders and generate completion events
-    for state in states:
+    # 6. FINALIZE - Update orders and generate completion events
+    for state in land_states:
+        final_event = await finalize_movement_order(conn, state, turn_number, guild_id)
+        events.append(final_event)
+
+    # Also finalize naval transport orders
+    for state in naval_states:
         final_event = await finalize_movement_order(conn, state, turn_number, guild_id)
         events.append(final_event)
 

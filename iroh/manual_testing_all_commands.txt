@@ -3022,10 +3022,10 @@ SETUP:
     /create-territory territory_id:TL2 terrain_type:plains name:Coast Destination
 
 2. Set adjacencies:
-    /add-adjacency territory1:TL1 territory2:TW1
-    /add-adjacency territory1:TW1 territory2:TW2
-    /add-adjacency territory1:TW2 territory2:TW3
-    /add-adjacency territory1:TW3 territory2:TL2
+    /add-adjacency territory_id_1:TL1 territory_id_2:TW1
+    /add-adjacency territory_id_1:TW1 territory_id_2:TW2
+    /add-adjacency territory_id_1:TW2 territory_id_2:TW3
+    /add-adjacency territory_id_1:TW3 territory_id_2:TL2
 
 3. Create units:
     - Naval transport SHIP-001 at TW1, capacity=5, movement=2
@@ -3033,12 +3033,11 @@ SETUP:
 
 STEPS:
 16.1.1 Submit naval transport order:
-    /unit-order units:SHIP-001 action:naval_transport path:TW1,TW2,TW3
-
+    /order-unit unit_ids:SHIP-001 action:Naval Transit path:TW1,TW2,TW3 
     EXPECTED: Order confirmed
 
 16.1.2 Submit land transport order:
-    /unit-order units:UNIT-001 action:transport path:TL1,TW1,TW2,TW3,TL2
+    /order-unit unit_ids:FN-001 action:Transport (land) path:TL1,TW1,TW2,TW3,TL2
 
     EXPECTED: Order confirmed with water_path, coast_territory, disembark_territory extracted
 
