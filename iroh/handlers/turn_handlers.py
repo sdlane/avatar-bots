@@ -31,6 +31,7 @@ from handlers.movement_handlers import (
     process_transport_disembarkation,
     process_transport_movement_tick,
 )
+from handlers.combat_handlers import execute_combat_phase as _execute_combat_phase
 from orders.movement_state import MovementStatus
 
 
@@ -385,7 +386,9 @@ async def execute_combat_phase(
     turn_number: int
 ) -> List[TurnLog]:
     """
-    Execute the Combat phase
+    Execute the Combat phase.
+
+    Delegates to combat_handlers.execute_combat_phase for actual implementation.
 
     Args:
         conn: Database connection
@@ -395,13 +398,7 @@ async def execute_combat_phase(
     Returns:
         List of TurnLog objects
     """
-    events = []
-    logger.info(f"Combat phase: starting combat phase for guild {guild_id}, turn {turn_number}")
-
-    # Placeholder for now
-
-    logger.info(f"Combat phase: finished combat phase for guild {guild_id}, turn {turn_number}")
-    return events
+    return await _execute_combat_phase(conn, guild_id, turn_number)
 
 async def _collect_character_production(
     conn: asyncpg.Connection,

@@ -3170,6 +3170,300 @@ STEPS:
 
 
 ================================================================================
+SECTION 17: COMBAT PHASE
+================================================================================
+
+Tests for land combat during turn resolution. Combat occurs when hostile units
+occupy the same territory after the movement phase.
+
+--------------------------------------------------------------------------------
+TEST 17.1: Basic Combat - War-Based Hostility
+--------------------------------------------------------------------------------
+PURPOSE: Test combat between factions at war
+
+SETUP:
+1. Create factions and put them at war:
+    /create-faction faction_id:combat-fn name:Fire Nation (Combat Test)
+    /create-faction faction_id:combat-ek name:Earth Kingdom (Combat Test)
+    /add-faction-member faction_id:combat-fn character:test-leader
+    /add-faction-member faction_id:combat-ek character:test-member
+    /set-faction-leader faction_id:combat-fn leader:test-leader
+    /set-faction-leader faction_id:combat-ek leader:test-member
+    /order-declare-war target_faction_ids:combat-ek objective:Combat Test
+    /resolve-turn  (to activate war)
+
+2. Create territories:
+    /create-territory territory_id:COMB-1 terrain_type:plains name:Combat Zone
+    /create-territory territory_id:COMB-2 terrain_type:plains name:Retreat Zone
+    /add-adjacency territory_id_1:COMB-1 territory_id_2:COMB-2
+
+3. Create units in same territory:
+    /create-unit unit_id:FN-COMB-001 unit_type:infantry territory_id:COMB-1 owner:test-leader
+    /edit-unit unit_id:FN-COMB-001 attack:10 defense:5 organization:10
+    /create-unit unit_id:EK-COMB-001 unit_type:infantry territory_id:COMB-1 owner:test-member
+    /edit-unit unit_id:EK-COMB-001 attack:3 defense:3 organization:10
+
+STEPS:
+17.1.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - GM report shows COMBAT_STARTED at COMB-1
+    - COMBAT_ORG_DAMAGE for EK-COMB-001 (FN attack 10 > EK defense 3)
+    - NO damage to FN-COMB-001 (EK attack 3 <= FN defense 5)
+    - COMBAT_RETREAT or unit moves to COMB-2
+    - COMBAT_ENDED event
+
+17.1.2 Verify unit states:
+    /view-unit unit_id:EK-COMB-001
+
+    EXPECTED: Organization reduced (was 10, now 8 or less)
+
+
+--------------------------------------------------------------------------------
+TEST 17.2: Organization Damage - Attack vs Defense
+--------------------------------------------------------------------------------
+PURPOSE: Test org damage only occurs when attack > defense
+
+SETUP:
+    - Unit A: attack=5, defense=5
+    - Unit B: attack=5, defense=5
+    - Both from opposing factions at war in same territory
+
+STEPS:
+17.2.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NO COMBAT_ORG_DAMAGE events (5 is not > 5)
+    - Both units stay at full organization
+
+
+--------------------------------------------------------------------------------
+TEST 17.3: Unit Disbandment
+--------------------------------------------------------------------------------
+PURPOSE: Test units disband when organization reaches 0
+
+SETUP:
+    - Strong unit: attack=20, defense=10, organization=10
+    - Weak unit: attack=1, defense=1, organization=2
+
+STEPS:
+17.3.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - COMBAT_UNIT_DISBANDED for weak unit
+    - Weak unit status becomes DISBANDED
+
+17.3.2 Verify:
+    /view-unit unit_id:WEAK-UNIT
+
+    EXPECTED: Status = DISBANDED, organization <= 0
+
+
+--------------------------------------------------------------------------------
+TEST 17.4: Territory Capture (Rural)
+--------------------------------------------------------------------------------
+PURPOSE: Test rural territory capture after combat
+
+SETUP:
+1. Create rural territory controlled by faction B:
+    /create-territory territory_id:RURAL-CAP terrain_type:plains name:Rural Target
+    /edit-territory territory_id:RURAL-CAP controller_faction:combat-ek
+
+2. Place building in territory:
+    /create-building building_id:RURAL-BLDG building_type:barracks territory_id:RURAL-CAP
+
+3. Create attacking unit with capture order:
+    /create-unit unit_id:CAP-ATTACKER unit_type:infantry territory_id:RURAL-CAP owner:test-leader
+    /edit-unit unit_id:CAP-ATTACKER attack:20 defense:10 organization:10
+    /order-unit unit_ids:CAP-ATTACKER action:Capture path:RURAL-CAP
+
+4. Create weak defender:
+    /create-unit unit_id:CAP-DEFENDER unit_type:infantry territory_id:RURAL-CAP owner:test-member
+    /edit-unit unit_id:CAP-DEFENDER attack:1 defense:1 organization:2
+
+STEPS:
+17.4.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - TERRITORY_CAPTURED event for RURAL-CAP
+    - New controller is attacker's owner
+    - BUILDING_COMBAT_DAMAGE event (durability -1)
+
+17.4.2 Verify territory controller:
+    /view-territory territory_id:RURAL-CAP
+
+    EXPECTED: Controller changed to attacker's faction/character
+
+17.4.3 Verify building damage:
+    /view-building building_id:RURAL-BLDG
+
+    EXPECTED: Durability reduced by 1
+
+
+--------------------------------------------------------------------------------
+TEST 17.5: City Territory NOT Captured
+--------------------------------------------------------------------------------
+PURPOSE: Test city territories are NOT captured in combat phase
+
+SETUP:
+1. Create city territory:
+    /create-territory territory_id:CITY-TEST terrain_type:city name:Test City
+    /edit-territory territory_id:CITY-TEST controller_faction:combat-ek
+
+2. Place strong attacker with capture order:
+    /create-unit unit_id:CITY-ATK unit_type:infantry territory_id:CITY-TEST owner:test-leader
+    /edit-unit unit_id:CITY-ATK attack:20 defense:10 organization:10
+    /order-unit unit_ids:CITY-ATK action:Capture path:CITY-TEST
+
+3. Place weak defender:
+    /create-unit unit_id:CITY-DEF unit_type:infantry territory_id:CITY-TEST owner:test-member
+    /edit-unit unit_id:CITY-DEF attack:1 defense:1 organization:2
+
+STEPS:
+17.5.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Combat occurs (COMBAT_STARTED, COMBAT_ENDED)
+    - NO TERRITORY_CAPTURED event
+    - City remains under original controller
+
+17.5.2 Verify:
+    /view-territory territory_id:CITY-TEST
+
+    EXPECTED: Controller unchanged (still combat-ek)
+
+
+--------------------------------------------------------------------------------
+TEST 17.6: Action-Based Hostility (Neutral Factions)
+--------------------------------------------------------------------------------
+PURPOSE: Test combat between neutral factions with conflicting capture orders
+
+SETUP:
+1. Create two factions NOT at war:
+    /create-faction faction_id:neutral-a name:Neutral A
+    /create-faction faction_id:neutral-b name:Neutral B
+    (Do NOT declare war between them)
+
+2. Create territory and units:
+    /create-territory territory_id:NEUTRAL-ZONE terrain_type:plains name:Contested Zone
+    /create-unit unit_id:NA-001 unit_type:infantry territory_id:NEUTRAL-ZONE owner:neutral-a-char
+    /create-unit unit_id:NB-001 unit_type:infantry territory_id:NEUTRAL-ZONE owner:neutral-b-char
+
+3. Give both capture orders:
+    (as neutral-a-char)
+    /order-unit unit_ids:NA-001 action:Capture path:NEUTRAL-ZONE
+    (as neutral-b-char)
+    /order-unit unit_ids:NB-001 action:Capture path:NEUTRAL-ZONE
+
+STEPS:
+17.6.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - COMBAT_STARTED event
+    - COMBAT_ACTION_CONFLICT event with recommendation text
+    - Combat resolves normally
+    - No war is declared (action conflict is temporary)
+
+17.6.2 Check turn report:
+    /gm-turn-report
+
+    EXPECTED: "Action conflict" message with recommendation to coordinate
+
+
+--------------------------------------------------------------------------------
+TEST 17.7: Allied Factions Combine Stats
+--------------------------------------------------------------------------------
+PURPOSE: Test allied factions fight as one side
+
+SETUP:
+1. Create alliance between Faction A and B:
+    /add-alliance faction_a_id:ally-a faction_b_id:ally-b
+
+2. Put both at war with Faction C:
+    /order-declare-war target_faction_ids:enemy-c
+
+3. Place units:
+    - Ally A unit: attack=3, defense=3 in territory T
+    - Ally B unit: attack=4, defense=4 in territory T
+    - Enemy C unit: attack=5, defense=5 in territory T
+
+STEPS:
+17.7.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Allies combined attack (7) > Enemy defense (5): Enemy takes damage
+    - Enemy attack (5) <= Allies combined defense (7): Allies take no damage
+
+
+--------------------------------------------------------------------------------
+TEST 17.8: Multi-Faction Combat (3+ sides)
+--------------------------------------------------------------------------------
+PURPOSE: Test three-way combat with cumulative damage
+
+SETUP:
+- Faction A, B, C all at war with each other
+- Unit from each faction in same territory
+- Each unit: attack=5, defense=3, organization=6
+
+STEPS:
+17.8.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Each unit takes damage from TWO hostile sides
+    - 5 > 3, so each side's attack beats others' defense
+    - Each unit takes 2 org damage PER hostile (2 hostiles = 4 damage)
+    - Organization: 6 - 4 = 2 for each unit
+
+
+--------------------------------------------------------------------------------
+TEST 17.9: Retreat Mechanics
+--------------------------------------------------------------------------------
+PURPOSE: Test retreat follows original movement path
+
+SETUP:
+1. Create path: T1 -> T2 -> T3
+2. Unit A transits from T1 to T3
+3. Unit B already at T3, hostile to A
+
+STEPS:
+17.9.1 Resolve movement phase (unit A arrives at T3)
+17.9.2 Combat occurs
+17.9.3 If unit A retreats:
+
+    EXPECTED:
+    - COMBAT_RETREAT event
+    - Unit A retreats to T2 (previous territory in path)
+    - If T2 is unsafe, finds next best option
+
+
+--------------------------------------------------------------------------------
+TEST 17.10: Max Combat Rounds Safety Limit
+--------------------------------------------------------------------------------
+PURPOSE: Test combat terminates after 10 rounds
+
+SETUP:
+- Two units that cannot deal damage to each other (attack <= defense)
+- No possible retreat destination (surrounded by hostiles or water)
+
+STEPS:
+17.10.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Combat continues for 10 rounds
+    - COMBAT_MAX_ROUNDS warning event
+    - Combat terminates even if not resolved
+
+
+================================================================================
 CLEANUP
 ================================================================================
 

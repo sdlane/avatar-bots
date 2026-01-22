@@ -131,6 +131,27 @@ from .building_upkeep_events import (
     building_destroyed_gm_line,
 )
 
+from .combat_events import (
+    combat_started_character_line,
+    combat_started_gm_line,
+    combat_action_conflict_character_line,
+    combat_action_conflict_gm_line,
+    combat_org_damage_character_line,
+    combat_org_damage_gm_line,
+    combat_unit_disbanded_character_line,
+    combat_unit_disbanded_gm_line,
+    combat_retreat_character_line,
+    combat_retreat_gm_line,
+    combat_ended_character_line,
+    combat_ended_gm_line,
+    combat_max_rounds_character_line,
+    combat_max_rounds_gm_line,
+    territory_captured_character_line,
+    territory_captured_gm_line,
+    building_combat_damage_character_line,
+    building_combat_damage_gm_line,
+)
+
 
 @dataclass
 class EventHandler:
@@ -369,6 +390,44 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'BUILDING_DESTROYED': EventHandler(
         get_character_line=building_destroyed_character_line,
         get_gm_line=building_destroyed_gm_line
+    ),
+
+    # Combat events
+    'COMBAT_STARTED': EventHandler(
+        get_character_line=combat_started_character_line,
+        get_gm_line=combat_started_gm_line
+    ),
+    'COMBAT_ACTION_CONFLICT': EventHandler(
+        get_character_line=combat_action_conflict_character_line,
+        get_gm_line=combat_action_conflict_gm_line
+    ),
+    'COMBAT_ORG_DAMAGE': EventHandler(
+        get_character_line=combat_org_damage_character_line,
+        get_gm_line=combat_org_damage_gm_line
+    ),
+    'COMBAT_UNIT_DISBANDED': EventHandler(
+        get_character_line=combat_unit_disbanded_character_line,
+        get_gm_line=combat_unit_disbanded_gm_line
+    ),
+    'COMBAT_RETREAT': EventHandler(
+        get_character_line=combat_retreat_character_line,
+        get_gm_line=combat_retreat_gm_line
+    ),
+    'COMBAT_ENDED': EventHandler(
+        get_character_line=combat_ended_character_line,
+        get_gm_line=combat_ended_gm_line
+    ),
+    'COMBAT_MAX_ROUNDS': EventHandler(
+        get_character_line=combat_max_rounds_character_line,
+        get_gm_line=combat_max_rounds_gm_line
+    ),
+    'TERRITORY_CAPTURED': EventHandler(
+        get_character_line=territory_captured_character_line,
+        get_gm_line=territory_captured_gm_line
+    ),
+    'BUILDING_COMBAT_DAMAGE': EventHandler(
+        get_character_line=building_combat_damage_character_line,
+        get_gm_line=building_combat_damage_gm_line
     ),
 }
 
