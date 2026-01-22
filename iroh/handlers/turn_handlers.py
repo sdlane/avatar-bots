@@ -34,7 +34,11 @@ from handlers.movement_handlers import (
 from handlers.naval_movement_handlers import (
     execute_naval_movement_phase,
 )
-from handlers.combat_handlers import execute_combat_phase as _execute_combat_phase
+from handlers.combat_handlers import execute_combat_phase as _execute_land_combat_phase
+from handlers.naval_combat_handlers import (
+    execute_naval_combat_phase as _execute_naval_combat_phase,
+    handle_transport_destruction,
+)
 from handlers.encirclement_handlers import (
     check_unit_encircled,
     get_unit_home_faction_id,
@@ -401,7 +405,11 @@ async def execute_combat_phase(
     """
     Execute the Combat phase.
 
-    Delegates to combat_handlers.execute_combat_phase for actual implementation.
+    Naval combat is resolved BEFORE land combat:
+    1. Naval patrol units trigger combat in territories where they overlap with hostiles
+    2. Damage accumulates across multiple territories
+    3. All naval damage is applied simultaneously
+    4. Land combat is resolved after naval combat
 
     Args:
         conn: Database connection
@@ -411,7 +419,19 @@ async def execute_combat_phase(
     Returns:
         List of TurnLog objects
     """
-    return await _execute_combat_phase(conn, guild_id, turn_number)
+    events = []
+
+    # Naval combat first
+    naval_events = await _execute_naval_combat_phase(conn, guild_id, turn_number)
+    events.extend(naval_events)
+    logger.info(f"Combat phase: naval combat generated {len(naval_events)} events")
+
+    # Then land combat
+    land_events = await _execute_land_combat_phase(conn, guild_id, turn_number)
+    events.extend(land_events)
+    logger.info(f"Combat phase: land combat generated {len(land_events)} events")
+
+    return events
 
 async def _collect_character_production(
     conn: asyncpg.Connection,
@@ -1755,6 +1775,7 @@ async def disband_low_organization_units(
     Disband all units with organization <= 0 by setting their status to DISBANDED.
 
     This function is designed to be reusable from multiple phases (ORGANIZATION, COMBAT).
+    For naval transports, also destroys any carried land units.
 
     Args:
         conn: Database connection
@@ -1804,6 +1825,13 @@ async def disband_low_organization_units(
         ))
 
         logger.info(f"Organization phase: Disbanded unit {unit.unit_id} (org={unit.organization})")
+
+        # For naval transports, handle destruction of carried land units
+        if unit.is_naval and unit.capacity > 0:
+            transport_events = await handle_transport_destruction(
+                conn, unit, guild_id, turn_number, phase
+            )
+            events.extend(transport_events)
 
     return events
 

@@ -3953,6 +3953,270 @@ STEPS:
 
 
 ================================================================================
+SECTION 20: NAVAL COMBAT
+================================================================================
+
+Naval combat occurs when patrolling naval units occupy the same territory as
+hostile naval units. Key features:
+- Patrol units TRIGGER combat; convoy/transit/transport units PARTICIPATE
+- Units can fight in multiple territories per turn (damage accumulates)
+- Damage is calculated for all combats, then applied simultaneously
+- Allied factions combine attack/defense stats as one side
+- If a naval transport is destroyed, its carried land units are also destroyed
+
+--------------------------------------------------------------------------------
+TEST 20.1: Basic Naval Combat
+--------------------------------------------------------------------------------
+PURPOSE: Verify two hostile fleets in same territory fight
+
+SETUP:
+    /create-faction faction_id:fire-nation name:Fire Nation
+    /create-faction faction_id:earth-kingdom name:Earth Kingdom
+    /declare-war attacker:fire-nation defender:earth-kingdom war_id:war-1
+    /create-character identifier:fire-admiral name:Fire Admiral represented_faction_id:fire-nation
+    /create-character identifier:earth-admiral name:Earth Admiral represented_faction_id:earth-kingdom
+    /create-territory territory_id:ocean-1 terrain_type:ocean name:Ocean Zone 1
+    /create-unit-type type_id:fire-fleet name:Fire Fleet is_naval:true attack:10 defense:5 movement:3
+    /create-unit-type type_id:earth-fleet name:Earth Fleet is_naval:true attack:8 defense:4 movement:3
+    /create-unit unit_id:FIRE-FLEET-01 name:Fire Navy unit_type:fire-fleet owner_character:fire-admiral territory:ocean-1
+    /create-unit unit_id:EARTH-FLEET-01 name:Earth Navy unit_type:earth-fleet owner_character:earth-admiral territory:ocean-1
+
+STEPS:
+20.1.1 Issue patrol order for Fire fleet:
+    /order-unit unit_ids:FIRE-FLEET-01 action:naval_patrol territories:ocean-1
+
+20.1.2 Issue patrol order for Earth fleet:
+    /order-unit unit_ids:EARTH-FLEET-01 action:naval_patrol territories:ocean-1
+
+20.1.3 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NAVAL_COMBAT_STARTED event for ocean-1
+    - Both fleets take damage (Fire: attack 10 > Earth defense 4, Earth: attack 8 > Fire defense 5)
+    - Both fleets should have 8 org (10 - 2 damage each)
+    - NAVAL_COMBAT_ENDED event
+
+
+--------------------------------------------------------------------------------
+TEST 20.2: Multi-Territory Naval Combat
+--------------------------------------------------------------------------------
+PURPOSE: Verify patrol unit can fight in multiple territories, damage accumulates
+
+SETUP:
+    /create-faction faction_id:water-tribe name:Water Tribe
+    /create-faction faction_id:fire-nation-2 name:Fire Nation 2
+    /declare-war attacker:water-tribe defender:fire-nation-2 war_id:war-2
+    /create-character identifier:water-admiral name:Water Admiral represented_faction_id:water-tribe
+    /create-character identifier:fire-admiral-2 name:Fire Admiral 2 represented_faction_id:fire-nation-2
+    /create-character identifier:fire-admiral-3 name:Fire Admiral 3 represented_faction_id:fire-nation-2
+    /create-territory territory_id:sea-1 terrain_type:ocean name:Sea Zone 1
+    /create-territory territory_id:sea-2 terrain_type:ocean name:Sea Zone 2
+    /create-territory territory_id:sea-3 terrain_type:ocean name:Sea Zone 3
+    /add-adjacency territory_id_1:sea-1 territory_id_2:sea-2
+    /add-adjacency territory_id_1:sea-2 territory_id_2:sea-3
+    /create-unit-type type_id:water-fleet name:Water Fleet is_naval:true attack:5 defense:10 movement:3
+    /create-unit-type type_id:fire-raider name:Fire Raider is_naval:true attack:20 defense:1 movement:1
+    /create-unit unit_id:WATER-FLEET-01 name:Water Navy unit_type:water-fleet owner_character:water-admiral territory:sea-1
+    /create-unit unit_id:FIRE-RAIDER-01 name:Fire Raider 1 unit_type:fire-raider owner_character:fire-admiral-2 territory:sea-1
+    /create-unit unit_id:FIRE-RAIDER-02 name:Fire Raider 2 unit_type:fire-raider owner_character:fire-admiral-3 territory:sea-2
+
+STEPS:
+20.2.1 Issue patrol across multiple territories for Water fleet:
+    /order-unit unit_ids:WATER-FLEET-01 action:naval_patrol territories:sea-1,sea-2,sea-3
+
+20.2.2 Issue patrol for Fire raiders:
+    /order-unit unit_ids:FIRE-RAIDER-01 action:naval_patrol territories:sea-1
+    /order-unit unit_ids:FIRE-RAIDER-02 action:naval_patrol territories:sea-2
+
+20.2.3 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Water fleet fights in sea-1 and sea-2 (not sea-3 - no enemies there)
+    - Water fleet takes 4 damage total (2 from each combat)
+    - Water fleet org: 10 - 4 = 6
+    - Fire raiders each take 2 damage (Water attack 5 > Raider defense 1)
+
+
+--------------------------------------------------------------------------------
+TEST 20.3: No Combat Without Patrol
+--------------------------------------------------------------------------------
+PURPOSE: Verify convoy units alone don't trigger combat
+
+SETUP:
+    /create-faction faction_id:convoy-a name:Convoy Nation A
+    /create-faction faction_id:convoy-b name:Convoy Nation B
+    /declare-war attacker:convoy-a defender:convoy-b war_id:war-3
+    /create-character identifier:convoy-admiral-a name:Convoy Admiral A represented_faction_id:convoy-a
+    /create-character identifier:convoy-admiral-b name:Convoy Admiral B represented_faction_id:convoy-b
+    /create-territory territory_id:convoy-ocean terrain_type:ocean name:Convoy Ocean
+    /create-unit-type type_id:convoy-fleet name:Convoy Fleet is_naval:true attack:5 defense:5 movement:3
+    /create-unit unit_id:CONVOY-A-01 name:Convoy Fleet A unit_type:convoy-fleet owner_character:convoy-admiral-a territory:convoy-ocean
+    /create-unit unit_id:CONVOY-B-01 name:Convoy Fleet B unit_type:convoy-fleet owner_character:convoy-admiral-b territory:convoy-ocean
+
+STEPS:
+20.3.1 Issue CONVOY orders (not patrol) for both fleets:
+    /order-unit unit_ids:CONVOY-A-01 action:naval_convoy territories:convoy-ocean
+    /order-unit unit_ids:CONVOY-B-01 action:naval_convoy territories:convoy-ocean
+
+20.3.2 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NO combat occurs (convoy doesn't trigger combat)
+    - Both fleets remain at full org (10)
+
+
+--------------------------------------------------------------------------------
+TEST 20.4: Transport Destruction
+--------------------------------------------------------------------------------
+PURPOSE: Verify land units are destroyed when their transport is destroyed
+
+SETUP:
+    /create-faction faction_id:transport-a name:Transport Nation A
+    /create-faction faction_id:transport-b name:Transport Nation B
+    /declare-war attacker:transport-a defender:transport-b war_id:war-4
+    /create-character identifier:transport-admiral name:Transport Admiral represented_faction_id:transport-a
+    /create-character identifier:attacker-admiral name:Attacker Admiral represented_faction_id:transport-b
+    /create-territory territory_id:transport-ocean terrain_type:ocean name:Transport Ocean
+    /create-territory territory_id:coast terrain_type:coastal name:Coast
+    /add-adjacency territory_id_1:coast territory_id_2:transport-ocean
+    /create-unit-type type_id:transport-ship name:Transport Ship is_naval:true attack:1 defense:1 capacity:5 movement:3
+    /create-unit-type type_id:infantry name:Infantry attack:3 defense:3 movement:2
+    /create-unit-type type_id:attack-fleet name:Attack Fleet is_naval:true attack:15 defense:10 movement:3
+    /create-unit unit_id:TRANSPORT-01 name:Transport Ship unit_type:transport-ship owner_character:transport-admiral territory:coast
+    /create-unit unit_id:INFANTRY-01 name:Infantry Unit unit_type:infantry owner_character:transport-admiral territory:coast
+    /create-unit unit_id:ATTACKER-01 name:Attacker Fleet unit_type:attack-fleet owner_character:attacker-admiral territory:transport-ocean
+
+STEPS:
+20.4.1 Issue transport order to load infantry:
+    /order-unit unit_ids:TRANSPORT-01 action:naval_transport territories:transport-ocean
+
+20.4.2 Issue transit order for infantry to board:
+    /order-unit unit_ids:INFANTRY-01 action:transit path:transport-ocean
+
+20.4.3 Issue patrol for attacker:
+    /order-unit unit_ids:ATTACKER-01 action:naval_patrol territories:transport-ocean
+
+20.4.4 Resolve turn (movement phase):
+    /resolve-turn
+
+    EXPECTED: Infantry boards transport, transport moves to transport-ocean
+
+20.4.5 Damage transport's org to low value (simulating previous combat):
+    /set-unit-stat unit_id:TRANSPORT-01 stat:organization value:2
+
+20.4.6 Resolve another turn (combat phase):
+    /resolve-turn
+
+    EXPECTED:
+    - Transport takes 2 damage (attacker attack 15 > transport defense 1)
+    - Transport org goes to 0 or below
+    - TRANSPORT_CARGO_DESTROYED event generated
+    - Infantry unit is DISBANDED
+
+
+--------------------------------------------------------------------------------
+TEST 20.5: Allied Fleets Combined Stats
+--------------------------------------------------------------------------------
+PURPOSE: Verify allied factions combine attack/defense as one side
+
+SETUP:
+    /create-faction faction_id:ally-1 name:Allied Nation 1
+    /create-faction faction_id:ally-2 name:Allied Nation 2
+    /create-faction faction_id:enemy name:Enemy Nation
+    /make-alliance faction_a:ally-1 faction_b:ally-2 alliance_id:test-alliance
+    /declare-war attacker:ally-1 defender:enemy war_id:war-5
+    /create-character identifier:ally-admiral-1 name:Allied Admiral 1 represented_faction_id:ally-1
+    /create-character identifier:ally-admiral-2 name:Allied Admiral 2 represented_faction_id:ally-2
+    /create-character identifier:enemy-admiral name:Enemy Admiral represented_faction_id:enemy
+    /create-territory territory_id:allied-ocean terrain_type:ocean name:Allied Ocean
+    /create-unit-type type_id:small-fleet name:Small Fleet is_naval:true attack:5 defense:3 movement:3
+    /create-unit-type type_id:heavy-fleet name:Heavy Fleet is_naval:true attack:12 defense:8 movement:2
+    /create-unit unit_id:ALLY-FLEET-01 name:Allied Fleet 1 unit_type:small-fleet owner_character:ally-admiral-1 territory:allied-ocean
+    /create-unit unit_id:ALLY-FLEET-02 name:Allied Fleet 2 unit_type:small-fleet owner_character:ally-admiral-2 territory:allied-ocean
+    /create-unit unit_id:ENEMY-FLEET-01 name:Enemy Fleet unit_type:heavy-fleet owner_character:enemy-admiral territory:allied-ocean
+
+STEPS:
+20.5.1 Issue patrol orders for all fleets:
+    /order-unit unit_ids:ALLY-FLEET-01 action:naval_patrol territories:allied-ocean
+    /order-unit unit_ids:ALLY-FLEET-02 action:naval_patrol territories:allied-ocean
+    /order-unit unit_ids:ENEMY-FLEET-01 action:naval_patrol territories:allied-ocean
+
+20.5.2 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - Allied combined attack: 5 + 5 = 10 > enemy defense 8 = enemy takes 2 damage
+    - Allied combined defense: 3 + 3 = 6 < enemy attack 12 = both allies take 2 damage each
+    - Enemy fleet org: 10 - 2 = 8
+    - Allied fleets org: 10 - 2 = 8 each
+
+
+--------------------------------------------------------------------------------
+TEST 20.6: Neutral Fleets Don't Fight
+--------------------------------------------------------------------------------
+PURPOSE: Verify neutral (not at war, not allied) fleets don't fight
+
+SETUP:
+    /create-faction faction_id:neutral-1 name:Neutral Nation 1
+    /create-faction faction_id:neutral-2 name:Neutral Nation 2
+    /create-character identifier:neutral-admiral-1 name:Neutral Admiral 1 represented_faction_id:neutral-1
+    /create-character identifier:neutral-admiral-2 name:Neutral Admiral 2 represented_faction_id:neutral-2
+    /create-territory territory_id:neutral-ocean terrain_type:ocean name:Neutral Ocean
+    /create-unit-type type_id:neutral-fleet name:Neutral Fleet is_naval:true attack:10 defense:10 movement:3
+    /create-unit unit_id:NEUTRAL-FLEET-01 name:Neutral Fleet 1 unit_type:neutral-fleet owner_character:neutral-admiral-1 territory:neutral-ocean
+    /create-unit unit_id:NEUTRAL-FLEET-02 name:Neutral Fleet 2 unit_type:neutral-fleet owner_character:neutral-admiral-2 territory:neutral-ocean
+
+STEPS:
+20.6.1 Issue patrol orders for both neutral fleets:
+    /order-unit unit_ids:NEUTRAL-FLEET-01 action:naval_patrol territories:neutral-ocean
+    /order-unit unit_ids:NEUTRAL-FLEET-02 action:naval_patrol territories:neutral-ocean
+
+20.6.2 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NO combat occurs (not at war)
+    - Both fleets remain at full org (10)
+
+
+--------------------------------------------------------------------------------
+TEST 20.7: Simultaneous Damage Resolution
+--------------------------------------------------------------------------------
+PURPOSE: Verify units at 0 org still deal damage (simultaneous)
+
+SETUP:
+    /create-faction faction_id:simul-a name:Simultaneous A
+    /create-faction faction_id:simul-b name:Simultaneous B
+    /declare-war attacker:simul-a defender:simul-b war_id:war-6
+    /create-character identifier:simul-admiral-a name:Simul Admiral A represented_faction_id:simul-a
+    /create-character identifier:simul-admiral-b name:Simul Admiral B represented_faction_id:simul-b
+    /create-territory territory_id:simul-ocean terrain_type:ocean name:Simultaneous Ocean
+    /create-unit-type type_id:glass-cannon name:Glass Cannon is_naval:true attack:15 defense:1 movement:3
+    /create-unit unit_id:GLASS-A name:Glass Cannon A unit_type:glass-cannon owner_character:simul-admiral-a territory:simul-ocean
+    /create-unit unit_id:GLASS-B name:Glass Cannon B unit_type:glass-cannon owner_character:simul-admiral-b territory:simul-ocean
+
+STEPS:
+20.7.1 Set both units to 2 org:
+    /set-unit-stat unit_id:GLASS-A stat:organization value:2
+    /set-unit-stat unit_id:GLASS-B stat:organization value:2
+
+20.7.2 Issue patrol orders:
+    /order-unit unit_ids:GLASS-A action:naval_patrol territories:simul-ocean
+    /order-unit unit_ids:GLASS-B action:naval_patrol territories:simul-ocean
+
+20.7.3 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - BOTH units take 2 damage (simultaneous resolution)
+    - Both units end at 0 org (will be disbanded in org phase)
+    - This proves damage is calculated first, then applied simultaneously
+
+
+================================================================================
 CLEANUP
 ================================================================================
 
