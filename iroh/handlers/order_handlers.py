@@ -473,7 +473,7 @@ async def submit_transit_order(
 
 
 # Valid unit action types
-VALID_LAND_ACTIONS = ['transit', 'transport', 'patrol', 'raid', 'capture', 'siege']
+VALID_LAND_ACTIONS = ['transit', 'transport', 'patrol', 'raid', 'capture', 'siege', 'aerial_convoy']
 VALID_NAVAL_ACTIONS = ['naval_transit', 'naval_convoy', 'naval_patrol', 'naval_transport']
 VALID_UNIT_ACTIONS = VALID_LAND_ACTIONS + VALID_NAVAL_ACTIONS
 
@@ -679,6 +679,27 @@ async def submit_unit_order(
         valid, error_msg, transport_data = await validate_transport_path(conn, path, guild_id)
         if not valid:
             return False, error_msg, None
+
+    # Action-specific validation: Aerial convoy requires aerial-transport keyword
+    if action == 'aerial_convoy':
+        # All units must have 'aerial-transport' keyword
+        for unit in units:
+            if not unit.keywords or 'aerial-transport' not in unit.keywords:
+                return False, f"Unit '{unit.unit_id}' requires 'aerial-transport' keyword for aerial_convoy.", None
+
+        # Get the character's represented faction to check enemy territories
+        character = await Character.fetch_by_id(conn, character_id)
+        if character and character.represented_faction_id:
+            # Get enemy factions (factions at war)
+            from handlers.encirclement_handlers import get_enemy_faction_ids, get_territory_controller_faction
+            enemy_ids = await get_enemy_faction_ids(conn, character.represented_faction_id, guild_id)
+
+            # Check current territory is not enemy-controlled
+            current_territory = await Territory.fetch_by_territory_id(conn, starting_territory_id, guild_id)
+            if current_territory:
+                territory_controller = await get_territory_controller_faction(conn, current_territory, guild_id)
+                if territory_controller and territory_controller in enemy_ids:
+                    return False, "Aerial convoy cannot be used in enemy-controlled territory.", None
 
     # Validate speed parameter for patrol actions
     if action in ['patrol', 'naval_patrol']:

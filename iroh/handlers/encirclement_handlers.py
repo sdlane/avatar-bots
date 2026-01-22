@@ -276,14 +276,19 @@ async def bfs_can_reach_friendly(
     home_faction_id: int,
     allied_ids: Set[int],
     enemy_ids: Set[int],
-    guild_id: int
+    guild_id: int,
+    convoy_traversable_ids: Optional[Set[str]] = None
 ) -> bool:
     """
     BFS to check if a path exists from start_territory to any friendly territory.
 
     The goal is to reach any territory controlled by a faction in allied_ids.
     Can traverse: friendly, allied, uncontrolled, neutral (not at war) land territories.
-    Cannot traverse: ocean/lake, enemy territories.
+    Cannot traverse: ocean/lake, enemy territories (unless convoy support).
+
+    With convoy support, territories in convoy_traversable_ids can also be traversed,
+    allowing passage through ocean tiles (naval convoy) or certain other territories
+    (aerial convoy).
 
     Args:
         conn: Database connection
@@ -292,6 +297,7 @@ async def bfs_can_reach_friendly(
         allied_ids: Set of allied faction IDs (including home faction)
         enemy_ids: Set of enemy faction IDs
         guild_id: Guild ID
+        convoy_traversable_ids: Optional set of territory IDs traversable via convoy
 
     Returns:
         True if a path to friendly territory exists, False if encircled
@@ -332,13 +338,169 @@ async def bfs_can_reach_friendly(
                 logger.debug(f"bfs_can_reach_friendly: found path from {start_territory_id} to friendly {adj_id}")
                 return True
 
-            # Check if traversable (can continue BFS through this territory)
-            if await is_territory_traversable(conn, adj_territory, home_faction_id, allied_ids, enemy_ids, guild_id):
+            # Check if traversable via normal means
+            is_traversable = await is_territory_traversable(
+                conn, adj_territory, home_faction_id, allied_ids, enemy_ids, guild_id
+            )
+
+            # Check if traversable via convoy
+            is_convoy = convoy_traversable_ids and adj_id in convoy_traversable_ids
+
+            if is_traversable or is_convoy:
                 queue.append(adj_id)
+                if is_convoy and not is_traversable:
+                    logger.debug(f"bfs_can_reach_friendly: using convoy to traverse {adj_id}")
 
     # No path found to friendly territory
     logger.debug(f"bfs_can_reach_friendly: no path from {start_territory_id} to friendly territory")
     return False
+
+
+def unit_has_keyword(unit: Unit, keyword: str) -> bool:
+    """
+    Check if a unit has a specific keyword.
+
+    Args:
+        unit: The unit to check
+        keyword: The keyword to look for
+
+    Returns:
+        True if unit has the keyword, False otherwise
+    """
+    if not unit.keywords:
+        return False
+    return keyword in unit.keywords
+
+
+async def get_naval_convoy_territories(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    allied_ids: Set[int]
+) -> Set[str]:
+    """
+    Get ocean territories traversable via naval convoy.
+
+    Returns territory IDs where:
+    - A naval unit occupies it
+    - That unit has an active naval_convoy order
+    - That unit belongs to a faction in allied_ids
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        allied_ids: Set of allied faction IDs
+
+    Returns:
+        Set of territory IDs traversable via naval convoy
+    """
+    convoy_territories: Set[str] = set()
+
+    # Fetch all active naval_convoy orders
+    convoy_orders = await Order.fetch_active_by_action(conn, guild_id, 'naval_convoy')
+
+    for order in convoy_orders:
+        # Get units involved in this convoy order
+        for unit_id in order.unit_ids:
+            unit = await Unit.fetch_by_id(conn, unit_id)
+            if not unit or not unit.is_naval:
+                continue
+
+            # Check if unit belongs to an allied faction
+            unit_faction_id = await get_unit_home_faction_id(conn, unit, guild_id)
+            if unit_faction_id and unit_faction_id in allied_ids:
+                # Add the territory where this naval unit is located
+                if unit.current_territory_id:
+                    convoy_territories.add(unit.current_territory_id)
+                    logger.debug(f"Naval convoy at {unit.current_territory_id} by unit {unit.unit_id}")
+
+    return convoy_territories
+
+
+async def get_aerial_convoy_territories(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    allied_ids: Set[int],
+    enemy_ids: Set[int]
+) -> Set[str]:
+    """
+    Get territories traversable via aerial convoy.
+
+    Returns territory IDs where:
+    - A unit with 'aerial-transport' keyword occupies it
+    - That unit has an active aerial_convoy order
+    - That unit belongs to a faction in allied_ids
+    - The territory is NOT enemy-controlled
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        allied_ids: Set of allied faction IDs
+        enemy_ids: Set of enemy faction IDs
+
+    Returns:
+        Set of territory IDs traversable via aerial convoy
+    """
+    convoy_territories: Set[str] = set()
+
+    # Fetch all active aerial_convoy orders
+    convoy_orders = await Order.fetch_active_by_action(conn, guild_id, 'aerial_convoy')
+
+    for order in convoy_orders:
+        # Get units involved in this convoy order
+        for unit_id in order.unit_ids:
+            unit = await Unit.fetch_by_id(conn, unit_id)
+            if not unit:
+                continue
+
+            # Check unit has aerial-transport keyword
+            if not unit_has_keyword(unit, 'aerial-transport'):
+                continue
+
+            # Check if unit belongs to an allied faction
+            unit_faction_id = await get_unit_home_faction_id(conn, unit, guild_id)
+            if not unit_faction_id or unit_faction_id not in allied_ids:
+                continue
+
+            # Check territory is not enemy-controlled
+            if unit.current_territory_id:
+                territory = await Territory.fetch_by_territory_id(conn, unit.current_territory_id, guild_id)
+                if territory:
+                    controller_faction = await get_territory_controller_faction(conn, territory, guild_id)
+                    # Aerial convoy works in: uncontrolled, allied, neutral (not enemy)
+                    if controller_faction is None or controller_faction not in enemy_ids:
+                        convoy_territories.add(unit.current_territory_id)
+                        logger.debug(f"Aerial convoy at {unit.current_territory_id} by unit {unit.unit_id}")
+
+    return convoy_territories
+
+
+async def get_convoy_traversable_territories(
+    conn: asyncpg.Connection,
+    guild_id: int,
+    home_faction_id: int,
+    allied_ids: Set[int],
+    enemy_ids: Set[int]
+) -> Set[str]:
+    """
+    Combine naval and aerial convoy territories.
+
+    Args:
+        conn: Database connection
+        guild_id: Guild ID
+        home_faction_id: The unit's home faction ID
+        allied_ids: Set of allied faction IDs
+        enemy_ids: Set of enemy faction IDs
+
+    Returns:
+        Set of territory IDs traversable via convoy (naval or aerial)
+    """
+    naval_convoys = await get_naval_convoy_territories(conn, guild_id, allied_ids)
+    aerial_convoys = await get_aerial_convoy_territories(conn, guild_id, allied_ids, enemy_ids)
+
+    combined = naval_convoys | aerial_convoys
+    logger.debug(f"Convoy traversable territories: naval={naval_convoys}, aerial={aerial_convoys}, combined={combined}")
+
+    return combined
 
 
 async def get_affected_character_ids_for_unit(
@@ -392,6 +554,8 @@ async def check_unit_encircled(
     - It's not currently transported
     - No path exists over land through friendly/allied/neutral territories
       to a territory controlled by its home faction or an ally
+    - Convoy support (naval_convoy, aerial_convoy orders) can provide additional
+      traversable paths through ocean or other territories
 
     Args:
         conn: Database connection
@@ -426,10 +590,16 @@ async def check_unit_encircled(
     allied_ids = await get_allied_faction_ids(conn, home_faction_id, guild_id)
     enemy_ids = await get_enemy_faction_ids(conn, home_faction_id, guild_id)
 
-    # BFS to find path to friendly territory
+    # Get convoy traversable territories (Phase 2)
+    convoy_traversable_ids = await get_convoy_traversable_territories(
+        conn, guild_id, home_faction_id, allied_ids, enemy_ids
+    )
+
+    # BFS to find path to friendly territory (with convoy support)
     can_reach = await bfs_can_reach_friendly(
         conn, unit.current_territory_id, home_faction_id,
-        allied_ids, enemy_ids, guild_id
+        allied_ids, enemy_ids, guild_id,
+        convoy_traversable_ids=convoy_traversable_ids
     )
 
     if not can_reach:

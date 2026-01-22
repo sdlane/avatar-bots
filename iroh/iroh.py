@@ -2071,6 +2071,7 @@ UNIT_ACTION_CHOICES = [
     app_commands.Choice(name="Raid", value="raid"),
     app_commands.Choice(name="Capture", value="capture"),
     app_commands.Choice(name="Siege", value="siege"),
+    app_commands.Choice(name="Aerial Convoy", value="aerial_convoy"),
     app_commands.Choice(name="Naval Transit", value="naval_transit"),
     app_commands.Choice(name="Naval Convoy", value="naval_convoy"),
     app_commands.Choice(name="Naval Patrol", value="naval_patrol"),

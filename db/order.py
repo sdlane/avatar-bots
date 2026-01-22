@@ -308,6 +308,41 @@ class Order:
         return result
 
     @classmethod
+    async def fetch_active_by_action(
+        cls, conn: asyncpg.Connection, guild_id: int, action: str
+    ) -> List["Order"]:
+        """
+        Fetch all PENDING/ONGOING orders with a specific action type.
+
+        Used for convoy detection - finds all active orders by action type
+        (e.g., 'naval_convoy', 'aerial_convoy').
+
+        Args:
+            conn: Database connection
+            guild_id: Guild ID
+            action: The action type to filter by (from order_data->>'action')
+
+        Returns:
+            List of matching Order objects
+        """
+        rows = await conn.fetch("""
+            SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
+                   phase, priority, status, order_data, result_data,
+                   submitted_at, updated_at, updated_turn, guild_id
+            FROM WargameOrder
+            WHERE guild_id = $1
+            AND status IN ('PENDING', 'ONGOING')
+            AND order_data->>'action' = $2;
+        """, guild_id, action)
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['order_data'] = json.loads(data['order_data']) if data['order_data'] else {}
+            data['result_data'] = json.loads(data['result_data']) if data['result_data'] else None
+            result.append(cls(**data))
+        return result
+
+    @classmethod
     async def delete(cls, conn: asyncpg.Connection, order_id: str, guild_id: int) -> bool:
         """
         Delete an Order by order_id and guild_id.
