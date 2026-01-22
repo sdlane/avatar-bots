@@ -2,7 +2,7 @@
 Turn resolution handlers for the wargame system.
 """
 import asyncpg
-from typing import Tuple, List, Dict, Optional
+from typing import Tuple, List, Dict, Optional, Set
 from datetime import datetime
 from db import (
     Order, Unit, Character, Faction, FactionMember, Territory,
@@ -32,6 +32,11 @@ from handlers.movement_handlers import (
     process_transport_movement_tick,
 )
 from handlers.combat_handlers import execute_combat_phase as _execute_combat_phase
+from handlers.encirclement_handlers import (
+    check_unit_encircled,
+    get_unit_home_faction_id,
+    get_affected_character_ids_for_unit,
+)
 from orders.movement_state import MovementStatus
 
 
@@ -128,10 +133,10 @@ async def resolve_turn(
     transfer_events = await execute_resource_transfer_phase(conn, guild_id, turn_number)
     all_events.extend(transfer_events)
 
-    encirclement_events = await execute_encirclement_phase(conn, guild_id, turn_number)
+    encirclement_events, encircled_unit_ids = await execute_encirclement_phase(conn, guild_id, turn_number)
     all_events.extend(encirclement_events)
 
-    upkeep_events = await execute_upkeep_phase(conn, guild_id, turn_number)
+    upkeep_events = await execute_upkeep_phase(conn, guild_id, turn_number, encircled_unit_ids)
     all_events.extend(upkeep_events)
 
     organization_events = await execute_organization_phase(conn, guild_id, turn_number)
@@ -960,9 +965,16 @@ async def execute_encirclement_phase(
     conn: asyncpg.Connection,
     guild_id: int,
     turn_number: int
-) -> List[TurnLog]:
+) -> Tuple[List[TurnLog], Set[int]]:
     """
-    Execute the Encirclement phase
+    Execute the Encirclement phase.
+
+    A land unit is encircled if no path exists over land through friendly/allied/neutral
+    territories to a territory controlled by its home faction or an ally.
+
+    Encircled units:
+    - Cannot have resources spent on them during upkeep
+    - Lose organization during upkeep (penalty = count of resource types in upkeep)
 
     Args:
         conn: Database connection
@@ -970,15 +982,55 @@ async def execute_encirclement_phase(
         turn_number: Current turn number
 
     Returns:
-        List of TurnLog objects
+        Tuple of (List of TurnLog objects, Set of encircled unit internal IDs)
     """
     events = []
+    encircled_unit_ids: Set[int] = set()
     logger.info(f"Encirclement phase: starting encirclement phase for guild {guild_id}, turn {turn_number}")
 
-    # Placeholder for now
+    # Fetch all units in the guild
+    all_units = await Unit.fetch_all(conn, guild_id)
 
-    logger.info(f"Encirclement phase: finished encirclement phase for guild {guild_id}, turn {turn_number}")
-    return events
+    # Filter to active land units only
+    land_units = [u for u in all_units if not u.is_naval and u.status == 'ACTIVE']
+
+    logger.info(f"Encirclement phase: checking {len(land_units)} active land units")
+
+    for unit in land_units:
+        # Check if unit is encircled
+        is_encircled = await check_unit_encircled(conn, unit, guild_id)
+
+        if is_encircled:
+            encircled_unit_ids.add(unit.id)
+
+            # Get home faction for event data
+            home_faction_id = await get_unit_home_faction_id(conn, unit, guild_id)
+
+            # Get affected character IDs for notifications
+            affected_ids = await get_affected_character_ids_for_unit(conn, unit, guild_id)
+
+            # Generate UNIT_ENCIRCLED event
+            events.append(TurnLog(
+                turn_number=turn_number,
+                phase=TurnPhase.ENCIRCLEMENT.value,
+                event_type='UNIT_ENCIRCLED',
+                entity_type='unit',
+                entity_id=unit.id,
+                event_data={
+                    'unit_id': unit.unit_id,
+                    'unit_name': unit.name or unit.unit_id,
+                    'territory_id': unit.current_territory_id,
+                    'home_faction_id': home_faction_id,
+                    'affected_character_ids': affected_ids
+                },
+                guild_id=guild_id
+            ))
+
+            logger.info(f"Encirclement phase: unit {unit.unit_id} at {unit.current_territory_id} is ENCIRCLED")
+
+    logger.info(f"Encirclement phase: finished encirclement phase for guild {guild_id}, turn {turn_number}. "
+                f"{len(encircled_unit_ids)} units encircled.")
+    return events, encircled_unit_ids
 
 
 async def execute_faction_spending(
@@ -1316,25 +1368,30 @@ async def execute_building_upkeep(
 async def execute_upkeep_phase(
     conn: asyncpg.Connection,
     guild_id: int,
-    turn_number: int
+    turn_number: int,
+    encircled_unit_ids: Optional[Set[int]] = None
 ) -> List[TurnLog]:
     """
     Execute the Upkeep phase.
 
     For each unit (character-owned or faction-owned):
-    - Deduct upkeep from owner's resources (PlayerResources or FactionResources)
+    - If encircled: skip resource deduction, reduce organization by count of upkeep resource types
+    - Otherwise: deduct upkeep from owner's resources (PlayerResources or FactionResources)
     - If insufficient resources, deduct what's available
-    - Reduce organization by 1 for EACH missing resource unit
+    - Reduce organization by 1 for EACH missing resource TYPE
     - If organization <= 0, do nothing special (handled later)
 
     Args:
         conn: Database connection
         guild_id: Guild ID
         turn_number: Current turn number
+        encircled_unit_ids: Optional set of unit IDs that are encircled (skip upkeep, penalize org)
 
     Returns:
         List of TurnLog objects
     """
+    if encircled_unit_ids is None:
+        encircled_unit_ids = set()
     events = []
     logger.info(f"Upkeep phase: starting upkeep phase for guild {guild_id}, turn {turn_number}")
 
@@ -1399,6 +1456,46 @@ async def execute_upkeep_phase(
         units_with_deficit = 0
 
         for unit in units:
+            # Check if unit is encircled - skip normal upkeep and apply encirclement penalty
+            if unit.id in encircled_unit_ids:
+                # Calculate org penalty = count of resource TYPES in upkeep (not amounts)
+                resource_types_needed = []
+                for rt in resource_types:
+                    if getattr(unit, f'upkeep_{rt}') > 0:
+                        resource_types_needed.append(rt)
+
+                penalty = len(resource_types_needed)
+                if penalty > 0:
+                    unit.organization -= penalty
+                    await unit.upsert(conn)
+
+                    affected_ids = [owner_id]
+                    if unit.commander_character_id and unit.commander_character_id != owner_id:
+                        affected_ids.append(unit.commander_character_id)
+
+                    events.append(TurnLog(
+                        turn_number=turn_number,
+                        phase=TurnPhase.UPKEEP.value,
+                        event_type='UPKEEP_ENCIRCLED',
+                        entity_type='unit',
+                        entity_id=unit.id,
+                        event_data={
+                            'unit_id': unit.unit_id,
+                            'unit_name': unit.name or unit.unit_id,
+                            'organization_penalty': penalty,
+                            'new_organization': unit.organization,
+                            'resource_types_needed': resource_types_needed,
+                            'owner_character_id': owner_id,
+                            'owner_name': owner.name,
+                            'affected_character_ids': affected_ids
+                        },
+                        guild_id=guild_id
+                    ))
+                    logger.info(f"Upkeep phase: encircled unit {unit.unit_id} lost {penalty} org (no resources spent)")
+
+                # Skip normal upkeep processing for encircled units
+                continue
+
             unit_deficit = {}
 
             for rt in resource_types:
@@ -1509,6 +1606,47 @@ async def execute_upkeep_phase(
         units_with_deficit = 0
 
         for unit in units:
+            # Check if unit is encircled - skip normal upkeep and apply encirclement penalty
+            if unit.id in encircled_unit_ids:
+                # Calculate org penalty = count of resource TYPES in upkeep (not amounts)
+                resource_types_needed = []
+                for rt in resource_types:
+                    if getattr(unit, f'upkeep_{rt}') > 0:
+                        resource_types_needed.append(rt)
+
+                penalty = len(resource_types_needed)
+                if penalty > 0:
+                    unit.organization -= penalty
+                    await unit.upsert(conn)
+
+                    # For faction units, affected includes COMMAND holders and commander
+                    affected_ids = list(command_holders)
+                    if unit.commander_character_id and unit.commander_character_id not in affected_ids:
+                        affected_ids.append(unit.commander_character_id)
+
+                    events.append(TurnLog(
+                        turn_number=turn_number,
+                        phase=TurnPhase.UPKEEP.value,
+                        event_type='FACTION_UPKEEP_ENCIRCLED',
+                        entity_type='unit',
+                        entity_id=unit.id,
+                        event_data={
+                            'unit_id': unit.unit_id,
+                            'unit_name': unit.name or unit.unit_id,
+                            'organization_penalty': penalty,
+                            'new_organization': unit.organization,
+                            'resource_types_needed': resource_types_needed,
+                            'owner_faction_id': faction.faction_id,
+                            'owner_faction_name': faction.name,
+                            'affected_character_ids': affected_ids
+                        },
+                        guild_id=guild_id
+                    ))
+                    logger.info(f"Upkeep phase: encircled faction unit {unit.unit_id} lost {penalty} org (no resources spent)")
+
+                # Skip normal upkeep processing for encircled units
+                continue
+
             unit_deficit = {}
 
             for rt in resource_types:

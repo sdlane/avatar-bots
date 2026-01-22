@@ -3464,6 +3464,254 @@ STEPS:
 
 
 ================================================================================
+SECTION 18: ENCIRCLEMENT PHASE
+================================================================================
+
+Tests for encirclement detection and its effects on upkeep.
+
+A land unit is **encircled** if no path exists over land through friendly/allied/neutral
+territories to a territory controlled by its home faction or an ally.
+
+Encircled units:
+- Cannot have resources spent on them during upkeep
+- Lose organization during upkeep (penalty = count of resource types in upkeep)
+
+
+--------------------------------------------------------------------------------
+TEST 18.1: Unit NOT Encircled (Path to Friendly Territory)
+--------------------------------------------------------------------------------
+PURPOSE: Verify unit with path to friendly territory is NOT encircled
+
+PREREQUISITES:
+- Faction with a unit
+- Unit in territory with land path to friendly territory
+
+SETUP:
+
+    # Create territories
+    /create-territory territory_id:outpost terrain_type:plains name:Outpost
+    /create-territory territory_id:base terrain_type:plains name:Base controller_faction_id:test-ek
+    /add-adjacency territory_id_1:outpost territory_id_2:base
+
+    # Create unit at outpost
+    /create-unit unit_id:EK-005  unit_type:infantry owner_faction:test-ek territory:outpost
+
+    # Give character resources
+    /add-resources character:test-toph ore:100 lumber:100
+
+STEPS:
+18.1.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NO UNIT_ENCIRCLED event in turn report
+    - UPKEEP_SUMMARY event shows ore:5, lumber:3 spent
+    - Unit organization unchanged (full payment)
+
+
+--------------------------------------------------------------------------------
+TEST 18.2: Unit Encircled (Surrounded by Enemy)
+--------------------------------------------------------------------------------
+PURPOSE: Verify unit surrounded by enemy territory IS encircled
+
+PREREQUISITES:
+- Two factions at war
+- Unit from faction A surrounded by faction B territory
+
+SETUP:
+    # Create factions
+    /create-faction faction_id:test-ek name:Earth Kingdom
+    /create-faction faction_id:test-fn name:Fire Nation
+
+    # Create war
+    /order-declare-war target_faction_ids:test-fn objective:Conquest
+
+    # Create character for Earth Kingdom
+    /create-character identifier:toph name:Toph represented_faction_id:test-ek
+
+    # Create territories
+    /create-territory territory_id:isolated terrain_type:plains name:Isolated
+    /create-territory territory_id:enemy1 terrain_type:plains name:Enemy Zone 1 controller_faction_id:test-fn
+    /create-territory territory_id:enemy2 terrain_type:plains name:Enemy Zone 2 controller_faction_id:test-fn
+    /add-adjacency territory_id_1:isolated territory_id_2:enemy1
+    /add-adjacency territory_id_1:isolated territory_id_2:enemy2
+
+    # Create unit at isolated territory
+    /create-unit unit_id:EK-001 name:Trapped Unit unit_type:infantry owner_character:toph territory:isolated upkeep_ore:5 upkeep_rations:10 organization:10
+
+    # Give character plenty of resources
+    /add-resources character:toph ore:100 rations:100
+
+STEPS:
+18.2.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - UNIT_ENCIRCLED event in turn report for EK-001
+    - UPKEEP_ENCIRCLED event (NOT UPKEEP_DEFICIT)
+    - Organization penalty = 2 (2 resource types: ore, rations)
+    - Resources NOT spent
+
+18.2.2 Verify unit:
+    /view-unit unit_id:EK-001
+
+    EXPECTED: Organization is 8 (10 - 2)
+
+18.2.3 Verify resources:
+    /my-resources
+
+    EXPECTED: Still 100 ore, 100 rations (unchanged)
+
+
+--------------------------------------------------------------------------------
+TEST 18.3: Unit Encircled by Ocean
+--------------------------------------------------------------------------------
+PURPOSE: Verify unit on island with no land bridge is encircled
+
+SETUP:
+    # Create faction
+    /create-faction faction_id:test-wt name:Water Tribe
+
+    # Create character
+    /create-character identifier:sokka name:Sokka represented_faction_id:test-wt
+
+    # Create territories
+    /create-territory territory_id:island terrain_type:plains name:Island
+    /create-territory territory_id:ocean1 terrain_type:ocean name:Ocean 1
+    /create-territory territory_id:mainland terrain_type:plains name:Mainland controller_faction_id:test-wt
+    /add-adjacency territory_id_1:island territory_id_2:ocean1
+    /add-adjacency territory_id_1:ocean1 territory_id_2:mainland
+
+    # Create land unit on island
+    /create-unit unit_id:WT-001 name:Stranded Unit unit_type:infantry owner_character:sokka territory:island upkeep_ore:5
+
+STEPS:
+18.3.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - UNIT_ENCIRCLED event for WT-001
+    - Unit loses 1 organization (1 resource type)
+
+
+--------------------------------------------------------------------------------
+TEST 18.4: Naval Unit Never Encircled
+--------------------------------------------------------------------------------
+PURPOSE: Verify naval units are never encircled
+
+SETUP:
+    # Create faction
+    /create-faction faction_id:test-wt name:Water Tribe
+
+    # Create character
+    /create-character identifier:katara name:Katara represented_faction_id:test-wt
+
+    # Create isolated ocean territory
+    /create-territory territory_id:deep-sea terrain_type:ocean name:Deep Sea
+
+    # Create naval unit
+    /create-unit unit_id:SHIP-001 name:Water Tribe Ship unit_type:warship is_naval:True owner_character:katara territory:deep-sea upkeep_ore:5
+
+STEPS:
+18.4.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NO UNIT_ENCIRCLED event
+    - Normal upkeep processing (UPKEEP_SUMMARY or UPKEEP_DEFICIT)
+
+
+--------------------------------------------------------------------------------
+TEST 18.5: Unaffiliated Unit Always Encircled
+--------------------------------------------------------------------------------
+PURPOSE: Verify units with no home faction are always encircled
+
+SETUP:
+    # Create character with NO represented faction
+    /create-character identifier:wanderer name:The Wanderer
+
+    # Create territory
+    /create-territory territory_id:wilderness terrain_type:plains name:Wilderness
+
+    # Create unit (owner has no faction)
+    /create-unit unit_id:WANDERER-001 name:Wanderers Guard unit_type:infantry owner_character:wanderer territory:wilderness upkeep_ore:3 upkeep_rations:5
+
+STEPS:
+18.5.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - UNIT_ENCIRCLED event (no home faction to reach)
+    - UPKEEP_ENCIRCLED event
+    - Organization penalty = 2 (2 resource types)
+
+
+--------------------------------------------------------------------------------
+TEST 18.6: Path Through Allied Territory
+--------------------------------------------------------------------------------
+PURPOSE: Verify unit can reach friendly via allied territory
+
+SETUP:
+    # Create two allied factions
+    /create-faction faction_id:ally-a name:Ally A
+    /create-faction faction_id:ally-b name:Ally B
+    /add-alliance faction_a_id:ally-a faction_b_id:ally-b
+
+    # Create character for Ally A
+    /create-character identifier:ally-char name:Allied Character represented_faction_id:ally-a
+
+    # Create territories
+    /create-territory territory_id:outpost terrain_type:plains name:Outpost
+    /create-territory territory_id:ally-land terrain_type:plains name:Ally Land controller_faction_id:ally-b
+    /create-territory territory_id:home terrain_type:plains name:Home controller_faction_id:ally-a
+    /add-adjacency territory_id_1:outpost territory_id_2:ally-land
+    /add-adjacency territory_id_1:ally-land territory_id_2:home
+
+    # Create unit at outpost
+    /create-unit unit_id:ALLY-001 name:Allied Unit unit_type:infantry owner_character:ally-char territory:outpost upkeep_ore:5
+
+STEPS:
+18.6.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NO UNIT_ENCIRCLED event (path through ally-b territory to ally-a home)
+    - Normal upkeep processing
+
+
+--------------------------------------------------------------------------------
+TEST 18.7: Path Through Neutral (Non-Warring) Territory
+--------------------------------------------------------------------------------
+PURPOSE: Verify unit can reach friendly via neutral faction territory
+
+SETUP:
+    # Create two factions NOT at war
+    /create-faction faction_id:faction-a name:Faction A
+    /create-faction faction_id:neutral-f name:Neutral F
+
+    # Create character
+    /create-character identifier:a-char name:A Character represented_faction_id:faction-a
+
+    # Create territories
+    /create-territory territory_id:outpost terrain_type:plains name:Outpost
+    /create-territory territory_id:neutral-land terrain_type:plains name:Neutral Land controller_faction_id:neutral-f
+    /create-territory territory_id:home terrain_type:plains name:Home controller_faction_id:faction-a
+    /add-adjacency territory_id_1:outpost territory_id_2:neutral-land
+    /add-adjacency territory_id_1:neutral-land territory_id_2:home
+
+    # Create unit
+    /create-unit unit_id:A-001 name:Unit A unit_type:infantry owner_character:a-char territory:outpost upkeep_ore:5
+
+STEPS:
+18.7.1 Resolve turn:
+    /resolve-turn
+
+    EXPECTED:
+    - NO UNIT_ENCIRCLED event (neutral territory is traversable)
+    - Normal upkeep processing
+
+
+================================================================================
 CLEANUP
 ================================================================================
 
