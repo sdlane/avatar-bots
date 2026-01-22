@@ -679,6 +679,45 @@ async def test_speed_only_valid_for_patrol(db_conn, test_server):
     await full_cleanup(db_conn)
 
 
+@pytest.mark.asyncio
+async def test_patrol_requires_two_different_territories(db_conn, test_server):
+    """Test that patrol path must contain at least two different territories."""
+    char = await create_test_character(db_conn)
+    await create_test_territories(db_conn, ["101", "102"])
+    await create_adjacencies(db_conn, [("101", "102")])
+    await create_test_unit(db_conn, "TEST-001", char.id, "101", is_naval=False)
+    await create_wargame_config(db_conn)
+
+    # Patrol with only one unique territory (start and end same) should fail
+    success, message, extra = await submit_unit_order(
+        db_conn, ["TEST-001"], "patrol", ["101", "101"], TEST_GUILD_ID, char.id
+    )
+
+    assert success is False
+    assert "two different territories" in message.lower()
+
+    await full_cleanup(db_conn)
+
+
+@pytest.mark.asyncio
+async def test_patrol_with_two_different_territories_succeeds(db_conn, test_server):
+    """Test that patrol path with two different territories succeeds."""
+    char = await create_test_character(db_conn)
+    await create_test_territories(db_conn, ["101", "102"])
+    await create_adjacencies(db_conn, [("101", "102")])
+    await create_test_unit(db_conn, "TEST-001", char.id, "101", is_naval=False)
+    await create_wargame_config(db_conn)
+
+    # Patrol with two different territories should succeed
+    success, message, extra = await submit_unit_order(
+        db_conn, ["TEST-001"], "patrol", ["101", "102"], TEST_GUILD_ID, char.id
+    )
+
+    assert success is True
+
+    await full_cleanup(db_conn)
+
+
 # ============================================================
 # Invalid action tests
 # ============================================================

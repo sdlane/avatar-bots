@@ -559,6 +559,12 @@ async def submit_unit_order(
     if path[0] != starting_territory_id:
         return False, f"Path must start with the units' current territory ({starting_territory_id}).", None
 
+    # Patrol paths must contain at least two different territories (check before adjacency)
+    if action in ['patrol', 'naval_patrol']:
+        unique_territories = set(path)
+        if len(unique_territories) < 2:
+            return False, "Patrol path must contain at least two different territories.", None
+
     # Validate path using validate_path_with_details helper
     valid, error_msg = await validate_path_with_details(conn, path, guild_id)
     if not valid:

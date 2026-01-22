@@ -1699,6 +1699,16 @@ STEPS:
 
     EXPECTED: Error about speed only valid for patrol actions
 
+8A.3.3 Try patrol with single territory:
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,1
+
+    EXPECTED: Error about patrol path must contain at least two different territories
+
+8A.3.4 Patrol with two different territories:
+    /order-unit unit_ids:FN-001 action:Patrol (land) path:1,2
+
+    EXPECTED: Success - patrol order created
+
 
 --------------------------------------------------------------------------------
 TEST 8A.4: Land vs Naval Validation
