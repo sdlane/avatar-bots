@@ -701,6 +701,14 @@ class ConfigManager:
                     logger.warning(f"Building type {building_data['type']} not found, skipping building {building_data['building_id']}")
                     continue
 
+                # Check for duplicate building type in territory
+                territory_id_str = str(building_data['territory_id']) if building_data.get('territory_id') else None
+                if territory_id_str:
+                    existing = await Building.fetch_by_territory(conn, territory_id_str, guild_id)
+                    if any(b.building_type == building_data['type'] for b in existing):
+                        logger.warning(f"Territory {territory_id_str} already has building type {building_data['type']}, skipping")
+                        continue
+
                 # Keywords: use building_data keywords if provided, otherwise inherit from building_type
                 if 'keywords' in building_data:
                     building_keywords = building_data['keywords']

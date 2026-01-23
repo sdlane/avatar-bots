@@ -339,12 +339,22 @@ async def test_fetch_buildings_by_territory(db_conn, test_server):
     )
     await territory2.upsert(db_conn)
 
-    # Create buildings in different territories
+    # Create a second building type for testing multiple buildings in same territory
+    workshop_type = BuildingType(
+        type_id="workshop", name="Craftsman Workshop",
+        description="A place for crafting equipment and tools",
+        guild_id=TEST_GUILD_ID,
+        cost_ore=5, cost_lumber=15, cost_coal=2,
+        upkeep_lumber=2, upkeep_coal=1
+    )
+    await workshop_type.upsert(db_conn)
+
+    # Create buildings in different territories (different types in same territory)
     await create_building(
         db_conn, "building-1", "barracks", "1", TEST_GUILD_ID, name="Building 1"
     )
     await create_building(
-        db_conn, "building-2", "barracks", "1", TEST_GUILD_ID, name="Building 2"
+        db_conn, "building-2", "workshop", "1", TEST_GUILD_ID, name="Building 2"
     )
     await create_building(
         db_conn, "building-3", "barracks", "2", TEST_GUILD_ID, name="Building 3"
@@ -373,12 +383,21 @@ async def test_view_territory_includes_buildings(db_conn, test_server):
     await setup_building_type(db_conn, TEST_GUILD_ID)
     await setup_territory(db_conn, TEST_GUILD_ID)
 
-    # Create buildings
+    # Create a second building type for testing multiple buildings in same territory
+    workshop_type = BuildingType(
+        type_id="workshop-view", name="Workshop",
+        description="A crafting facility",
+        guild_id=TEST_GUILD_ID,
+        cost_lumber=10
+    )
+    await workshop_type.upsert(db_conn)
+
+    # Create buildings (different types in same territory)
     await create_building(
         db_conn, "test-barracks-1", "barracks", "1", TEST_GUILD_ID, name="Barracks 1"
     )
     await create_building(
-        db_conn, "test-barracks-2", "barracks", "1", TEST_GUILD_ID, name="Barracks 2"
+        db_conn, "test-workshop-1", "workshop-view", "1", TEST_GUILD_ID, name="Workshop 1"
     )
 
     # View territory
@@ -392,7 +411,7 @@ async def test_view_territory_includes_buildings(db_conn, test_server):
     assert len(data['buildings']) == 2
     building_ids = [b.building_id for b in data['buildings']]
     assert "test-barracks-1" in building_ids
-    assert "test-barracks-2" in building_ids
+    assert "test-workshop-1" in building_ids
 
     # Cleanup
     await db_conn.execute("DELETE FROM Building WHERE guild_id = $1;", TEST_GUILD_ID)

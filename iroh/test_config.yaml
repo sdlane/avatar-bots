@@ -365,6 +365,104 @@ building_types:
       cloth: 0
       platinum: 0
 
+  # Non-industrial resource buildings (bonus only with natural production)
+  - type_id: "lumber-mill"
+    name: "Lumber Mill"
+    description: "Processes timber for additional lumber production"
+    keywords: ["lumber"]
+    cost:
+      ore: 5
+      lumber: 10
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 0
+      coal: 0
+      rations: 1
+      cloth: 0
+      platinum: 0
+
+  - type_id: "ore-refinery"
+    name: "Ore Refinery"
+    description: "Processes ore for additional ore production"
+    keywords: ["ore"]
+    cost:
+      ore: 10
+      lumber: 5
+      coal: 2
+      rations: 0
+      cloth: 0
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 0
+      coal: 1
+      rations: 0
+      cloth: 0
+      platinum: 0
+
+  # Industrial buildings (produce regardless of natural production)
+  - type_id: "foundry"
+    name: "Industrial Foundry"
+    description: "An industrial facility for ore processing"
+    keywords: ["industrial", "ore"]
+    cost:
+      ore: 15
+      lumber: 10
+      coal: 5
+      rations: 0
+      cloth: 0
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 0
+      coal: 2
+      rations: 0
+      cloth: 0
+      platinum: 0
+
+  - type_id: "factory"
+    name: "General Factory"
+    description: "An industrial facility producing ore and cloth"
+    keywords: ["industrial", "ore", "cloth"]
+    cost:
+      ore: 20
+      lumber: 15
+      coal: 5
+      rations: 0
+      cloth: 5
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 0
+      coal: 3
+      rations: 0
+      cloth: 0
+      platinum: 0
+
+  # Industrial-only building (produces nothing)
+  - type_id: "power-plant"
+    name: "Power Plant"
+    description: "Provides industrial power but no direct production"
+    keywords: ["industrial"]
+    cost:
+      ore: 15
+      lumber: 10
+      coal: 10
+      rations: 0
+      cloth: 0
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 0
+      coal: 5
+      rations: 0
+      cloth: 0
+      platinum: 0
+
 buildings:
   # Fire Nation buildings
   - building_id: "fire-barracks-1"

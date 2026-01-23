@@ -46,6 +46,11 @@ from handlers.encirclement_handlers import (
 )
 from orders.movement_state import MovementStatus
 
+# Resource keywords that buildings can provide production bonuses for
+RESOURCE_KEYWORDS = {'ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum'}
+# Bonus production per building with matching resource keyword
+BONUS_PER_BUILDING = 2
+
 
 def deduplicate_observation_events(obs_events: List[TurnLog]) -> List[TurnLog]:
     """
@@ -433,6 +438,76 @@ async def execute_combat_phase(
 
     return events
 
+async def _calculate_building_production_bonus(
+    conn: asyncpg.Connection,
+    territory: Territory,
+    guild_id: int
+) -> Dict[str, int]:
+    """
+    Calculate production bonuses from buildings in a territory.
+
+    Buildings provide production bonuses based on their keywords:
+    - Building with resource keyword (ore/lumber/coal/rations/cloth/platinum) + territory produces
+      that resource = +2 production for that resource
+    - Building with "industrial" + resource keyword = +2 regardless of territory production
+    - Industrial production enables non-industrial building bonuses (chaining)
+    - Multiple buildings with same keyword stack (+2 each)
+    - Building with multiple resource keywords gets +2 per matching keyword
+
+    Args:
+        conn: Database connection
+        territory: The territory to calculate bonuses for
+        guild_id: Guild ID
+
+    Returns:
+        Dict mapping resource type to bonus amount
+    """
+    # Initialize bonus dict
+    bonus = {rt: 0 for rt in RESOURCE_KEYWORDS}
+
+    # Fetch ACTIVE buildings in territory
+    buildings = await Building.fetch_by_territory(conn, territory.territory_id, guild_id)
+    active_buildings = [b for b in buildings if b.status == 'ACTIVE']
+
+    if not active_buildings:
+        return bonus
+
+    # Get natural production from territory
+    natural_production = {
+        'ore': territory.ore_production,
+        'lumber': territory.lumber_production,
+        'coal': territory.coal_production,
+        'rations': territory.rations_production,
+        'cloth': territory.cloth_production,
+        'platinum': territory.platinum_production
+    }
+
+    # Phase 1: Calculate industrial production (always applies regardless of natural production)
+    industrial_production = {rt: 0 for rt in RESOURCE_KEYWORDS}
+    for building in active_buildings:
+        keywords = building.keywords or []
+        if 'industrial' in keywords:
+            for keyword in keywords:
+                if keyword in RESOURCE_KEYWORDS:
+                    industrial_production[keyword] += BONUS_PER_BUILDING
+
+    # Phase 2: Calculate non-industrial bonuses (requires natural OR industrial production)
+    # Start with industrial production as base
+    for rt in RESOURCE_KEYWORDS:
+        bonus[rt] = industrial_production[rt]
+
+    for building in active_buildings:
+        keywords = building.keywords or []
+        if 'industrial' not in keywords:
+            for keyword in keywords:
+                if keyword in RESOURCE_KEYWORDS:
+                    # Check if there's natural or industrial production for this resource
+                    if natural_production[keyword] > 0 or industrial_production[keyword] > 0:
+                        bonus[keyword] += BONUS_PER_BUILDING
+
+    return bonus
+
+
 async def _collect_character_production(
     conn: asyncpg.Connection,
     guild_id: int,
@@ -558,6 +633,9 @@ async def _collect_territory_production(
             logger.debug(f"Territory production: Territory {territory.territory_id} has no controller, skipping")
             continue
 
+        # Calculate building production bonus for this territory
+        building_bonus = await _calculate_building_production_bonus(conn, territory, guild_id)
+
         if owner_type == 'character':
             char_id = territory.controller_character_id
 
@@ -572,13 +650,13 @@ async def _collect_territory_production(
                     'platinum': 0
                 }
 
-            # Aggregate resources
-            territory_char_resources[char_id]['ore'] += territory.ore_production
-            territory_char_resources[char_id]['lumber'] += territory.lumber_production
-            territory_char_resources[char_id]['coal'] += territory.coal_production
-            territory_char_resources[char_id]['rations'] += territory.rations_production
-            territory_char_resources[char_id]['cloth'] += territory.cloth_production
-            territory_char_resources[char_id]['platinum'] += territory.platinum_production
+            # Aggregate resources (natural production + building bonus)
+            territory_char_resources[char_id]['ore'] += territory.ore_production + building_bonus['ore']
+            territory_char_resources[char_id]['lumber'] += territory.lumber_production + building_bonus['lumber']
+            territory_char_resources[char_id]['coal'] += territory.coal_production + building_bonus['coal']
+            territory_char_resources[char_id]['rations'] += territory.rations_production + building_bonus['rations']
+            territory_char_resources[char_id]['cloth'] += territory.cloth_production + building_bonus['cloth']
+            territory_char_resources[char_id]['platinum'] += territory.platinum_production + building_bonus['platinum']
 
         elif owner_type == 'faction':
             faction_id = territory.controller_faction_id
@@ -594,13 +672,13 @@ async def _collect_territory_production(
                     'platinum': 0
                 }
 
-            # Aggregate resources
-            faction_resources[faction_id]['ore'] += territory.ore_production
-            faction_resources[faction_id]['lumber'] += territory.lumber_production
-            faction_resources[faction_id]['coal'] += territory.coal_production
-            faction_resources[faction_id]['rations'] += territory.rations_production
-            faction_resources[faction_id]['cloth'] += territory.cloth_production
-            faction_resources[faction_id]['platinum'] += territory.platinum_production
+            # Aggregate resources (natural production + building bonus)
+            faction_resources[faction_id]['ore'] += territory.ore_production + building_bonus['ore']
+            faction_resources[faction_id]['lumber'] += territory.lumber_production + building_bonus['lumber']
+            faction_resources[faction_id]['coal'] += territory.coal_production + building_bonus['coal']
+            faction_resources[faction_id]['rations'] += territory.rations_production + building_bonus['rations']
+            faction_resources[faction_id]['cloth'] += territory.cloth_production + building_bonus['cloth']
+            faction_resources[faction_id]['platinum'] += territory.platinum_production + building_bonus['platinum']
 
     # Process each character's aggregated territory resources
     for char_id, resources in territory_char_resources.items():

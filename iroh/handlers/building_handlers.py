@@ -35,6 +35,12 @@ async def create_building(
     if not territory:
         return False, f"Territory '{territory_id}' not found."
 
+    # Check for duplicate building type in territory
+    existing_buildings = await Building.fetch_by_territory(conn, territory_id, guild_id)
+    for existing in existing_buildings:
+        if existing.building_type == building_type_id:
+            return False, f"Territory already has a building of type '{building_type_id}'."
+
     # Create building with upkeep and keywords from building type
     building = Building(
         building_id=building_id,
