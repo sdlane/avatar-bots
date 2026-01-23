@@ -3,14 +3,15 @@ Tests for herbalism scripts (loaders and clear functions).
 """
 import pytest
 from pathlib import Path
-from hawky.herbalism.scripts.loaders import (
+from hawky.herbalism.loaders import (
     load_ingredients,
     load_products,
+    validate_products_unique,
     load_subset_recipes,
     load_constraint_recipes,
     load_failed_blends,
 )
-from hawky.herbalism.scripts.clear_data import (
+from hawky.herbalism.clear_data import (
     clear_herbal_data,
     clear_ingredients,
     clear_products,
@@ -52,6 +53,43 @@ class TestLoaders:
         assert sludge is not None
         assert sludge.name == "Sludge"
         assert sludge.product_type == "salve"
+
+    def test_validate_products_unique_no_duplicates(self):
+        """Test validation passes when all products are unique."""
+        products = [
+            Product(item_number="001", product_type="tea"),
+            Product(item_number="002", product_type="tea"),
+            Product(item_number="001", product_type="salve"),  # same item_number, different type
+        ]
+        valid, error_msg = validate_products_unique(products)
+        assert valid is True
+        assert error_msg == ""
+
+    def test_validate_products_unique_with_duplicates(self):
+        """Test validation fails when duplicate (product_type, item_number) pairs exist."""
+        products = [
+            Product(item_number="001", product_type="tea"),
+            Product(item_number="002", product_type="tea"),
+            Product(item_number="001", product_type="tea"),  # duplicate
+        ]
+        valid, error_msg = validate_products_unique(products)
+        assert valid is False
+        assert "Duplicate products found" in error_msg
+        assert "('tea', '001')" in error_msg
+        assert "rows 2 and 4" in error_msg  # first at index 0 (row 2), dup at index 2 (row 4)
+
+    def test_validate_products_unique_multiple_duplicates(self):
+        """Test validation reports all duplicates."""
+        products = [
+            Product(item_number="001", product_type="tea"),
+            Product(item_number="001", product_type="tea"),  # first dup
+            Product(item_number="002", product_type="salve"),
+            Product(item_number="002", product_type="salve"),  # second dup
+        ]
+        valid, error_msg = validate_products_unique(products)
+        assert valid is False
+        assert "('tea', '001')" in error_msg
+        assert "('salve', '002')" in error_msg
 
     def test_load_subset_recipes(self):
         """Test loading subset recipes from CSV."""

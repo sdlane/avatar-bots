@@ -90,6 +90,33 @@ def load_products(filename: str) -> List[Product]:
     return products
 
 
+def validate_products_unique(products: List[Product]) -> tuple[bool, str]:
+    """
+    Validate that all products have unique (product_type, item_number) pairs.
+
+    Returns:
+        (True, "") if valid
+        (False, error_message) if duplicates found
+    """
+    seen = {}
+    duplicates = []
+
+    for i, prod in enumerate(products):
+        key = (prod.product_type, prod.item_number)
+        if key in seen:
+            duplicates.append((key, seen[key], i))
+        else:
+            seen[key] = i
+
+    if duplicates:
+        lines = ["Duplicate products found (product_type, item_number):"]
+        for key, first_idx, dup_idx in duplicates:
+            lines.append(f"  {key} - rows {first_idx + 2} and {dup_idx + 2}")  # +2 for 1-indexing and header row
+        return False, "\n".join(lines)
+
+    return True, ""
+
+
 def load_subset_recipes(filename: str) -> List[SubsetRecipe]:
     """
     Load subset recipes from a CSV file.

@@ -28,6 +28,7 @@ if __name__ == "__main__":
     from loaders import (
         load_ingredients,
         load_products,
+        validate_products_unique,
         load_subset_recipes,
         load_constraint_recipes,
         load_failed_blends,
@@ -37,6 +38,7 @@ else:
     from .loaders import (
         load_ingredients,
         load_products,
+        validate_products_unique,
         load_subset_recipes,
         load_constraint_recipes,
         load_failed_blends,
@@ -91,9 +93,12 @@ async def import_herbalism_data(
             ing.secondary_chakra = ing.secondary_chakra.lower()
         await ing.upsert(conn)
 
-    # Load and insert products
+    # Load and validate products
     logger.info(f"Loading products from {products_file}...")
     products = load_products(products_file)
+    valid, error_msg = validate_products_unique(products)
+    if not valid:
+        raise ValueError(f"Product validation failed:\n{error_msg}")
     logger.info(f"Inserting {len(products)} products...")
     for prod in products:
         await prod.upsert(conn)
