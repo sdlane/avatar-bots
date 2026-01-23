@@ -19,6 +19,7 @@ from handlers.movement_handlers import (
     get_affected_character_ids,
     get_territories_in_range,
 )
+from handlers.encirclement_handlers import is_unit_exempt_from_engagement
 
 logger = logging.getLogger(__name__)
 
@@ -248,6 +249,8 @@ async def find_combat_territories(
         # Get all active land units in this territory
         units = await Unit.fetch_by_territory(conn, territory_id, guild_id)
         active_land_units = [u for u in units if u.status == 'ACTIVE' and not u.is_naval]
+        # Filter out infiltrator/aerial units (exempt from combat)
+        active_land_units = [u for u in active_land_units if not is_unit_exempt_from_engagement(u)]
 
         if len(active_land_units) < 2:
             continue
@@ -854,6 +857,8 @@ async def resolve_combat_in_territory(
     # Get all active land units in territory
     all_units = await Unit.fetch_by_territory(conn, territory_id, guild_id)
     active_land_units = [u for u in all_units if u.status == 'ACTIVE' and not u.is_naval]
+    # Filter out infiltrator/aerial units (exempt from combat)
+    active_land_units = [u for u in active_land_units if not is_unit_exempt_from_engagement(u)]
 
     if len(active_land_units) < 2:
         return events

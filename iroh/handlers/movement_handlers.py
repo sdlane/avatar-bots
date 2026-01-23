@@ -13,6 +13,7 @@ from collections import defaultdict
 from db import Order, Unit, Territory, TurnLog, FactionPermission, Character, Alliance, WarParticipant, TerritoryAdjacency, Faction, NavalUnitPosition
 from order_types import OrderType, OrderStatus, TurnPhase
 from orders.movement_state import MovementUnitState, MovementStatus, MovementAction
+from handlers.encirclement_handlers import is_unit_exempt_from_engagement
 
 # Import is deferred to avoid circular imports - loaded when needed
 # from handlers.naval_movement_handlers import update_naval_transport_cargo
@@ -684,6 +685,10 @@ async def find_hostiles_in_territory(
         if state.current_territory_id != territory_id:
             continue
 
+        # Skip if all units in the group are exempt from engagement
+        if all(is_unit_exempt_from_engagement(u) for u in state.units):
+            continue
+
         is_hostile, reason = await are_unit_groups_hostile(
             conn, patrol_state.units, state.units, territory_id,
             patrol_state.action, state.action, guild_id
@@ -692,10 +697,11 @@ async def find_hostiles_in_territory(
             logger.debug(f"find_hostiles_in_territory: found hostile moving units in {territory_id}")
             return True, state.units, state, reason
 
-    # Check stationary units
+    # Check stationary units (filter out exempt units)
     all_units = await Unit.fetch_by_territory(conn, territory_id, guild_id)
     stationary = [u for u in all_units
-                  if u.id not in moving_unit_ids and u.status == 'ACTIVE']
+                  if u.id not in moving_unit_ids and u.status == 'ACTIVE'
+                  and not is_unit_exempt_from_engagement(u)]
 
     if stationary:
         # Group by faction and check hostility
@@ -983,8 +989,16 @@ async def check_engagement(
             if state_a.status != MovementStatus.MOVING:
                 continue
 
+            # Skip if all units in group are exempt from engagement
+            if all(is_unit_exempt_from_engagement(u) for u in state_a.units):
+                continue
+
             for state_b in moving_states[i+1:]:
                 if state_b.status != MovementStatus.MOVING:
+                    continue
+
+                # Skip if all units in group are exempt from engagement
+                if all(is_unit_exempt_from_engagement(u) for u in state_b.units):
                     continue
 
                 logger.debug(f"check_engagement: checking moving vs moving hostility")
@@ -1050,9 +1064,11 @@ async def check_engagement(
         all_units_in_territory = await Unit.fetch_by_territory(conn, territory_id, guild_id)
         logger.debug(f"check_engagement: found {len(all_units_in_territory)} total units in territory {territory_id}")
 
+        # Filter out exempt units (infiltrator/aerial) from stationary checks
         stationary_units = [u for u in all_units_in_territory
-                           if u.id not in moving_unit_ids and u.status == 'ACTIVE']
-        logger.debug(f"check_engagement: {len(stationary_units)} stationary ACTIVE units in territory {territory_id}")
+                           if u.id not in moving_unit_ids and u.status == 'ACTIVE'
+                           and not is_unit_exempt_from_engagement(u)]
+        logger.debug(f"check_engagement: {len(stationary_units)} stationary ACTIVE non-exempt units in territory {territory_id}")
 
         if stationary_units:
             for u in stationary_units:
@@ -1076,6 +1092,11 @@ async def check_engagement(
         for state in moving_states:
             if state.status != MovementStatus.MOVING:
                 logger.debug(f"check_engagement: skipping state (not MOVING), status={state.status}")
+                continue
+
+            # Skip if all units in moving group are exempt from engagement
+            if all(is_unit_exempt_from_engagement(u) for u in state.units):
+                logger.debug(f"check_engagement: skipping state (all units exempt from engagement)")
                 continue
 
             moving_unit_ids_str = [u.unit_id for u in state.units]

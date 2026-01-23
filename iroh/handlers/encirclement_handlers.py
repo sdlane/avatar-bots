@@ -358,7 +358,7 @@ async def bfs_can_reach_friendly(
 
 def unit_has_keyword(unit: Unit, keyword: str) -> bool:
     """
-    Check if a unit has a specific keyword.
+    Check if a unit has a specific keyword (case-insensitive).
 
     Args:
         unit: The unit to check
@@ -369,7 +369,23 @@ def unit_has_keyword(unit: Unit, keyword: str) -> bool:
     """
     if not unit.keywords:
         return False
-    return keyword in unit.keywords
+    keyword_lower = keyword.lower()
+    return any(k.lower() == keyword_lower for k in unit.keywords)
+
+
+def is_unit_exempt_from_engagement(unit: Unit) -> bool:
+    """
+    Check if a unit is exempt from engagement and encirclement.
+
+    Units with 'infiltrator' or 'aerial' keywords cannot be engaged or encircled.
+
+    Args:
+        unit: The unit to check
+
+    Returns:
+        True if unit is exempt, False otherwise
+    """
+    return unit_has_keyword(unit, 'infiltrator') or unit_has_keyword(unit, 'aerial')
 
 
 async def get_naval_convoy_territories(
@@ -567,6 +583,10 @@ async def check_unit_encircled(
     """
     # Naval units are never encircled
     if unit.is_naval:
+        return False
+
+    # Infiltrator and aerial units are never encircled
+    if is_unit_exempt_from_engagement(unit):
         return False
 
     # Transported units are not encircled (Phase 1)

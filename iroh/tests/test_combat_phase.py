@@ -882,3 +882,236 @@ async def test_allied_factions_combine_stats(db_conn, test_server):
     unit_b_updated = await Unit.fetch_by_unit_id(db_conn, "allied-unit-b", TEST_GUILD_ID)
     assert unit_a_updated.organization == 10
     assert unit_b_updated.organization == 10
+
+
+# ============================================================================
+# Infiltrator and Aerial Combat Exemption Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_infiltrator_excluded_from_combat(db_conn, test_server):
+    """Test that infiltrator units in territory with hostiles don't trigger combat."""
+    # Create characters
+    char_a = Character(
+        identifier="infil-combat-a", name="Infiltrator",
+        channel_id=999300000000000001, guild_id=TEST_GUILD_ID
+    )
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "infil-combat-a", TEST_GUILD_ID)
+
+    char_b = Character(
+        identifier="infil-combat-b", name="Defender",
+        channel_id=999300000000000002, guild_id=TEST_GUILD_ID
+    )
+    await char_b.upsert(db_conn)
+    char_b = await Character.fetch_by_identifier(db_conn, "infil-combat-b", TEST_GUILD_ID)
+
+    # Create factions at war
+    faction_a, faction_b = await create_faction_at_war(db_conn, "infil-combat-fa", "infil-combat-fb", "INFIL-COMBAT-WAR")
+
+    char_a.represented_faction_id = faction_a.id
+    await char_a.upsert(db_conn)
+    char_b.represented_faction_id = faction_b.id
+    await char_b.upsert(db_conn)
+
+    # Create territory
+    t1 = Territory(territory_id="INFIL-COMBAT-T1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create infiltrator unit
+    infiltrator = Unit(
+        unit_id="infil-combat-unit", unit_type="spy",
+        owner_character_id=char_a.id, faction_id=faction_a.id,
+        movement=2, organization=10, max_organization=10,
+        attack=1, defense=1,
+        current_territory_id="INFIL-COMBAT-T1", is_naval=False,
+        keywords=['infiltrator'],
+        guild_id=TEST_GUILD_ID
+    )
+    await infiltrator.upsert(db_conn)
+
+    # Create enemy unit
+    enemy = Unit(
+        unit_id="infil-combat-enemy", unit_type="infantry",
+        owner_character_id=char_b.id, faction_id=faction_b.id,
+        movement=2, organization=10, max_organization=10,
+        attack=5, defense=5,
+        current_territory_id="INFIL-COMBAT-T1", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await enemy.upsert(db_conn)
+
+    # Execute combat phase
+    events = await execute_combat_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # No combat should occur (infiltrator is exempt, only 1 combatant unit remains)
+    combat_started = [e for e in events if e.event_type == 'COMBAT_STARTED']
+    assert len(combat_started) == 0
+
+    # Both units should be unharmed
+    infiltrator_updated = await Unit.fetch_by_unit_id(db_conn, "infil-combat-unit", TEST_GUILD_ID)
+    enemy_updated = await Unit.fetch_by_unit_id(db_conn, "infil-combat-enemy", TEST_GUILD_ID)
+    assert infiltrator_updated.organization == 10
+    assert enemy_updated.organization == 10
+
+
+@pytest.mark.asyncio
+async def test_aerial_excluded_from_combat(db_conn, test_server):
+    """Test that aerial units in territory with hostiles don't trigger combat."""
+    # Create characters
+    char_a = Character(
+        identifier="aerial-combat-a", name="Aerial",
+        channel_id=999300000000000003, guild_id=TEST_GUILD_ID
+    )
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "aerial-combat-a", TEST_GUILD_ID)
+
+    char_b = Character(
+        identifier="aerial-combat-b", name="Defender",
+        channel_id=999300000000000004, guild_id=TEST_GUILD_ID
+    )
+    await char_b.upsert(db_conn)
+    char_b = await Character.fetch_by_identifier(db_conn, "aerial-combat-b", TEST_GUILD_ID)
+
+    # Create factions at war
+    faction_a, faction_b = await create_faction_at_war(db_conn, "aerial-combat-fa", "aerial-combat-fb", "AERIAL-COMBAT-WAR")
+
+    char_a.represented_faction_id = faction_a.id
+    await char_a.upsert(db_conn)
+    char_b.represented_faction_id = faction_b.id
+    await char_b.upsert(db_conn)
+
+    # Create territory
+    t1 = Territory(territory_id="AERIAL-COMBAT-T1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create aerial unit
+    aerial = Unit(
+        unit_id="aerial-combat-unit", unit_type="flying_bison",
+        owner_character_id=char_a.id, faction_id=faction_a.id,
+        movement=3, organization=10, max_organization=10,
+        attack=2, defense=2,
+        current_territory_id="AERIAL-COMBAT-T1", is_naval=False,
+        keywords=['aerial'],
+        guild_id=TEST_GUILD_ID
+    )
+    await aerial.upsert(db_conn)
+
+    # Create enemy unit
+    enemy = Unit(
+        unit_id="aerial-combat-enemy", unit_type="infantry",
+        owner_character_id=char_b.id, faction_id=faction_b.id,
+        movement=2, organization=10, max_organization=10,
+        attack=5, defense=5,
+        current_territory_id="AERIAL-COMBAT-T1", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await enemy.upsert(db_conn)
+
+    # Execute combat phase
+    events = await execute_combat_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # No combat should occur (aerial is exempt, only 1 combatant unit remains)
+    combat_started = [e for e in events if e.event_type == 'COMBAT_STARTED']
+    assert len(combat_started) == 0
+
+    # Both units should be unharmed
+    aerial_updated = await Unit.fetch_by_unit_id(db_conn, "aerial-combat-unit", TEST_GUILD_ID)
+    enemy_updated = await Unit.fetch_by_unit_id(db_conn, "aerial-combat-enemy", TEST_GUILD_ID)
+    assert aerial_updated.organization == 10
+    assert enemy_updated.organization == 10
+
+
+@pytest.mark.asyncio
+async def test_combat_still_occurs_with_non_exempt_units(db_conn, test_server):
+    """Test that combat occurs when non-exempt units are present even if exempt units exist."""
+    # Create characters
+    char_a = Character(
+        identifier="mixed-combat-a", name="Mixed A",
+        channel_id=999300000000000005, guild_id=TEST_GUILD_ID
+    )
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "mixed-combat-a", TEST_GUILD_ID)
+
+    char_b = Character(
+        identifier="mixed-combat-b", name="Mixed B",
+        channel_id=999300000000000006, guild_id=TEST_GUILD_ID
+    )
+    await char_b.upsert(db_conn)
+    char_b = await Character.fetch_by_identifier(db_conn, "mixed-combat-b", TEST_GUILD_ID)
+
+    # Create factions at war
+    faction_a, faction_b = await create_faction_at_war(db_conn, "mixed-combat-fa", "mixed-combat-fb", "MIXED-COMBAT-WAR")
+
+    char_a.represented_faction_id = faction_a.id
+    await char_a.upsert(db_conn)
+    char_b.represented_faction_id = faction_b.id
+    await char_b.upsert(db_conn)
+
+    # Create territory
+    t1 = Territory(territory_id="MIXED-COMBAT-T1", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    t2 = Territory(territory_id="MIXED-COMBAT-T2", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t2.upsert(db_conn)
+    adj = TerritoryAdjacency(territory_a_id="MIXED-COMBAT-T1", territory_b_id="MIXED-COMBAT-T2", guild_id=TEST_GUILD_ID)
+    await adj.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create an infiltrator unit (exempt from combat)
+    infiltrator = Unit(
+        unit_id="mixed-infil", unit_type="spy",
+        owner_character_id=char_a.id, faction_id=faction_a.id,
+        movement=2, organization=10, max_organization=10,
+        attack=1, defense=1,
+        current_territory_id="MIXED-COMBAT-T1", is_naval=False,
+        keywords=['infiltrator'],
+        guild_id=TEST_GUILD_ID
+    )
+    await infiltrator.upsert(db_conn)
+
+    # Create a regular combat unit from faction A
+    unit_a = Unit(
+        unit_id="mixed-unit-a", unit_type="infantry",
+        owner_character_id=char_a.id, faction_id=faction_a.id,
+        movement=2, organization=10, max_organization=10,
+        attack=5, defense=3,
+        current_territory_id="MIXED-COMBAT-T1", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit_a.upsert(db_conn)
+
+    # Create enemy unit
+    unit_b = Unit(
+        unit_id="mixed-unit-b", unit_type="infantry",
+        owner_character_id=char_b.id, faction_id=faction_b.id,
+        movement=2, organization=10, max_organization=10,
+        attack=4, defense=4,
+        current_territory_id="MIXED-COMBAT-T1", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await unit_b.upsert(db_conn)
+
+    # Execute combat phase
+    events = await execute_combat_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Combat SHOULD occur between the non-exempt units
+    combat_started = [e for e in events if e.event_type == 'COMBAT_STARTED']
+    assert len(combat_started) == 1
+
+    # The infiltrator should NOT be involved - check participating_units
+    combat_data = combat_started[0].event_data
+    assert 'mixed-infil' not in combat_data['participating_units']
+    assert 'mixed-unit-a' in combat_data['participating_units']
+    assert 'mixed-unit-b' in combat_data['participating_units']
+
+    # Infiltrator should be unharmed
+    infiltrator_updated = await Unit.fetch_by_unit_id(db_conn, "mixed-infil", TEST_GUILD_ID)
+    assert infiltrator_updated.organization == 10

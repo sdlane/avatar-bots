@@ -3651,3 +3651,325 @@ def test_transport_progress_character_line():
     assert 'LAND-001' in line
     assert 'Water2' in line
     assert '2/3' in line
+
+
+# ============================================================================
+# Infiltrator and Aerial Engagement Exemption Tests
+# ============================================================================
+
+@pytest.mark.asyncio
+async def test_infiltrator_unit_does_not_engage_moving_vs_stationary(db_conn, test_server):
+    """Test that infiltrator units do not engage with stationary hostile units."""
+    # Create factions at war
+    faction_a = Faction(faction_id="infil-faction-a", name="Faction A", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "infil-faction-a", TEST_GUILD_ID)
+
+    faction_b = Faction(faction_id="infil-faction-b", name="Faction B", guild_id=TEST_GUILD_ID)
+    await faction_b.upsert(db_conn)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "infil-faction-b", TEST_GUILD_ID)
+
+    # Create war
+    war = War(war_id="INFIL-WAR", objective="Test", guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "INFIL-WAR", TEST_GUILD_ID)
+
+    wp_a = WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", guild_id=TEST_GUILD_ID)
+    await wp_a.upsert(db_conn)
+    wp_b = WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", guild_id=TEST_GUILD_ID)
+    await wp_b.upsert(db_conn)
+
+    # Create characters
+    char_a = Character(
+        identifier="infil-char-a", name="Infiltrator Char",
+        channel_id=999200000000000001,
+        represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID
+    )
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "infil-char-a", TEST_GUILD_ID)
+
+    char_b = Character(
+        identifier="infil-char-b", name="Defender Char",
+        channel_id=999200000000000002,
+        represented_faction_id=faction_b.id, guild_id=TEST_GUILD_ID
+    )
+    await char_b.upsert(db_conn)
+    char_b = await Character.fetch_by_identifier(db_conn, "infil-char-b", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="INFIL-T1", name="Start", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="INFIL-T2", name="Hostile Territory", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create infiltrator unit
+    infiltrator = Unit(
+        unit_id="infil-unit-1", name="Infiltrator", unit_type="spy",
+        owner_character_id=char_a.id, faction_id=faction_a.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="INFIL-T1", is_naval=False,
+        keywords=['infiltrator'],
+        guild_id=TEST_GUILD_ID
+    )
+    await infiltrator.upsert(db_conn)
+    infiltrator = await Unit.fetch_by_unit_id(db_conn, "infil-unit-1", TEST_GUILD_ID)
+
+    # Create stationary enemy unit at destination
+    enemy = Unit(
+        unit_id="infil-enemy-1", name="Enemy", unit_type="infantry",
+        owner_character_id=char_b.id, faction_id=faction_b.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="INFIL-T2", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await enemy.upsert(db_conn)
+
+    # Create transit order for infiltrator
+    order = Order(
+        order_id="infil-order-1",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[infiltrator.id],
+        character_id=char_a.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'transit',
+            'path': ['INFIL-T1', 'INFIL-T2'],
+            'path_index': 0
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute movement phase
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Infiltrator should have completed transit without engaging
+    updated_infil = await Unit.fetch_by_unit_id(db_conn, "infil-unit-1", TEST_GUILD_ID)
+    assert updated_infil.current_territory_id == "INFIL-T2"
+
+    # Order should be SUCCESS (not stuck in ENGAGED state)
+    updated_order = await Order.fetch_by_order_id(db_conn, "infil-order-1", TEST_GUILD_ID)
+    assert updated_order.status == OrderStatus.SUCCESS.value
+
+    # There should be no ENGAGEMENT_DETECTED events
+    engagement_events = [e for e in events if e.event_type == 'ENGAGEMENT_DETECTED']
+    assert len(engagement_events) == 0
+
+
+@pytest.mark.asyncio
+async def test_aerial_unit_does_not_engage_moving_vs_stationary(db_conn, test_server):
+    """Test that aerial units do not engage with stationary hostile units."""
+    # Create factions at war
+    faction_a = Faction(faction_id="aerial-faction-a", name="Air Faction", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "aerial-faction-a", TEST_GUILD_ID)
+
+    faction_b = Faction(faction_id="aerial-faction-b", name="Ground Faction", guild_id=TEST_GUILD_ID)
+    await faction_b.upsert(db_conn)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "aerial-faction-b", TEST_GUILD_ID)
+
+    # Create war
+    war = War(war_id="AERIAL-WAR", objective="Test", guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "AERIAL-WAR", TEST_GUILD_ID)
+
+    wp_a = WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", guild_id=TEST_GUILD_ID)
+    await wp_a.upsert(db_conn)
+    wp_b = WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", guild_id=TEST_GUILD_ID)
+    await wp_b.upsert(db_conn)
+
+    # Create characters
+    char_a = Character(
+        identifier="aerial-char-a", name="Aerial Char",
+        channel_id=999200000000000003,
+        represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID
+    )
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "aerial-char-a", TEST_GUILD_ID)
+
+    char_b = Character(
+        identifier="aerial-char-b", name="Defender Char",
+        channel_id=999200000000000004,
+        represented_faction_id=faction_b.id, guild_id=TEST_GUILD_ID
+    )
+    await char_b.upsert(db_conn)
+    char_b = await Character.fetch_by_identifier(db_conn, "aerial-char-b", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="AERIAL-T1", name="Start", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="AERIAL-T2", name="Hostile Territory", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create aerial unit
+    aerial = Unit(
+        unit_id="aerial-unit-1", name="Sky Bison", unit_type="flying_bison",
+        owner_character_id=char_a.id, faction_id=faction_a.id,
+        movement=3, organization=10, max_organization=10,
+        current_territory_id="AERIAL-T1", is_naval=False,
+        keywords=['aerial'],
+        guild_id=TEST_GUILD_ID
+    )
+    await aerial.upsert(db_conn)
+    aerial = await Unit.fetch_by_unit_id(db_conn, "aerial-unit-1", TEST_GUILD_ID)
+
+    # Create stationary enemy unit at destination
+    enemy = Unit(
+        unit_id="aerial-enemy-1", name="Enemy", unit_type="infantry",
+        owner_character_id=char_b.id, faction_id=faction_b.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="AERIAL-T2", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await enemy.upsert(db_conn)
+
+    # Create transit order for aerial unit
+    order = Order(
+        order_id="aerial-order-1",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[aerial.id],
+        character_id=char_a.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'transit',
+            'path': ['AERIAL-T1', 'AERIAL-T2'],
+            'path_index': 0
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute movement phase
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Aerial unit should have completed transit without engaging
+    updated_aerial = await Unit.fetch_by_unit_id(db_conn, "aerial-unit-1", TEST_GUILD_ID)
+    assert updated_aerial.current_territory_id == "AERIAL-T2"
+
+    # Order should be SUCCESS
+    updated_order = await Order.fetch_by_order_id(db_conn, "aerial-order-1", TEST_GUILD_ID)
+    assert updated_order.status == OrderStatus.SUCCESS.value
+
+    # There should be no ENGAGEMENT_DETECTED events
+    engagement_events = [e for e in events if e.event_type == 'ENGAGEMENT_DETECTED']
+    assert len(engagement_events) == 0
+
+
+@pytest.mark.asyncio
+async def test_stationary_infiltrator_not_engaged_by_enemies(db_conn, test_server):
+    """Test that a stationary infiltrator unit is not engaged by moving hostile units."""
+    # Create factions at war
+    faction_a = Faction(faction_id="stat-infil-a", name="Faction A", guild_id=TEST_GUILD_ID)
+    await faction_a.upsert(db_conn)
+    faction_a = await Faction.fetch_by_faction_id(db_conn, "stat-infil-a", TEST_GUILD_ID)
+
+    faction_b = Faction(faction_id="stat-infil-b", name="Faction B", guild_id=TEST_GUILD_ID)
+    await faction_b.upsert(db_conn)
+    faction_b = await Faction.fetch_by_faction_id(db_conn, "stat-infil-b", TEST_GUILD_ID)
+
+    # Create war
+    war = War(war_id="STAT-INFIL-WAR", objective="Test", guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "STAT-INFIL-WAR", TEST_GUILD_ID)
+
+    wp_a = WarParticipant(war_id=war.id, faction_id=faction_a.id, side="SIDE_A", guild_id=TEST_GUILD_ID)
+    await wp_a.upsert(db_conn)
+    wp_b = WarParticipant(war_id=war.id, faction_id=faction_b.id, side="SIDE_B", guild_id=TEST_GUILD_ID)
+    await wp_b.upsert(db_conn)
+
+    # Create characters
+    char_a = Character(
+        identifier="stat-infil-char-a", name="Attacker Char",
+        channel_id=999200000000000005,
+        represented_faction_id=faction_a.id, guild_id=TEST_GUILD_ID
+    )
+    await char_a.upsert(db_conn)
+    char_a = await Character.fetch_by_identifier(db_conn, "stat-infil-char-a", TEST_GUILD_ID)
+
+    char_b = Character(
+        identifier="stat-infil-char-b", name="Infiltrator Char",
+        channel_id=999200000000000006,
+        represented_faction_id=faction_b.id, guild_id=TEST_GUILD_ID
+    )
+    await char_b.upsert(db_conn)
+    char_b = await Character.fetch_by_identifier(db_conn, "stat-infil-char-b", TEST_GUILD_ID)
+
+    # Create territories
+    t1 = Territory(territory_id="STAT-INFIL-T1", name="Start", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    t2 = Territory(territory_id="STAT-INFIL-T2", name="Infiltrator Territory", terrain_type="plains", guild_id=TEST_GUILD_ID)
+    await t1.upsert(db_conn)
+    await t2.upsert(db_conn)
+
+    config = WargameConfig(current_turn=0, guild_id=TEST_GUILD_ID)
+    await config.upsert(db_conn)
+
+    # Create moving enemy unit
+    attacker = Unit(
+        unit_id="stat-infil-attacker", name="Attacker", unit_type="infantry",
+        owner_character_id=char_a.id, faction_id=faction_a.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="STAT-INFIL-T1", is_naval=False,
+        guild_id=TEST_GUILD_ID
+    )
+    await attacker.upsert(db_conn)
+    attacker = await Unit.fetch_by_unit_id(db_conn, "stat-infil-attacker", TEST_GUILD_ID)
+
+    # Create stationary infiltrator at destination
+    infiltrator = Unit(
+        unit_id="stat-infil-defender", name="Infiltrator", unit_type="spy",
+        owner_character_id=char_b.id, faction_id=faction_b.id,
+        movement=2, organization=10, max_organization=10,
+        current_territory_id="STAT-INFIL-T2", is_naval=False,
+        keywords=['infiltrator'],
+        guild_id=TEST_GUILD_ID
+    )
+    await infiltrator.upsert(db_conn)
+
+    # Create transit order for attacker to move to infiltrator's territory
+    order = Order(
+        order_id="stat-infil-order",
+        order_type=OrderType.UNIT.value,
+        unit_ids=[attacker.id],
+        character_id=char_a.id,
+        turn_number=1,
+        phase=TurnPhase.MOVEMENT.value,
+        priority=ORDER_PRIORITY_MAP[OrderType.UNIT],
+        status=OrderStatus.PENDING.value,
+        order_data={
+            'action': 'transit',
+            'path': ['STAT-INFIL-T1', 'STAT-INFIL-T2'],
+            'path_index': 0
+        },
+        submitted_at=datetime.now(),
+        guild_id=TEST_GUILD_ID
+    )
+    await order.upsert(db_conn)
+
+    # Execute movement phase
+    events = await execute_movement_phase(db_conn, TEST_GUILD_ID, 1)
+
+    # Attacker should have completed transit without engaging the infiltrator
+    updated_attacker = await Unit.fetch_by_unit_id(db_conn, "stat-infil-attacker", TEST_GUILD_ID)
+    assert updated_attacker.current_territory_id == "STAT-INFIL-T2"
+
+    # Order should be SUCCESS
+    updated_order = await Order.fetch_by_order_id(db_conn, "stat-infil-order", TEST_GUILD_ID)
+    assert updated_order.status == OrderStatus.SUCCESS.value
+
+    # There should be no ENGAGEMENT_DETECTED events (infiltrator is exempt)
+    engagement_events = [e for e in events if e.event_type == 'ENGAGEMENT_DETECTED']
+    assert len(engagement_events) == 0

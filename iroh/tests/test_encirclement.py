@@ -848,3 +848,189 @@ async def test_faction_owned_encircled_unit(db_conn, test_server):
     # Verify unit organization reduced
     updated_unit = await Unit.fetch_by_unit_id(db_conn, "faction-unit", TEST_GUILD_ID)
     assert updated_unit.organization == 7
+
+
+# =============================================================================
+# Infiltrator and Aerial Unit Exemption Tests
+# =============================================================================
+
+@pytest.mark.asyncio
+async def test_infiltrator_unit_never_encircled(db_conn, test_server):
+    """Test that units with 'infiltrator' keyword are never encircled."""
+    # Create factions
+    faction1 = Faction(faction_id="earth-kingdom", name="Earth Kingdom", guild_id=TEST_GUILD_ID)
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "earth-kingdom", TEST_GUILD_ID)
+
+    faction2 = Faction(faction_id="fire-nation", name="Fire Nation", guild_id=TEST_GUILD_ID)
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "fire-nation", TEST_GUILD_ID)
+
+    # Create war between factions
+    war = War(war_id="WAR-INF", objective="Conquest", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-INF", TEST_GUILD_ID)
+
+    wp1 = WarParticipant(war_id=war.id, faction_id=faction1.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID)
+    await wp1.upsert(db_conn)
+    wp2 = WarParticipant(war_id=war.id, faction_id=faction2.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID)
+    await wp2.upsert(db_conn)
+
+    # Create character
+    character = Character(
+        identifier="infiltrator-tester", name="Infiltrator Tester",
+        channel_id=999000000000000101,
+        represented_faction_id=faction1.id, guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "infiltrator-tester", TEST_GUILD_ID)
+
+    # Create territories - unit surrounded by enemy (would normally be encircled)
+    isolated = Territory(
+        territory_id="infiltrator-isolated", name="Isolated",
+        terrain_type="plains", guild_id=TEST_GUILD_ID
+    )
+    await isolated.upsert(db_conn)
+
+    enemy_territory = Territory(
+        territory_id="infiltrator-enemy", name="Enemy Territory",
+        terrain_type="plains", controller_faction_id=faction2.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await enemy_territory.upsert(db_conn)
+
+    # Create adjacency (only exit is through enemy)
+    adj = TerritoryAdjacency(territory_a_id="infiltrator-enemy", territory_b_id="infiltrator-isolated", guild_id=TEST_GUILD_ID)
+    await adj.upsert(db_conn)
+
+    # Create infiltrator unit in surrounded territory
+    unit = Unit(
+        unit_id="infiltrator-unit", name="Infiltrator Unit", unit_type="spy",
+        owner_character_id=character.id,
+        is_naval=False,
+        current_territory_id="infiltrator-isolated",
+        organization=10, max_organization=10,
+        keywords=['infiltrator'],  # This exempts from encirclement
+        guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "infiltrator-unit", TEST_GUILD_ID)
+
+    # Check encirclement directly
+    is_encircled = await check_unit_encircled(db_conn, unit, TEST_GUILD_ID)
+
+    # Infiltrator should NOT be encircled despite being surrounded
+    assert is_encircled is False
+
+
+@pytest.mark.asyncio
+async def test_aerial_unit_never_encircled(db_conn, test_server):
+    """Test that units with 'aerial' keyword are never encircled."""
+    # Create factions
+    faction1 = Faction(faction_id="air-nomads", name="Air Nomads", guild_id=TEST_GUILD_ID)
+    await faction1.upsert(db_conn)
+    faction1 = await Faction.fetch_by_faction_id(db_conn, "air-nomads", TEST_GUILD_ID)
+
+    faction2 = Faction(faction_id="fire-nation", name="Fire Nation", guild_id=TEST_GUILD_ID)
+    await faction2.upsert(db_conn)
+    faction2 = await Faction.fetch_by_faction_id(db_conn, "fire-nation", TEST_GUILD_ID)
+
+    # Create war between factions
+    war = War(war_id="WAR-AER", objective="Conquest", declared_turn=1, guild_id=TEST_GUILD_ID)
+    await war.upsert(db_conn)
+    war = await War.fetch_by_id(db_conn, "WAR-AER", TEST_GUILD_ID)
+
+    wp1 = WarParticipant(war_id=war.id, faction_id=faction1.id, side="SIDE_A", joined_turn=1, guild_id=TEST_GUILD_ID)
+    await wp1.upsert(db_conn)
+    wp2 = WarParticipant(war_id=war.id, faction_id=faction2.id, side="SIDE_B", joined_turn=1, guild_id=TEST_GUILD_ID)
+    await wp2.upsert(db_conn)
+
+    # Create character
+    character = Character(
+        identifier="aerial-tester", name="Aerial Tester",
+        channel_id=999000000000000102,
+        represented_faction_id=faction1.id, guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "aerial-tester", TEST_GUILD_ID)
+
+    # Create territories - unit surrounded by enemy (would normally be encircled)
+    isolated = Territory(
+        territory_id="aerial-isolated", name="Isolated",
+        terrain_type="plains", guild_id=TEST_GUILD_ID
+    )
+    await isolated.upsert(db_conn)
+
+    enemy_territory = Territory(
+        territory_id="aerial-enemy", name="Enemy Territory",
+        terrain_type="plains", controller_faction_id=faction2.id,
+        guild_id=TEST_GUILD_ID
+    )
+    await enemy_territory.upsert(db_conn)
+
+    # Create adjacency (only exit is through enemy)
+    adj = TerritoryAdjacency(territory_a_id="aerial-enemy", territory_b_id="aerial-isolated", guild_id=TEST_GUILD_ID)
+    await adj.upsert(db_conn)
+
+    # Create aerial unit in surrounded territory
+    unit = Unit(
+        unit_id="aerial-unit", name="Aerial Unit", unit_type="sky_bison",
+        owner_character_id=character.id,
+        is_naval=False,
+        current_territory_id="aerial-isolated",
+        organization=10, max_organization=10,
+        keywords=['aerial'],  # This exempts from encirclement
+        guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "aerial-unit", TEST_GUILD_ID)
+
+    # Check encirclement directly
+    is_encircled = await check_unit_encircled(db_conn, unit, TEST_GUILD_ID)
+
+    # Aerial unit should NOT be encircled despite being surrounded
+    assert is_encircled is False
+
+
+@pytest.mark.asyncio
+async def test_infiltrator_keyword_case_insensitive(db_conn, test_server):
+    """Test that 'Infiltrator' keyword check is case-insensitive."""
+    # Create faction
+    faction = Faction(faction_id="earth-kingdom-case", name="Earth Kingdom", guild_id=TEST_GUILD_ID)
+    await faction.upsert(db_conn)
+    faction = await Faction.fetch_by_faction_id(db_conn, "earth-kingdom-case", TEST_GUILD_ID)
+
+    # Create character
+    character = Character(
+        identifier="case-tester", name="Case Tester",
+        channel_id=999000000000000103,
+        represented_faction_id=faction.id, guild_id=TEST_GUILD_ID
+    )
+    await character.upsert(db_conn)
+    character = await Character.fetch_by_identifier(db_conn, "case-tester", TEST_GUILD_ID)
+
+    # Create territory (isolated, no friendly connection)
+    territory = Territory(
+        territory_id="case-isolated", name="Case Isolated",
+        terrain_type="plains", guild_id=TEST_GUILD_ID
+    )
+    await territory.upsert(db_conn)
+
+    # Create unit with mixed-case 'INFILTRATOR' keyword
+    unit = Unit(
+        unit_id="case-infiltrator", name="Case Infiltrator", unit_type="spy",
+        owner_character_id=character.id,
+        is_naval=False,
+        current_territory_id="case-isolated",
+        organization=10, max_organization=10,
+        keywords=['INFILTRATOR'],  # Upper case should still work
+        guild_id=TEST_GUILD_ID
+    )
+    await unit.upsert(db_conn)
+    unit = await Unit.fetch_by_unit_id(db_conn, "case-infiltrator", TEST_GUILD_ID)
+
+    # Check encirclement directly
+    is_encircled = await check_unit_encircled(db_conn, unit, TEST_GUILD_ID)
+
+    # Should NOT be encircled (keyword check is case-insensitive)
+    assert is_encircled is False
