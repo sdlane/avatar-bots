@@ -628,6 +628,15 @@ async def submit_unit_order(
         if not is_naval_action and unit.is_naval:
             return False, f"Unit '{unit.unit_id}' is a naval unit but you specified a land action '{action}'.", None
 
+    # Infiltrator and aerial units cannot perform patrol, capture, or siege actions
+    RESTRICTED_ACTIONS = ['patrol', 'capture', 'siege']
+    if action in RESTRICTED_ACTIONS:
+        for unit in units:
+            if unit.keywords:
+                keywords_lower = [k.lower() for k in unit.keywords]
+                if 'infiltrator' in keywords_lower or 'aerial' in keywords_lower:
+                    return False, f"Unit '{unit.unit_id}' has infiltrator/aerial keyword and cannot perform '{action}' action.", None
+
     # Validate authorization for all units
     unauthorized_units = []
     for unit in units:
@@ -666,6 +675,18 @@ async def submit_unit_order(
             territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
             if territory and territory.terrain_type.lower() not in WATER_TERRAIN_TYPES:
                 return False, f"Naval units cannot traverse land territory '{territory_id}' (terrain: {territory.terrain_type}).", None
+
+    # Validate terrain for land actions (no water unless all infiltrators)
+    if not is_naval_action and action != 'transport':
+        all_infiltrators = all(
+            unit.keywords and any(k.lower() == 'infiltrator' for k in unit.keywords)
+            for unit in units
+        )
+        if not all_infiltrators:
+            for territory_id in path:
+                territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+                if territory and territory.terrain_type.lower() in WATER_TERRAIN_TYPES:
+                    return False, f"Land units cannot traverse water territory '{territory_id}'. Use transport orders for water crossing.", None
 
     # Action-specific validation: Siege requires city terrain at path end
     if action == 'siege':

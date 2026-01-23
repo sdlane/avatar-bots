@@ -77,6 +77,30 @@ def calculate_movement_points(units: List[Unit], action: str) -> int:
     return base_mp + bonus
 
 
+def unit_group_ignores_terrain_cost(units: List[Unit]) -> bool:
+    """
+    Check if ALL units in group have infiltrator or aerial keyword.
+
+    Units with these keywords always pay 1 MP for terrain regardless of terrain type.
+
+    Args:
+        units: List of units in the movement group
+
+    Returns:
+        True if all units have infiltrator or aerial keyword, False otherwise
+    """
+    if not units:
+        return False
+    for unit in units:
+        has_keyword = (
+            unit.keywords and
+            any(k.lower() in ('infiltrator', 'aerial') for k in unit.keywords)
+        )
+        if not has_keyword:
+            return False
+    return True
+
+
 async def get_affected_character_ids(conn: asyncpg.Connection, units: List[Unit], guild_id: int) -> List[int]:
     """
     Get character IDs that should be notified about movement events.
@@ -561,8 +585,11 @@ async def try_move_unit_group(
             state.status = MovementStatus.PATH_COMPLETE
             return False, None
 
-    # Get terrain cost
-    terrain_cost = await get_terrain_cost(conn, next_territory, guild_id)
+    # Get terrain cost (infiltrator/aerial units always pay 1)
+    if unit_group_ignores_terrain_cost(state.units):
+        terrain_cost = DEFAULT_TERRAIN_COST
+    else:
+        terrain_cost = await get_terrain_cost(conn, next_territory, guild_id)
 
     # Check if we have enough MP
     if terrain_cost > state.remaining_mp:
@@ -896,7 +923,10 @@ async def process_patrol_engagement(
         # Filter to reachable territories and sort alphabetically
         reachable: List[Tuple[str, int]] = []
         for territory_id in adjacent:
-            terrain_cost = await get_terrain_cost(conn, territory_id, guild_id)
+            if unit_group_ignores_terrain_cost(patrol_state.units):
+                terrain_cost = DEFAULT_TERRAIN_COST
+            else:
+                terrain_cost = await get_terrain_cost(conn, territory_id, guild_id)
             if terrain_cost <= patrol_state.remaining_mp:
                 reachable.append((territory_id, terrain_cost))
 
