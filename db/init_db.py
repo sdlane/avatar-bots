@@ -130,7 +130,7 @@ async def ensure_tables():
     );
     """)
 
-    # Migration: Rename guild_int to guild_id if it exists (fix for typo)
+    # Migration: Drop guild_int column if it exists (fix for typo)
     await conn.execute("""
         DO $$
         BEGIN
@@ -138,7 +138,7 @@ async def ensure_tables():
                 SELECT 1 FROM information_schema.columns
                 WHERE table_name = 'hawkytask' AND column_name = 'guild_int'
             ) THEN
-                ALTER TABLE HawkyTask RENAME COLUMN guild_int TO guild_id;
+                ALTER TABLE HawkyTask DROP COLUMN guild_int;
             END IF;
         END $$;
     """)
