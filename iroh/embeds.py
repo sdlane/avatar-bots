@@ -901,3 +901,232 @@ def create_faction_victory_points_embed(data: dict) -> discord.Embed:
         )
 
     return embed
+
+
+def format_resource_totals(totals, show_zeros: bool = False) -> str:
+    """
+    Format resource totals as an emoji line.
+
+    Args:
+        totals: ResourceTotals object or dict with resource keys
+        show_zeros: If True, show resources even if zero
+
+    Returns:
+        Formatted string like "⛏️ 5 | 🪵 3 | 🍖 2"
+    """
+    # Handle both ResourceTotals objects and dicts
+    if hasattr(totals, 'to_dict'):
+        values = totals.to_dict()
+    else:
+        values = totals
+
+    parts = []
+    resource_emojis = [
+        ('ore', '⛏️'),
+        ('lumber', '🪵'),
+        ('coal', '⚫'),
+        ('rations', '🍖'),
+        ('cloth', '🧵'),
+        ('platinum', '🪙')
+    ]
+
+    for key, emoji in resource_emojis:
+        value = values.get(key, 0)
+        if show_zeros or value != 0:
+            parts.append(f"{emoji} {value}")
+
+    return " | ".join(parts) if parts else "None"
+
+
+def create_character_finances_embed(data: dict) -> discord.Embed:
+    """Create a rich embed displaying character financial report."""
+    character = data['character']
+
+    embed = discord.Embed(
+        title=f"Financial Report: {character.name}",
+        description=f"Character: `{character.identifier}`",
+        color=discord.Color.gold()
+    )
+
+    # Current Resources
+    current = data['current_resources']
+    embed.add_field(
+        name="Current Resources",
+        value=format_resource_totals(current, show_zeros=True),
+        inline=False
+    )
+
+    # Personal Production
+    personal_prod = data['personal_production']
+    if not personal_prod.is_empty():
+        embed.add_field(
+            name="Personal Production",
+            value=format_resource_totals(personal_prod),
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Personal Production",
+            value="None",
+            inline=False
+        )
+
+    # Territory Production
+    territory_prod = data['territory_production']
+    territory_count = data['territory_count']
+    if territory_count > 0:
+        embed.add_field(
+            name=f"Territory Production ({territory_count} {'territory' if territory_count == 1 else 'territories'})",
+            value=format_resource_totals(territory_prod) if not territory_prod.is_empty() else "None",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Territory Production",
+            value="No territories controlled",
+            inline=False
+        )
+
+    # Unit Upkeep
+    unit_upkeep = data['unit_upkeep']
+    unit_count = data['unit_count']
+    if unit_count > 0:
+        embed.add_field(
+            name=f"Unit Upkeep ({unit_count} {'unit' if unit_count == 1 else 'units'})",
+            value=format_resource_totals(unit_upkeep) if not unit_upkeep.is_empty() else "None",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Unit Upkeep",
+            value="No active units",
+            inline=False
+        )
+
+    # Building Upkeep
+    building_upkeep = data['building_upkeep']
+    building_count = data['building_count']
+    if building_count > 0:
+        embed.add_field(
+            name=f"Building Upkeep ({building_count} {'building' if building_count == 1 else 'buildings'})",
+            value=format_resource_totals(building_upkeep) if not building_upkeep.is_empty() else "None",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Building Upkeep",
+            value="No active buildings",
+            inline=False
+        )
+
+    # Outgoing Transfers
+    outgoing = data['outgoing_transfers']
+    transfer_count = data['transfer_count']
+    if transfer_count > 0:
+        embed.add_field(
+            name=f"Outgoing Transfers ({transfer_count} {'transfer' if transfer_count == 1 else 'transfers'})",
+            value=format_resource_totals(outgoing),
+            inline=False
+        )
+
+    # Net Resources (emphasized)
+    net = data['net_resources']
+    embed.add_field(
+        name="**Net Resources (per turn)**",
+        value=f"**{format_resource_totals(net, show_zeros=True)}**",
+        inline=False
+    )
+
+    return embed
+
+
+def create_faction_finances_embed(data: dict) -> discord.Embed:
+    """Create a rich embed displaying faction financial report."""
+    faction = data['faction']
+
+    embed = discord.Embed(
+        title=f"Financial Report: {faction.name}",
+        description=f"Faction ID: `{faction.faction_id}`",
+        color=discord.Color.gold()
+    )
+
+    # Current Resources (Treasury)
+    current = data['current_resources']
+    embed.add_field(
+        name="Current Treasury",
+        value=format_resource_totals(current, show_zeros=True),
+        inline=False
+    )
+
+    # Territory Production
+    territory_prod = data['territory_production']
+    territory_count = data['territory_count']
+    if territory_count > 0:
+        embed.add_field(
+            name=f"Territory Production ({territory_count} {'territory' if territory_count == 1 else 'territories'})",
+            value=format_resource_totals(territory_prod) if not territory_prod.is_empty() else "None",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Territory Production",
+            value="No territories controlled",
+            inline=False
+        )
+
+    # Unit Upkeep
+    unit_upkeep = data['unit_upkeep']
+    unit_count = data['unit_count']
+    if unit_count > 0:
+        embed.add_field(
+            name=f"Unit Upkeep ({unit_count} {'unit' if unit_count == 1 else 'units'})",
+            value=format_resource_totals(unit_upkeep) if not unit_upkeep.is_empty() else "None",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Unit Upkeep",
+            value="No active faction-owned units",
+            inline=False
+        )
+
+    # Building Upkeep
+    building_upkeep = data['building_upkeep']
+    building_count = data['building_count']
+    if building_count > 0:
+        embed.add_field(
+            name=f"Building Upkeep ({building_count} {'building' if building_count == 1 else 'buildings'})",
+            value=format_resource_totals(building_upkeep) if not building_upkeep.is_empty() else "None",
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Building Upkeep",
+            value="No active buildings",
+            inline=False
+        )
+
+    # Public Works Spending
+    spending = data['spending_targets']
+    if not spending.is_empty():
+        embed.add_field(
+            name="Public Works Spending",
+            value=format_resource_totals(spending),
+            inline=False
+        )
+    else:
+        embed.add_field(
+            name="Public Works Spending",
+            value="None configured",
+            inline=False
+        )
+
+    # Net Resources (emphasized)
+    net = data['net_resources']
+    embed.add_field(
+        name="**Net Resources (per turn)**",
+        value=f"**{format_resource_totals(net, show_zeros=True)}**",
+        inline=False
+    )
+
+    return embed

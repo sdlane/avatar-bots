@@ -17,4 +17,5 @@ from .alliance_handlers import *
 from .turn_handlers import *
 from .config_handlers import *
 from .report_handlers import *
+from .finance_handlers import *
 

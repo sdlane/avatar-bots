@@ -184,6 +184,7 @@ async def ensure_tables():
         platinum_production INTEGER DEFAULT 0,
         controller_character_id INTEGER REFERENCES Character(id) ON DELETE SET NULL,
         original_nation VARCHAR(50),
+        keywords TEXT[],
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(territory_id, guild_id)
     );
@@ -205,6 +206,7 @@ async def ensure_tables():
 
     # Add controller_faction_id for faction ownership of territories
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS controller_faction_id INTEGER;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS keywords TEXT[];")
 
     # Migration: Change territory_id from INTEGER to VARCHAR(50) for existing databases
     await conn.execute("""
@@ -536,6 +538,7 @@ async def ensure_tables():
         upkeep_rations INTEGER DEFAULT 0,
         upkeep_cloth INTEGER DEFAULT 0,
         upkeep_platinum INTEGER DEFAULT 0,
+        keywords TEXT[],
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(type_id, guild_id)
     );
@@ -556,6 +559,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE BuildingType ADD COLUMN IF NOT EXISTS upkeep_rations INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE BuildingType ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE BuildingType ADD COLUMN IF NOT EXISTS upkeep_platinum INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE BuildingType ADD COLUMN IF NOT EXISTS keywords TEXT[];")
     await conn.execute("ALTER TABLE BuildingType ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
     # --- Building table ---
@@ -574,6 +578,7 @@ async def ensure_tables():
         upkeep_rations INTEGER DEFAULT 0,
         upkeep_cloth INTEGER DEFAULT 0,
         upkeep_platinum INTEGER DEFAULT 0,
+        keywords TEXT[],
         guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
         UNIQUE(building_id, guild_id)
     );
@@ -591,6 +596,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_rations INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_cloth INTEGER DEFAULT 0;")
     await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS upkeep_platinum INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS keywords TEXT[];")
     await conn.execute("ALTER TABLE Building ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
 
     # Create index for buildings by territory

@@ -468,6 +468,42 @@ async def my_territories_list_cmd(interaction: discord.Interaction):
         )
 
 
+@tree.command(
+    name="my-finances",
+    description="View your character's financial report"
+)
+async def my_finances_cmd(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.view_character_finances(conn, interaction.user.id, interaction.guild_id)
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        embed = create_character_finances_embed(data)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="my-faction-finances",
+    description="View your faction's financial report (requires FINANCIAL permission)"
+)
+async def my_faction_finances_cmd(interaction: discord.Interaction):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.view_faction_finances(conn, interaction.user.id, interaction.guild_id)
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        embed = create_faction_finances_embed(data)
+        await interaction.followup.send(embed=embed, ephemeral=True)
+
+
 # Admin Commands
 @tree.command(
     name="clear-wargame-config",
@@ -542,6 +578,31 @@ async def list_factions_cmd(interaction: discord.Interaction):
         embed.set_footer(text=f"Total: {len(data)} factions")
 
         await interaction.followup.send(embed=embed)
+
+
+@tree.command(
+    name="view-finances",
+    description="[Admin] View financial report for a character or faction"
+)
+@app_commands.describe(identifier="Character identifier or faction ID")
+@app_commands.checks.has_permissions(manage_guild=True)
+async def view_finances_cmd(interaction: discord.Interaction, identifier: str):
+    await interaction.response.defer(ephemeral=True)
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.admin_view_finances(conn, identifier, interaction.guild_id)
+
+        if not success:
+            await interaction.followup.send(emotive_message(message), ephemeral=True)
+            return
+
+        entity_type = data.get('entity_type', 'character')
+        if entity_type == 'character':
+            embed = create_character_finances_embed(data)
+        else:
+            embed = create_faction_finances_embed(data)
+
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @tree.command(
