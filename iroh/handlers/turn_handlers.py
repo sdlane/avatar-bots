@@ -50,6 +50,37 @@ from orders.movement_state import MovementStatus
 RESOURCE_KEYWORDS = {'ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum'}
 # Bonus production per building with matching resource keyword
 BONUS_PER_BUILDING = 2
+# Siege defense bonus per fortification building
+FORTIFICATION_BONUS = 2
+
+
+async def calculate_territory_siege_defense(
+    conn: asyncpg.Connection,
+    territory: Territory,
+    guild_id: int
+) -> int:
+    """
+    Calculate total siege defense: base + (ACTIVE fortification buildings * FORTIFICATION_BONUS).
+
+    Args:
+        conn: Database connection
+        territory: The territory to calculate siege defense for
+        guild_id: Guild ID
+
+    Returns:
+        Total siege defense value
+    """
+    base_defense = territory.siege_defense
+
+    buildings = await Building.fetch_by_territory(conn, territory.territory_id, guild_id)
+    active_buildings = [b for b in buildings if b.status == 'ACTIVE']
+
+    fortification_count = sum(
+        1 for b in active_buildings
+        if b.keywords and 'fortification' in [k.lower() for k in b.keywords]
+    )
+
+    return base_defense + (fortification_count * FORTIFICATION_BONUS)
 
 
 def deduplicate_observation_events(obs_events: List[TurnLog]) -> List[TurnLog]:

@@ -463,6 +463,26 @@ building_types:
       cloth: 0
       platinum: 0
 
+  # Fortification building (city-only, adds siege defense)
+  - type_id: "fortress"
+    name: "Fortress"
+    description: "A fortified defensive structure"
+    keywords: ["fortification"]
+    cost:
+      ore: 20
+      lumber: 15
+      coal: 5
+      rations: 0
+      cloth: 0
+      platinum: 0
+    upkeep:
+      ore: 1
+      lumber: 1
+      coal: 0
+      rations: 0
+      cloth: 0
+      platinum: 0
+
 buildings:
   # Fire Nation buildings
   - building_id: "fire-barracks-1"

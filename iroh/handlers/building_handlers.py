@@ -35,6 +35,11 @@ async def create_building(
     if not territory:
         return False, f"Territory '{territory_id}' not found."
 
+    # Check fortification city-only restriction
+    if building_type.keywords and 'fortification' in [k.lower() for k in building_type.keywords]:
+        if territory.terrain_type.lower() != 'city':
+            return False, f"Buildings with 'fortification' keyword can only be built in cities. Territory '{territory_id}' is '{territory.terrain_type}'."
+
     # Check for duplicate building type in territory
     existing_buildings = await Building.fetch_by_territory(conn, territory_id, guild_id)
     for existing in existing_buildings:

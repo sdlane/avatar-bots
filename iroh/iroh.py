@@ -1255,6 +1255,32 @@ async def set_territory_controller_cmd(
 
 
 @tree.command(
+    name="edit-territory-defense",
+    description="[Admin] Set a territory's base siege defense"
+)
+@app_commands.describe(
+    territory_id="The territory ID",
+    siege_defense="Base siege defense value (0 or higher)"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_territory_defense_cmd(interaction: discord.Interaction, territory_id: str, siege_defense: int):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.edit_territory_siege_defense(conn, territory_id, siege_defense, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set territory {territory_id} siege defense to {siege_defense} in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set territory {territory_id} siege defense in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
+@tree.command(
     name="add-adjacency",
     description="[Admin] Mark two territories as adjacent"
 )

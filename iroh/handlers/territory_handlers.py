@@ -9,7 +9,7 @@ from db import Territory, Character, TerritoryAdjacency, Faction
 async def create_territory(conn: asyncpg.Connection, territory_id: str, terrain_type: str, guild_id: int, name: Optional[str] = None) -> Tuple[bool, str]:
     """Create a new territory."""
     # Validate terrain type
-    valid_terrains = ["plains", "mountain", "desert", "ocean", "lake"]
+    valid_terrains = ["plains", "mountain", "desert", "ocean", "lake", "city"]
     if terrain_type.lower() not in valid_terrains:
         return False, f"Invalid terrain type. Must be one of: {', '.join(valid_terrains)}"
 
@@ -172,3 +172,23 @@ async def remove_adjacency(conn: asyncpg.Connection, territory_id_1: str, territ
         return False, f"Territories {territory_id_1} and {territory_id_2} are not adjacent."
     else:
         return True, f"Removed adjacency between territories {territory_id_1} and {territory_id_2}."
+
+
+async def edit_territory_siege_defense(
+    conn: asyncpg.Connection,
+    territory_id: str,
+    siege_defense: int,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """Set the base siege defense of a territory."""
+    territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
+    if not territory:
+        return False, f"Territory '{territory_id}' not found."
+
+    if siege_defense < 0:
+        return False, "Siege defense cannot be negative."
+
+    territory.siege_defense = siege_defense
+    await territory.upsert(conn)
+
+    return True, f"Territory '{territory_id}' siege defense set to {siege_defense}."

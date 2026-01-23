@@ -23,6 +23,7 @@ class Territory:
     cloth_production: int = 0
     platinum_production: int = 0
     victory_points: int = 0
+    siege_defense: int = 0
     controller_character_id: Optional[int] = None
     controller_faction_id: Optional[int] = None
     original_nation: Optional[str] = None
@@ -38,9 +39,9 @@ class Territory:
         INSERT INTO Territory (
             territory_id, name, terrain_type, ore_production, lumber_production,
             coal_production, rations_production, cloth_production, platinum_production,
-            victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
+            victory_points, siege_defense, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
         ON CONFLICT (territory_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             terrain_type = EXCLUDED.terrain_type,
@@ -51,6 +52,7 @@ class Territory:
             cloth_production = EXCLUDED.cloth_production,
             platinum_production = EXCLUDED.platinum_production,
             victory_points = EXCLUDED.victory_points,
+            siege_defense = EXCLUDED.siege_defense,
             controller_character_id = EXCLUDED.controller_character_id,
             controller_faction_id = EXCLUDED.controller_faction_id,
             original_nation = EXCLUDED.original_nation,
@@ -68,6 +70,7 @@ class Territory:
             self.cloth_production,
             self.platinum_production,
             self.victory_points,
+            self.siege_defense,
             self.controller_character_id,
             self.controller_faction_id,
             self.original_nation,
@@ -83,7 +86,7 @@ class Territory:
         row = await conn.fetchrow("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
+                   victory_points, siege_defense, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE id = $1;
         """, territory_internal_id)
@@ -101,7 +104,7 @@ class Territory:
         row = await conn.fetchrow("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
+                   victory_points, siege_defense, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE territory_id = $1 AND guild_id = $2;
         """, territory_id, guild_id)
@@ -119,7 +122,7 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
+                   victory_points, siege_defense, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE guild_id = $1
             ORDER BY territory_id;
@@ -139,7 +142,7 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
+                   victory_points, siege_defense, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE controller_character_id = $1 AND guild_id = $2
             ORDER BY territory_id;
@@ -159,7 +162,7 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
+                   victory_points, siege_defense, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE controller_faction_id = $1 AND guild_id = $2
             ORDER BY territory_id;
@@ -213,7 +216,8 @@ class Territory:
             ("rations_production", self.rations_production),
             ("cloth_production", self.cloth_production),
             ("platinum_production", self.platinum_production),
-            ("victory_points", self.victory_points)
+            ("victory_points", self.victory_points),
+            ("siege_defense", self.siege_defense)
         ]
 
         for field_name, value in production_fields:

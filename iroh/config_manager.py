@@ -154,6 +154,10 @@ class ConfigManager:
             if territory.victory_points > 0:
                 territory_dict['victory_points'] = territory.victory_points
 
+            # Siege defense
+            if territory.siege_defense > 0:
+                territory_dict['siege_defense'] = territory.siege_defense
+
             # Keywords
             if territory.keywords:
                 territory_dict['keywords'] = territory.keywords
@@ -610,6 +614,7 @@ class ConfigManager:
                     cloth_production=production.get('cloth', 0),
                     platinum_production=production.get('platinum', 0),
                     victory_points=territory_data.get('victory_points', 0),
+                    siege_defense=territory_data.get('siege_defense', 0),
                     controller_character_id=controller_character_id,
                     controller_faction_id=controller_faction_id,
                     original_nation=territory_data.get('original_nation'),
@@ -708,6 +713,14 @@ class ConfigManager:
                     if any(b.building_type == building_data['type'] for b in existing):
                         logger.warning(f"Territory {territory_id_str} already has building type {building_data['type']}, skipping")
                         continue
+
+                # Check fortification city-only restriction
+                if building_type.keywords and 'fortification' in [k.lower() for k in building_type.keywords]:
+                    if territory_id_str:
+                        territory = await Territory.fetch_by_territory_id(conn, territory_id_str, guild_id)
+                        if territory and territory.terrain_type.lower() != 'city':
+                            logger.warning(f"Fortification building {building_data['building_id']} can only be placed in cities, skipping (territory {territory_id_str} is {territory.terrain_type})")
+                            continue
 
                 # Keywords: use building_data keywords if provided, otherwise inherit from building_type
                 if 'keywords' in building_data:

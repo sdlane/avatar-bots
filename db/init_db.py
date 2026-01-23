@@ -203,6 +203,7 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS original_nation VARCHAR(50);")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS victory_points INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS siege_defense INTEGER DEFAULT 0;")
 
     # Add controller_faction_id for faction ownership of territories
     await conn.execute("ALTER TABLE Territory ADD COLUMN IF NOT EXISTS controller_faction_id INTEGER;")
