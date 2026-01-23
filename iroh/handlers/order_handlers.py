@@ -473,7 +473,7 @@ async def submit_transit_order(
 
 
 # Valid unit action types
-VALID_LAND_ACTIONS = ['transit', 'transport', 'patrol', 'raid', 'capture', 'siege', 'aerial_convoy']
+VALID_LAND_ACTIONS = ['transit', 'transport', 'patrol', 'raid', 'capture', 'siege', 'aerial_convoy', 'aerial_scout']
 VALID_NAVAL_ACTIONS = ['naval_transit', 'naval_convoy', 'naval_patrol', 'naval_transport']
 VALID_UNIT_ACTIONS = VALID_LAND_ACTIONS + VALID_NAVAL_ACTIONS
 
@@ -628,14 +628,14 @@ async def submit_unit_order(
         if not is_naval_action and unit.is_naval:
             return False, f"Unit '{unit.unit_id}' is a naval unit but you specified a land action '{action}'.", None
 
-    # Infiltrator and aerial units cannot perform patrol, capture, or siege actions
+    # Infiltrator, aerial, and aerial-transport units cannot perform patrol, capture, or siege actions
     RESTRICTED_ACTIONS = ['patrol', 'capture', 'siege']
     if action in RESTRICTED_ACTIONS:
         for unit in units:
             if unit.keywords:
                 keywords_lower = [k.lower() for k in unit.keywords]
-                if 'infiltrator' in keywords_lower or 'aerial' in keywords_lower:
-                    return False, f"Unit '{unit.unit_id}' has infiltrator/aerial keyword and cannot perform '{action}' action.", None
+                if 'infiltrator' in keywords_lower or 'aerial' in keywords_lower or 'aerial-transport' in keywords_lower:
+                    return False, f"Unit '{unit.unit_id}' has infiltrator/aerial/aerial-transport keyword and cannot perform '{action}' action.", None
 
     # Validate authorization for all units
     unauthorized_units = []
@@ -676,10 +676,10 @@ async def submit_unit_order(
             if territory and territory.terrain_type.lower() not in WATER_TERRAIN_TYPES:
                 return False, f"Naval units cannot traverse land territory '{territory_id}' (terrain: {territory.terrain_type}).", None
 
-    # Validate terrain for land actions (no water unless all infiltrators/aerial)
+    # Validate terrain for land actions (no water unless all infiltrators/aerial/aerial-transport)
     if not is_naval_action and action != 'transport':
         all_can_traverse_water = all(
-            unit.keywords and any(k.lower() in ('infiltrator', 'aerial') for k in unit.keywords)
+            unit.keywords and any(k.lower() in ('infiltrator', 'aerial', 'aerial-transport') for k in unit.keywords)
             for unit in units
         )
         if not all_can_traverse_water:
@@ -721,6 +721,18 @@ async def submit_unit_order(
                 territory_controller = await get_territory_controller_faction(conn, current_territory, guild_id)
                 if territory_controller and territory_controller in enemy_ids:
                     return False, "Aerial convoy cannot be used in enemy-controlled territory.", None
+
+    # Action-specific validation: Aerial scout requires aerial or aerial-transport keyword
+    if action == 'aerial_scout':
+        # All units must have 'aerial' or 'aerial-transport' keyword
+        for unit in units:
+            if not unit.keywords or not any(k.lower() in ('aerial', 'aerial-transport') for k in unit.keywords):
+                return False, f"Unit '{unit.unit_id}' requires 'aerial' or 'aerial-transport' keyword for aerial_scout.", None
+
+        # Path length cannot exceed movement stat (path includes current position)
+        slowest_movement = min(u.movement for u in units)
+        if len(path) > slowest_movement:
+            return False, f"Aerial scout path ({len(path)} territories) exceeds movement stat ({slowest_movement}).", None
 
     # Validate speed parameter for patrol actions
     if action in ['patrol', 'naval_patrol']:

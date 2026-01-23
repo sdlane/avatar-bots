@@ -26,6 +26,7 @@ from handlers.movement_handlers import (
     process_patrol_engagement,
     check_engagement,
     generate_observation_reports,
+    generate_aerial_scout_observations,
     finalize_movement_order,
     process_transport_boarding,
     process_transport_disembarkation,
@@ -414,6 +415,12 @@ async def execute_movement_phase(
         conn, land_states, guild_id, turn_number, 0, observation_tracker
     )
     all_obs_events.extend(obs_events)
+
+    # Generate aerial scout observations
+    aerial_scout_events = await generate_aerial_scout_observations(
+        conn, land_states, guild_id, turn_number
+    )
+    all_obs_events.extend(aerial_scout_events)
 
     # Deduplicate observation events - keep only one per (recipient, observed_unit)
     events.extend(deduplicate_observation_events(all_obs_events))

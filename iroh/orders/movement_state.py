@@ -80,6 +80,10 @@ class MovementUnitState:
         """Check if this is a patrol order."""
         return self.action == "patrol"
 
+    def is_aerial_scout(self) -> bool:
+        """Check if this is an aerial scout order."""
+        return self.action == "aerial_scout"
+
     def can_continue_patrol(self) -> bool:
         """
         Check if a patrol unit can continue moving this turn.
@@ -144,6 +148,7 @@ class MovementAction:
     CAPTURE = "capture"     # Territory capture (future)
     SIEGE = "siege"         # Siege action (future)
     NAVAL_TRANSPORT = "naval_transport"  # Naval transport order (provides water path)
+    AERIAL_SCOUT = "aerial_scout"  # Aerial scouting action (stationary observation)
 
     # Actions that get +1 movement bonus
     BONUS_ACTIONS = [TRANSIT, TRANSPORT]

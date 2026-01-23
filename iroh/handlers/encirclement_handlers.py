@@ -377,7 +377,7 @@ def is_unit_exempt_from_engagement(unit: Unit) -> bool:
     """
     Check if a unit is exempt from engagement and encirclement.
 
-    Units with 'infiltrator' or 'aerial' keywords cannot be engaged or encircled.
+    Units with 'infiltrator', 'aerial', or 'aerial-transport' keywords cannot be engaged or encircled.
 
     Args:
         unit: The unit to check
@@ -385,7 +385,9 @@ def is_unit_exempt_from_engagement(unit: Unit) -> bool:
     Returns:
         True if unit is exempt, False otherwise
     """
-    return unit_has_keyword(unit, 'infiltrator') or unit_has_keyword(unit, 'aerial')
+    return (unit_has_keyword(unit, 'infiltrator') or
+            unit_has_keyword(unit, 'aerial') or
+            unit_has_keyword(unit, 'aerial-transport'))
 
 
 async def get_naval_convoy_territories(

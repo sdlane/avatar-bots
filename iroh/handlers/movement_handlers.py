@@ -79,7 +79,7 @@ def calculate_movement_points(units: List[Unit], action: str) -> int:
 
 def unit_group_ignores_terrain_cost(units: List[Unit]) -> bool:
     """
-    Check if ALL units in group have infiltrator or aerial keyword.
+    Check if ALL units in group have infiltrator, aerial, or aerial-transport keyword.
 
     Units with these keywords always pay 1 MP for terrain regardless of terrain type.
 
@@ -87,14 +87,14 @@ def unit_group_ignores_terrain_cost(units: List[Unit]) -> bool:
         units: List of units in the movement group
 
     Returns:
-        True if all units have infiltrator or aerial keyword, False otherwise
+        True if all units have infiltrator, aerial, or aerial-transport keyword, False otherwise
     """
     if not units:
         return False
     for unit in units:
         has_keyword = (
             unit.keywords and
-            any(k.lower() in ('infiltrator', 'aerial') for k in unit.keywords)
+            any(k.lower() in ('infiltrator', 'aerial', 'aerial-transport') for k in unit.keywords)
         )
         if not has_keyword:
             return False
@@ -540,6 +540,10 @@ async def build_movement_states(
             coast_territory=coast_territory,
             disembark_territory=disembark_territory
         )
+
+        # Aerial scout is stationary - mark as complete immediately
+        if action == 'aerial_scout':
+            state.status = MovementStatus.PATH_COMPLETE
 
         states.append(state)
 
@@ -1463,6 +1467,100 @@ async def generate_observation_reports(
                         ))
 
     return events, observation_tracker
+
+
+async def generate_aerial_scout_observations(
+    conn: asyncpg.Connection,
+    states: List[MovementUnitState],
+    guild_id: int,
+    turn_number: int,
+) -> List[TurnLog]:
+    """
+    Generate observation events for aerial scout units.
+
+    Aerial scouts "occupy" all territories in their path and observe units
+    in or adjacent to those territories.
+
+    Args:
+        conn: Database connection
+        states: List of MovementUnitState objects
+        guild_id: Guild ID
+        turn_number: Current turn number
+
+    Returns:
+        List of TurnLog observation events
+    """
+    events: List[TurnLog] = []
+
+    # Filter to aerial scout states only
+    scout_states = [s for s in states if s.is_aerial_scout()]
+
+    for state in scout_states:
+        # Get all territories in the scout path
+        scouted_territories = state.get_path()
+
+        # Track observed units to avoid duplicates within this scout's observations
+        observed_keys: Set[Tuple[int, int]] = set()  # (recipient_id, observed_unit_id)
+
+        for scout_territory in scouted_territories:
+            # Get territories at distance 0 and 1 from this scouted territory
+            territories_in_range = await get_territories_in_range(conn, scout_territory, 1, guild_id)
+
+            for distance, territory_list in territories_in_range.items():
+                for obs_territory_id in territory_list:
+                    units_in_territory = await Unit.fetch_by_territory(conn, obs_territory_id, guild_id)
+
+                    for observed in units_in_territory:
+                        if observed.status != 'ACTIVE':
+                            continue
+                        # Skip infiltrators (invisible)
+                        if unit_has_keyword(observed, 'infiltrator'):
+                            continue
+                        # Skip self
+                        if any(observed.id == u.id for u in state.units):
+                            continue
+
+                        # Get recipients for this observation
+                        recipient_ids = await get_observation_recipients(conn, state.units[0], guild_id)
+
+                        for recipient_id in recipient_ids:
+                            # Dedupe within this scout's observations
+                            key = (recipient_id, observed.id)
+                            if key in observed_keys:
+                                continue
+                            observed_keys.add(key)
+
+                            if not await recipient_should_see_observation(conn, recipient_id, observed, guild_id):
+                                continue
+
+                            observed_faction_id = await get_unit_group_faction_id(conn, [observed], guild_id)
+                            observed_faction = None
+                            if observed_faction_id:
+                                observed_faction = await Faction.fetch_by_id(conn, observed_faction_id)
+
+                            events.append(TurnLog(
+                                turn_number=turn_number,
+                                phase=TurnPhase.MOVEMENT.value,
+                                event_type='UNIT_OBSERVED',
+                                entity_type='unit',
+                                entity_id=observed.id,
+                                event_data={
+                                    'observer_unit_id': state.units[0].unit_id,
+                                    'observer_territory': state.current_territory_id,
+                                    'observed_unit_id': observed.unit_id,
+                                    'observed_unit_type': observed.unit_type,
+                                    'observed_faction_id': observed_faction.faction_id if observed_faction else None,
+                                    'observed_faction_name': observed_faction.name if observed_faction else 'Unaffiliated',
+                                    'observed_territory': obs_territory_id,
+                                    'distance': distance,
+                                    'action': 'aerial_scout',
+                                    'scouted_territories': scouted_territories,
+                                    'affected_character_ids': [recipient_id]
+                                },
+                                guild_id=guild_id
+                            ))
+
+    return events
 
 
 async def finalize_movement_order(
