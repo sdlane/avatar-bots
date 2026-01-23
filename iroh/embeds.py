@@ -259,6 +259,14 @@ def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: O
         inline=True
     )
 
+    # Status
+    status_emoji = "🟢" if unit.status == "ACTIVE" else "🔴"
+    embed.add_field(
+        name="Status",
+        value=f"{status_emoji} {unit.status}",
+        inline=True
+    )
+
     # Stats (only for admins)
     if show_full_details:
         stats_lines = [
