@@ -126,8 +126,21 @@ async def ensure_tables():
         sender_identifier TEXT,
         parameter TEXT,
         scheduled_time TIMESTAMP,
-        guild_int BIGINT NOT NULL
+        guild_id BIGINT NOT NULL
     );
+    """)
+
+    # Migration: Rename guild_int to guild_id if it exists (fix for typo)
+    await conn.execute("""
+        DO $$
+        BEGIN
+            IF EXISTS (
+                SELECT 1 FROM information_schema.columns
+                WHERE table_name = 'hawkytask' AND column_name = 'guild_int'
+            ) THEN
+                ALTER TABLE HawkyTask RENAME COLUMN guild_int TO guild_id;
+            END IF;
+        END $$;
     """)
 
     # --- Ensure hawky_tasks columns match the desired schema ---
