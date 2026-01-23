@@ -8,7 +8,12 @@ from db import (
     Unit, UnitType, Building, BuildingType, PlayerResources, FactionResources,
     Alliance, FactionPermission
 )
-from handlers.spirit_nexus_handlers import apply_industrial_damage, building_type_is_industrial
+from handlers.spirit_nexus_handlers import (
+    apply_industrial_damage,
+    building_type_is_industrial,
+    apply_spiritual_repair,
+    building_type_is_spiritual,
+)
 import asyncpg
 from typing import List, Optional
 import logging
@@ -493,6 +498,18 @@ async def handle_construction_order(
                 building_id=new_building_id
             )
 
+        # Check for spiritual repair to spirit nexuses
+        nexus_repair_log = None
+        if building_type_is_spiritual(building_type):
+            nexus_repair_log = await apply_spiritual_repair(
+                conn=conn,
+                territory_id=territory_id,
+                guild_id=guild_id,
+                turn_number=turn_number,
+                building_type_name=building_type.name,
+                building_id=new_building_id
+            )
+
         # Mark order as success
         order.status = OrderStatus.SUCCESS.value
         order.result_data = {
@@ -540,6 +557,10 @@ async def handle_construction_order(
         # Add nexus damage log if present (GM-only event)
         if nexus_damage_log:
             logs.append(nexus_damage_log)
+
+        # Add nexus repair log if present (GM-only event)
+        if nexus_repair_log:
+            logs.append(nexus_repair_log)
 
         return logs
 

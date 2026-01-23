@@ -7,7 +7,7 @@ from datetime import datetime
 from db import (
     Order, Unit, Character, Faction, FactionMember, Territory,
     PlayerResources, WargameConfig, TurnLog, FactionJoinRequest, War, WarParticipant,
-    FactionResources, FactionPermission, Building
+    FactionResources, FactionPermission, Building, BuildingType
 )
 from order_types import *
 from orders import *
@@ -44,6 +44,10 @@ from handlers.encirclement_handlers import (
     check_unit_encircled,
     get_unit_home_faction_id,
     get_affected_character_ids_for_unit,
+)
+from handlers.spirit_nexus_handlers import (
+    apply_spiritual_destruction_damage,
+    building_type_is_spiritual,
 )
 from orders.movement_state import MovementStatus
 
@@ -2043,6 +2047,21 @@ async def destroy_low_durability_buildings(
         ))
 
         logger.info(f"Organization phase: Destroyed building {building.building_id} (durability={building.durability})")
+
+        # Check if the building had the spiritual keyword - if so, damage nearest nexus
+        building_type = await BuildingType.fetch_by_type_id(conn, building.building_type, guild_id)
+        if building_type and building_type_is_spiritual(building_type):
+            nexus_damage_log = await apply_spiritual_destruction_damage(
+                conn=conn,
+                territory_id=building.territory_id,
+                guild_id=guild_id,
+                turn_number=turn_number,
+                building_name=building.name or building.building_id,
+                building_id=building.building_id,
+                phase=TurnPhase.ORGANIZATION.value
+            )
+            if nexus_damage_log:
+                events.append(nexus_damage_log)
 
     return events
 

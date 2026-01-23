@@ -8,7 +8,8 @@ from db import (
 )
 from handlers.spirit_nexus_handlers import (
     find_nearest_nexus, get_pole_swap_target, building_type_is_industrial,
-    apply_industrial_damage, POLE_SWAP_PAIRS
+    apply_industrial_damage, POLE_SWAP_PAIRS, building_type_is_spiritual,
+    apply_spiritual_repair, apply_spiritual_destruction_damage, building_has_keyword
 )
 
 TEST_GUILD_ID = 999999999999999999
@@ -490,6 +491,308 @@ class TestApplyIndustrialDamage:
 
         assert log is not None
         assert log.event_data['new_health'] == -1
+
+        updated = await SpiritNexus.fetch_by_identifier(db_conn, "weak-nexus", TEST_GUILD_ID)
+        assert updated.health == -1
+
+
+class TestBuildingTypeIsSpiritual:
+    """Tests for checking if building type is spiritual."""
+
+    def test_spiritual_keyword(self):
+        """Test building with spiritual keyword."""
+        bt = BuildingType(
+            type_id="temple",
+            name="Temple",
+            keywords=["spiritual", "sacred"],
+            guild_id=TEST_GUILD_ID
+        )
+        assert building_type_is_spiritual(bt) is True
+
+    def test_spiritual_case_insensitive(self):
+        """Test spiritual keyword is case insensitive."""
+        bt = BuildingType(
+            type_id="shrine",
+            name="Shrine",
+            keywords=["SPIRITUAL"],
+            guild_id=TEST_GUILD_ID
+        )
+        assert building_type_is_spiritual(bt) is True
+
+    def test_no_spiritual_keyword(self):
+        """Test building without spiritual keyword."""
+        bt = BuildingType(
+            type_id="barracks",
+            name="Barracks",
+            keywords=["military"],
+            guild_id=TEST_GUILD_ID
+        )
+        assert building_type_is_spiritual(bt) is False
+
+    def test_no_keywords(self):
+        """Test building with no keywords."""
+        bt = BuildingType(
+            type_id="house",
+            name="House",
+            keywords=None,
+            guild_id=TEST_GUILD_ID
+        )
+        assert building_type_is_spiritual(bt) is False
+
+
+class TestBuildingHasKeyword:
+    """Tests for the generic keyword check function."""
+
+    def test_has_keyword(self):
+        """Test finding a keyword in list."""
+        assert building_has_keyword(["spiritual", "sacred"], "spiritual") is True
+
+    def test_has_keyword_case_insensitive(self):
+        """Test case insensitive matching."""
+        assert building_has_keyword(["SPIRITUAL"], "spiritual") is True
+        assert building_has_keyword(["spiritual"], "SPIRITUAL") is True
+
+    def test_no_keyword(self):
+        """Test keyword not in list."""
+        assert building_has_keyword(["military"], "spiritual") is False
+
+    def test_none_keywords(self):
+        """Test with None keywords."""
+        assert building_has_keyword(None, "spiritual") is False
+
+    def test_empty_keywords(self):
+        """Test with empty keywords list."""
+        assert building_has_keyword([], "spiritual") is False
+
+
+class TestApplySpiritualRepair:
+    """Tests for applying spiritual repair to nexuses."""
+
+    @pytest.mark.asyncio
+    async def test_repair_nearest_nexus(self, db_conn, test_server):
+        """Test that spiritual repair is applied to nearest nexus."""
+        # Setup territories
+        t1 = Territory(territory_id="TEMPLE", name="Temple", terrain_type="land", guild_id=TEST_GUILD_ID)
+        t2 = Territory(territory_id="NEXUS", name="Nexus", terrain_type="land", guild_id=TEST_GUILD_ID)
+        await t1.upsert(db_conn)
+        await t2.upsert(db_conn)
+
+        adj = TerritoryAdjacency(territory_a_id="TEMPLE", territory_b_id="NEXUS", guild_id=TEST_GUILD_ID)
+        await adj.upsert(db_conn)
+
+        nexus = SpiritNexus(identifier="test-nexus", health=10, territory_id="NEXUS", guild_id=TEST_GUILD_ID)
+        await nexus.upsert(db_conn)
+
+        log = await apply_spiritual_repair(
+            conn=db_conn,
+            territory_id="TEMPLE",
+            guild_id=TEST_GUILD_ID,
+            turn_number=1,
+            building_type_name="Spirit Temple",
+            building_id="BLD-0001"
+        )
+
+        assert log is not None
+        assert log.event_type == "NEXUS_REPAIRED"
+        assert log.event_data['nexus_identifier'] == "test-nexus"
+        assert log.event_data['old_health'] == 10
+        assert log.event_data['new_health'] == 11
+        assert log.event_data['repair'] == 1
+        assert log.event_data['was_pole_swapped'] is False
+
+        # Verify database was updated
+        updated_nexus = await SpiritNexus.fetch_by_identifier(db_conn, "test-nexus", TEST_GUILD_ID)
+        assert updated_nexus.health == 11
+
+    @pytest.mark.asyncio
+    async def test_pole_swap_repair(self, db_conn, test_server):
+        """Test pole swap redirects repair to opposite pole."""
+        # Setup territories
+        t1 = Territory(territory_id="TEMPLE", name="Temple", terrain_type="land", guild_id=TEST_GUILD_ID)
+        t2 = Territory(territory_id="SOUTH", name="South", terrain_type="land", guild_id=TEST_GUILD_ID)
+        t3 = Territory(territory_id="NORTH", name="North", terrain_type="land", guild_id=TEST_GUILD_ID)
+        await t1.upsert(db_conn)
+        await t2.upsert(db_conn)
+        await t3.upsert(db_conn)
+
+        # Temple adjacent to south pole, north pole is far away
+        adj = TerritoryAdjacency(territory_a_id="TEMPLE", territory_b_id="SOUTH", guild_id=TEST_GUILD_ID)
+        await adj.upsert(db_conn)
+
+        south_nexus = SpiritNexus(identifier="south-pole", health=100, territory_id="SOUTH", guild_id=TEST_GUILD_ID)
+        north_nexus = SpiritNexus(identifier="north-pole", health=50, territory_id="NORTH", guild_id=TEST_GUILD_ID)
+        await south_nexus.upsert(db_conn)
+        await north_nexus.upsert(db_conn)
+
+        log = await apply_spiritual_repair(
+            conn=db_conn,
+            territory_id="TEMPLE",
+            guild_id=TEST_GUILD_ID,
+            turn_number=1,
+            building_type_name="Spirit Temple",
+            building_id="BLD-0002"
+        )
+
+        assert log is not None
+        # Should repair north-pole instead of south-pole due to swap
+        assert log.event_data['nexus_identifier'] == "north-pole"
+        assert log.event_data['was_pole_swapped'] is True
+        assert log.event_data['original_nearest_nexus'] == "south-pole"
+        assert log.event_data['old_health'] == 50
+        assert log.event_data['new_health'] == 51
+
+        # Verify south pole wasn't changed
+        south = await SpiritNexus.fetch_by_identifier(db_conn, "south-pole", TEST_GUILD_ID)
+        assert south.health == 100
+
+        # Verify north pole was repaired
+        north = await SpiritNexus.fetch_by_identifier(db_conn, "north-pole", TEST_GUILD_ID)
+        assert north.health == 51
+
+    @pytest.mark.asyncio
+    async def test_no_nexus_no_repair(self, db_conn, test_server):
+        """Test no repair when no nexus exists."""
+        t = Territory(territory_id="LONELY", name="Lonely", terrain_type="land", guild_id=TEST_GUILD_ID)
+        await t.upsert(db_conn)
+
+        log = await apply_spiritual_repair(
+            conn=db_conn,
+            territory_id="LONELY",
+            guild_id=TEST_GUILD_ID,
+            turn_number=1,
+            building_type_name="Temple",
+            building_id="BLD-0003"
+        )
+
+        assert log is None
+
+
+class TestApplySpiritualDestructionDamage:
+    """Tests for applying damage when spiritual building is destroyed."""
+
+    @pytest.mark.asyncio
+    async def test_destruction_damage_nearest_nexus(self, db_conn, test_server):
+        """Test that destruction damage (-2) is applied to nearest nexus."""
+        # Setup territories
+        t1 = Territory(territory_id="TEMPLE", name="Temple", terrain_type="land", guild_id=TEST_GUILD_ID)
+        t2 = Territory(territory_id="NEXUS", name="Nexus", terrain_type="land", guild_id=TEST_GUILD_ID)
+        await t1.upsert(db_conn)
+        await t2.upsert(db_conn)
+
+        adj = TerritoryAdjacency(territory_a_id="TEMPLE", territory_b_id="NEXUS", guild_id=TEST_GUILD_ID)
+        await adj.upsert(db_conn)
+
+        nexus = SpiritNexus(identifier="test-nexus", health=10, territory_id="NEXUS", guild_id=TEST_GUILD_ID)
+        await nexus.upsert(db_conn)
+
+        log = await apply_spiritual_destruction_damage(
+            conn=db_conn,
+            territory_id="TEMPLE",
+            guild_id=TEST_GUILD_ID,
+            turn_number=1,
+            building_name="Spirit Temple",
+            building_id="BLD-0001"
+        )
+
+        assert log is not None
+        assert log.event_type == "NEXUS_DAMAGED"
+        assert log.event_data['nexus_identifier'] == "test-nexus"
+        assert log.event_data['old_health'] == 10
+        assert log.event_data['new_health'] == 8  # -2 damage
+        assert log.event_data['damage'] == 2
+        assert log.event_data['reason'] == 'spiritual_building_destroyed'
+        assert log.event_data['was_pole_swapped'] is False
+
+        # Verify database was updated
+        updated_nexus = await SpiritNexus.fetch_by_identifier(db_conn, "test-nexus", TEST_GUILD_ID)
+        assert updated_nexus.health == 8
+
+    @pytest.mark.asyncio
+    async def test_destruction_pole_swap_damage(self, db_conn, test_server):
+        """Test pole swap redirects destruction damage to opposite pole."""
+        # Setup territories
+        t1 = Territory(territory_id="TEMPLE", name="Temple", terrain_type="land", guild_id=TEST_GUILD_ID)
+        t2 = Territory(territory_id="SOUTH", name="South", terrain_type="land", guild_id=TEST_GUILD_ID)
+        t3 = Territory(territory_id="NORTH", name="North", terrain_type="land", guild_id=TEST_GUILD_ID)
+        await t1.upsert(db_conn)
+        await t2.upsert(db_conn)
+        await t3.upsert(db_conn)
+
+        adj = TerritoryAdjacency(territory_a_id="TEMPLE", territory_b_id="SOUTH", guild_id=TEST_GUILD_ID)
+        await adj.upsert(db_conn)
+
+        south_nexus = SpiritNexus(identifier="south-pole", health=100, territory_id="SOUTH", guild_id=TEST_GUILD_ID)
+        north_nexus = SpiritNexus(identifier="north-pole", health=50, territory_id="NORTH", guild_id=TEST_GUILD_ID)
+        await south_nexus.upsert(db_conn)
+        await north_nexus.upsert(db_conn)
+
+        log = await apply_spiritual_destruction_damage(
+            conn=db_conn,
+            territory_id="TEMPLE",
+            guild_id=TEST_GUILD_ID,
+            turn_number=1,
+            building_name="Spirit Temple",
+            building_id="BLD-0002"
+        )
+
+        assert log is not None
+        # Should damage north-pole instead of south-pole due to swap
+        assert log.event_data['nexus_identifier'] == "north-pole"
+        assert log.event_data['was_pole_swapped'] is True
+        assert log.event_data['original_nearest_nexus'] == "south-pole"
+        assert log.event_data['old_health'] == 50
+        assert log.event_data['new_health'] == 48  # -2 damage
+
+        # Verify south pole wasn't damaged
+        south = await SpiritNexus.fetch_by_identifier(db_conn, "south-pole", TEST_GUILD_ID)
+        assert south.health == 100
+
+        # Verify north pole was damaged
+        north = await SpiritNexus.fetch_by_identifier(db_conn, "north-pole", TEST_GUILD_ID)
+        assert north.health == 48
+
+    @pytest.mark.asyncio
+    async def test_destruction_no_nexus_no_damage(self, db_conn, test_server):
+        """Test no damage when no nexus exists."""
+        t = Territory(territory_id="LONELY", name="Lonely", terrain_type="land", guild_id=TEST_GUILD_ID)
+        await t.upsert(db_conn)
+
+        log = await apply_spiritual_destruction_damage(
+            conn=db_conn,
+            territory_id="LONELY",
+            guild_id=TEST_GUILD_ID,
+            turn_number=1,
+            building_name="Temple",
+            building_id="BLD-0003"
+        )
+
+        assert log is None
+
+    @pytest.mark.asyncio
+    async def test_destruction_damage_can_go_negative(self, db_conn, test_server):
+        """Test that destruction damage can make nexus health negative."""
+        t1 = Territory(territory_id="TEMPLE", name="Temple", terrain_type="land", guild_id=TEST_GUILD_ID)
+        t2 = Territory(territory_id="NEXUS", name="Nexus", terrain_type="land", guild_id=TEST_GUILD_ID)
+        await t1.upsert(db_conn)
+        await t2.upsert(db_conn)
+
+        adj = TerritoryAdjacency(territory_a_id="TEMPLE", territory_b_id="NEXUS", guild_id=TEST_GUILD_ID)
+        await adj.upsert(db_conn)
+
+        nexus = SpiritNexus(identifier="weak-nexus", health=1, territory_id="NEXUS", guild_id=TEST_GUILD_ID)
+        await nexus.upsert(db_conn)
+
+        log = await apply_spiritual_destruction_damage(
+            conn=db_conn,
+            territory_id="TEMPLE",
+            guild_id=TEST_GUILD_ID,
+            turn_number=1,
+            building_name="Temple",
+            building_id="BLD-0004"
+        )
+
+        assert log is not None
+        assert log.event_data['new_health'] == -1  # 1 - 2 = -1
 
         updated = await SpiritNexus.fetch_by_identifier(db_conn, "weak-nexus", TEST_GUILD_ID)
         assert updated.health == -1
