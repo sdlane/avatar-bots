@@ -18,6 +18,7 @@ from handlers.movement_handlers import (
     get_unit_group_faction_id,
     get_affected_character_ids,
     get_territories_in_range,
+    unit_has_keyword,
 )
 from handlers.encirclement_handlers import is_unit_exempt_from_engagement
 
@@ -178,34 +179,54 @@ def detect_action_conflicts(action_a: Optional[str], action_b: Optional[str]) ->
 
 async def are_factions_hostile_for_combat(
     conn: asyncpg.Connection,
-    faction_a_id: int,
-    faction_b_id: int,
+    faction_a_id: Optional[int],
+    faction_b_id: Optional[int],
     guild_id: int,
     action_a: Optional[str] = None,
-    action_b: Optional[str] = None
+    action_b: Optional[str] = None,
+    units_a: Optional[List[Unit]] = None,
+    units_b: Optional[List[Unit]] = None
 ) -> Tuple[bool, Optional[str]]:
     """
     Check if two factions are hostile for combat purposes.
 
     Hostile if:
     1. Factions are on opposite sides of an active war, OR
-    2. Neutral factions with conflicting actions (capture vs capture, raid, etc.)
+    2. Neutral factions with conflicting actions (capture vs capture, raid, etc.), OR
+    3. One side has 'hostile' keyword and the other is not allied
 
     Args:
         conn: Database connection
-        faction_a_id: First faction's internal ID
-        faction_b_id: Second faction's internal ID
+        faction_a_id: First faction's internal ID (or None if unaffiliated)
+        faction_b_id: Second faction's internal ID (or None if unaffiliated)
         guild_id: Guild ID
         action_a: Action for faction A's units (optional)
         action_b: Action for faction B's units (optional)
+        units_a: Units from side A (optional, for hostile keyword check)
+        units_b: Units from side B (optional, for hostile keyword check)
 
     Returns:
-        (is_hostile, reason): Tuple of boolean and reason string ("war" or "action_conflict")
+        (is_hostile, reason): Tuple of boolean and reason string ("war", "action_conflict", or "hostile_keyword")
     """
-    if faction_a_id == faction_b_id:
+    if faction_a_id == faction_b_id and faction_a_id is not None:
         return False, None
 
-    # Check war status first
+    # Alliance check first (only if both have factions) - allied factions are never hostile
+    if faction_a_id is not None and faction_b_id is not None:
+        if await are_factions_allied(conn, faction_a_id, faction_b_id, guild_id):
+            return False, None
+
+    # HOSTILE keyword check - engages non-allied factions AND unaffiliated units
+    if units_a and any(unit_has_keyword(u, 'hostile') for u in units_a):
+        return True, "hostile_keyword"
+    if units_b and any(unit_has_keyword(u, 'hostile') for u in units_b):
+        return True, "hostile_keyword"
+
+    # If either faction is None (unaffiliated), not hostile (unless hostile keyword above)
+    if faction_a_id is None or faction_b_id is None:
+        return False, None
+
+    # Check war status
     at_war = await are_factions_at_war(conn, faction_a_id, faction_b_id, guild_id)
     if at_war:
         return True, "war"
@@ -273,16 +294,13 @@ async def find_combat_territories(
         has_hostility = False
 
         for i, faction_a in enumerate(faction_ids):
-            if faction_a is None:
-                continue
             for faction_b in faction_ids[i+1:]:
-                if faction_b is None:
-                    continue
-
                 is_hostile, _ = await are_factions_hostile_for_combat(
                     conn, faction_a, faction_b, guild_id,
                     faction_actions.get(faction_a),
-                    faction_actions.get(faction_b)
+                    faction_actions.get(faction_b),
+                    faction_units.get(faction_a, []),
+                    faction_units.get(faction_b, [])
                 )
                 if is_hostile:
                     has_hostility = True
@@ -428,6 +446,16 @@ def recalculate_side_stats(side: CombatSide) -> None:
     side.total_defense = sum(u.defense for u in active_units)
 
 
+def side_has_immobile_unit(side: CombatSide) -> bool:
+    """Check if any unit on a side has the immobile keyword."""
+    return any(unit_has_keyword(u, 'immobile') for u in side.units if u.status == 'ACTIVE')
+
+
+def side_has_spirit_unit(side: CombatSide) -> bool:
+    """Check if any unit on a side has the spirit keyword."""
+    return any(unit_has_keyword(u, 'spirit') for u in side.units if u.status == 'ACTIVE')
+
+
 def calculate_org_damage_for_pairing(
     attacker_side: CombatSide,
     defender_side: CombatSide
@@ -436,20 +464,28 @@ def calculate_org_damage_for_pairing(
     Calculate organization damage for a single attacker vs defender pairing.
 
     Each unit on defender side loses 2 org if attacker's total attack > defender's total defense.
+    If attacker has spirit units, defender takes +1 additional org damage (does not stack).
 
     Args:
         attacker_side: The attacking side
         defender_side: The defending side
 
     Returns:
-        Dict mapping defender unit IDs to org damage (2 for each affected unit)
+        Dict mapping defender unit IDs to org damage
     """
     damage: Dict[int, int] = {}
 
+    # Normal combat damage: 2 org if attack > defense
     if attacker_side.total_attack > defender_side.total_defense:
         for unit in defender_side.units:
             if unit.status == 'ACTIVE':
                 damage[unit.id] = 2
+
+    # Spirit bonus: if attacker has spirit unit, defender takes +1 org (flat, doesn't stack)
+    if side_has_spirit_unit(attacker_side):
+        for unit in defender_side.units:
+            if unit.status == 'ACTIVE':
+                damage[unit.id] = damage.get(unit.id, 0) + 1
 
     return damage
 
@@ -462,7 +498,8 @@ def determine_retreating_side_for_pairing(
     """
     Determine which side retreats in a pairwise confrontation.
 
-    Side with lower attack retreats. Ties go to territory controller (stays).
+    If either side has immobile units, neither can retreat - fight to the death.
+    Otherwise, side with lower attack retreats. Ties go to territory controller (stays).
 
     Args:
         side_a: First combat side
@@ -470,8 +507,12 @@ def determine_retreating_side_for_pairing(
         territory_controller_faction_id: Faction ID of territory controller (or None)
 
     Returns:
-        The retreating CombatSide, or None if neither retreats (tied and neither is controller)
+        The retreating CombatSide, or None if neither retreats
     """
+    # If either side has immobile units, neither can retreat - fight to the death
+    if side_has_immobile_unit(side_a) or side_has_immobile_unit(side_b):
+        return None
+
     if side_a.total_attack < side_b.total_attack:
         return side_a
     elif side_b.total_attack < side_a.total_attack:
@@ -875,24 +916,55 @@ async def resolve_combat_in_territory(
 
     for i, side_a in enumerate(sides):
         for j, side_b in enumerate(sides[i+1:], i+1):
-            # Check if any faction in side_a is hostile to any in side_b
+            # Check if sides are hostile (considering hostile keyword at side level first)
+            # Then check faction-level hostility for any faction pair
             is_hostile = False
             is_action_conflict = False
 
-            for faction_a in side_a.faction_ids:
-                for faction_b in side_b.faction_ids:
-                    hostile, reason = await are_factions_hostile_for_combat(
-                        conn, faction_a, faction_b, guild_id,
-                        'capture' if side_a.has_capture_action else ('raid' if side_a.has_raid_action else None),
-                        'capture' if side_b.has_capture_action else ('raid' if side_b.has_raid_action else None)
-                    )
-                    if hostile:
-                        is_hostile = True
-                        if reason == "action_conflict":
-                            is_action_conflict = True
+            # Check hostile keyword at side level (works even for unaffiliated units)
+            if any(unit_has_keyword(u, 'hostile') for u in side_a.units if u.status == 'ACTIVE'):
+                # Side A has hostile keyword - check if sides are allied
+                sides_are_allied = False
+                for faction_a in side_a.faction_ids:
+                    for faction_b in side_b.faction_ids:
+                        if await are_factions_allied(conn, faction_a, faction_b, guild_id):
+                            sides_are_allied = True
+                            break
+                    if sides_are_allied:
                         break
-                if is_hostile:
-                    break
+                if not sides_are_allied:
+                    is_hostile = True
+
+            if not is_hostile and any(unit_has_keyword(u, 'hostile') for u in side_b.units if u.status == 'ACTIVE'):
+                # Side B has hostile keyword - check if sides are allied
+                sides_are_allied = False
+                for faction_a in side_a.faction_ids:
+                    for faction_b in side_b.faction_ids:
+                        if await are_factions_allied(conn, faction_a, faction_b, guild_id):
+                            sides_are_allied = True
+                            break
+                    if sides_are_allied:
+                        break
+                if not sides_are_allied:
+                    is_hostile = True
+
+            # If not hostile via keyword, check faction-pair hostility
+            if not is_hostile:
+                for faction_a in side_a.faction_ids:
+                    for faction_b in side_b.faction_ids:
+                        hostile, reason = await are_factions_hostile_for_combat(
+                            conn, faction_a, faction_b, guild_id,
+                            'capture' if side_a.has_capture_action else ('raid' if side_a.has_raid_action else None),
+                            'capture' if side_b.has_capture_action else ('raid' if side_b.has_raid_action else None),
+                            side_a.units, side_b.units
+                        )
+                        if hostile:
+                            is_hostile = True
+                            if reason == "action_conflict":
+                                is_action_conflict = True
+                            break
+                    if is_hostile:
+                        break
 
             if is_hostile:
                 hostile_pairs.append((i, j))
@@ -983,19 +1055,51 @@ async def resolve_combat_in_territory(
         current_hostile_pairs = []
         for i, side_a in enumerate(sides):
             for j, side_b in enumerate(sides[i+1:], i+1):
-                for faction_a in side_a.faction_ids:
-                    for faction_b in side_b.faction_ids:
-                        hostile, _ = await are_factions_hostile_for_combat(
-                            conn, faction_a, faction_b, guild_id,
-                            'capture' if side_a.has_capture_action else ('raid' if side_a.has_raid_action else None),
-                            'capture' if side_b.has_capture_action else ('raid' if side_b.has_raid_action else None)
-                        )
-                        if hostile:
-                            current_hostile_pairs.append((i, j))
+                is_hostile = False
+
+                # Check hostile keyword at side level first
+                if any(unit_has_keyword(u, 'hostile') for u in side_a.units if u.status == 'ACTIVE'):
+                    sides_are_allied = False
+                    for faction_a in side_a.faction_ids:
+                        for faction_b in side_b.faction_ids:
+                            if await are_factions_allied(conn, faction_a, faction_b, guild_id):
+                                sides_are_allied = True
+                                break
+                        if sides_are_allied:
                             break
-                    else:
-                        continue
-                    break
+                    if not sides_are_allied:
+                        is_hostile = True
+
+                if not is_hostile and any(unit_has_keyword(u, 'hostile') for u in side_b.units if u.status == 'ACTIVE'):
+                    sides_are_allied = False
+                    for faction_a in side_a.faction_ids:
+                        for faction_b in side_b.faction_ids:
+                            if await are_factions_allied(conn, faction_a, faction_b, guild_id):
+                                sides_are_allied = True
+                                break
+                        if sides_are_allied:
+                            break
+                    if not sides_are_allied:
+                        is_hostile = True
+
+                # If not hostile via keyword, check faction-pair hostility
+                if not is_hostile:
+                    for faction_a in side_a.faction_ids:
+                        for faction_b in side_b.faction_ids:
+                            hostile, _ = await are_factions_hostile_for_combat(
+                                conn, faction_a, faction_b, guild_id,
+                                'capture' if side_a.has_capture_action else ('raid' if side_a.has_raid_action else None),
+                                'capture' if side_b.has_capture_action else ('raid' if side_b.has_raid_action else None),
+                                side_a.units, side_b.units
+                            )
+                            if hostile:
+                                is_hostile = True
+                                break
+                        if is_hostile:
+                            break
+
+                if is_hostile:
+                    current_hostile_pairs.append((i, j))
 
         if not current_hostile_pairs:
             break
@@ -1094,19 +1198,51 @@ async def resolve_combat_in_territory(
         current_hostile_pairs = []
         for i, side_a in enumerate(sides):
             for j, side_b in enumerate(sides[i+1:], i+1):
-                for faction_a in side_a.faction_ids:
-                    for faction_b in side_b.faction_ids:
-                        hostile, _ = await are_factions_hostile_for_combat(
-                            conn, faction_a, faction_b, guild_id,
-                            'capture' if side_a.has_capture_action else ('raid' if side_a.has_raid_action else None),
-                            'capture' if side_b.has_capture_action else ('raid' if side_b.has_raid_action else None)
-                        )
-                        if hostile:
-                            current_hostile_pairs.append((i, j))
+                is_hostile = False
+
+                # Check hostile keyword at side level first
+                if any(unit_has_keyword(u, 'hostile') for u in side_a.units if u.status == 'ACTIVE'):
+                    sides_are_allied = False
+                    for faction_a in side_a.faction_ids:
+                        for faction_b in side_b.faction_ids:
+                            if await are_factions_allied(conn, faction_a, faction_b, guild_id):
+                                sides_are_allied = True
+                                break
+                        if sides_are_allied:
                             break
-                    else:
-                        continue
-                    break
+                    if not sides_are_allied:
+                        is_hostile = True
+
+                if not is_hostile and any(unit_has_keyword(u, 'hostile') for u in side_b.units if u.status == 'ACTIVE'):
+                    sides_are_allied = False
+                    for faction_a in side_a.faction_ids:
+                        for faction_b in side_b.faction_ids:
+                            if await are_factions_allied(conn, faction_a, faction_b, guild_id):
+                                sides_are_allied = True
+                                break
+                        if sides_are_allied:
+                            break
+                    if not sides_are_allied:
+                        is_hostile = True
+
+                # If not hostile via keyword, check faction-pair hostility
+                if not is_hostile:
+                    for faction_a in side_a.faction_ids:
+                        for faction_b in side_b.faction_ids:
+                            hostile, _ = await are_factions_hostile_for_combat(
+                                conn, faction_a, faction_b, guild_id,
+                                'capture' if side_a.has_capture_action else ('raid' if side_a.has_raid_action else None),
+                                'capture' if side_b.has_capture_action else ('raid' if side_b.has_raid_action else None),
+                                side_a.units, side_b.units
+                            )
+                            if hostile:
+                                is_hostile = True
+                                break
+                        if is_hostile:
+                            break
+
+                if is_hostile:
+                    current_hostile_pairs.append((i, j))
 
         for i, j in current_hostile_pairs:
             side_a, side_b = sides[i], sides[j]
@@ -1131,10 +1267,17 @@ async def resolve_combat_in_territory(
             for other_side in sides:
                 if other_side == side:
                     continue
+                # Check hostile keyword first
+                if any(unit_has_keyword(u, 'hostile') for u in side.units if u.status == 'ACTIVE') or \
+                   any(unit_has_keyword(u, 'hostile') for u in other_side.units if u.status == 'ACTIVE'):
+                    hostile_for_this_side.update(other_side.faction_ids)
+                    continue
+                # Then check faction-pair hostility
                 for faction_a in side.faction_ids:
                     for faction_b in other_side.faction_ids:
                         hostile, _ = await are_factions_hostile_for_combat(
-                            conn, faction_a, faction_b, guild_id
+                            conn, faction_a, faction_b, guild_id,
+                            units_a=side.units, units_b=other_side.units
                         )
                         if hostile:
                             hostile_for_this_side.update(other_side.faction_ids)

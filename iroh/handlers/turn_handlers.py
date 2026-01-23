@@ -700,6 +700,11 @@ async def _collect_territory_production(
             logger.debug(f"Territory production: Territory {territory.territory_id} has no controller, skipping")
             continue
 
+        # Check for sacred-land keyword - skip production collection
+        if territory.keywords and 'sacred-land' in [k.lower() for k in territory.keywords]:
+            logger.debug(f"Territory production: Territory {territory.territory_id} has sacred-land keyword, skipping production")
+            continue
+
         # Calculate building production bonus for this territory
         building_bonus = await calculate_building_production_bonus(conn, territory, guild_id)
 

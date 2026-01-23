@@ -326,6 +326,11 @@ class Unit:
         if self.guild_id is None or self.guild_id < 0:
             return False, "guild_id must be valid"
 
+        # Submarine keyword requires naval unit
+        if self.keywords and 'submarine' in [k.lower() for k in self.keywords]:
+            if not self.is_naval:
+                return False, "Submarine keyword can only be applied to naval units"
+
         return True, ""
 
     def get_owner_type(self) -> str:

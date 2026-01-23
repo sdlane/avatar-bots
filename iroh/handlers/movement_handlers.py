@@ -281,7 +281,8 @@ async def are_unit_groups_hostile(
 
     Hostile if:
     1. Factions are on opposite sides of any war, OR
-    2. One group is raiding and the other is allied with territory controller
+    2. One group is raiding and the other is allied with territory controller, OR
+    3. One group has 'hostile' keyword and the other is not allied (hostile engages all non-allies)
 
     Args:
         conn: Database connection
@@ -293,7 +294,7 @@ async def are_unit_groups_hostile(
         guild_id: Guild ID
 
     Returns:
-        (is_hostile, reason): Tuple of boolean and reason string ("war" or "raid_defense")
+        (is_hostile, reason): Tuple of boolean and reason string ("war", "raid_defense", or "hostile_keyword")
     """
     units_a_ids = [u.unit_id for u in units_a]
     units_b_ids = [u.unit_id for u in units_b]
@@ -305,10 +306,26 @@ async def are_unit_groups_hostile(
 
     logger.debug(f"are_unit_groups_hostile: faction_a_id={faction_a_id}, faction_b_id={faction_b_id}")
 
-    # Same faction or unaffiliated - not hostile
-    if faction_a_id == faction_b_id:
+    # Same faction - not hostile
+    if faction_a_id == faction_b_id and faction_a_id is not None:
         logger.debug("are_unit_groups_hostile: same faction, not hostile")
         return False, None
+
+    # Check alliance FIRST (only if both have factions) - allied factions are never hostile
+    if faction_a_id is not None and faction_b_id is not None:
+        if await are_factions_allied(conn, faction_a_id, faction_b_id, guild_id):
+            logger.debug("are_unit_groups_hostile: factions are allied, not hostile")
+            return False, None
+
+    # HOSTILE keyword: engages non-allied factions AND unaffiliated units
+    if any(unit_has_keyword(u, 'hostile') for u in units_a):
+        logger.info(f"are_unit_groups_hostile: group A has hostile keyword - HOSTILE")
+        return True, "hostile_keyword"
+    if any(unit_has_keyword(u, 'hostile') for u in units_b):
+        logger.info(f"are_unit_groups_hostile: group B has hostile keyword - HOSTILE")
+        return True, "hostile_keyword"
+
+    # If either is unaffiliated, not hostile (unless hostile keyword above)
     if faction_a_id is None or faction_b_id is None:
         logger.debug("are_unit_groups_hostile: one or both factions unaffiliated, not hostile")
         return False, None
@@ -1429,6 +1446,17 @@ async def generate_observation_reports(
                     if unit_has_keyword(observed, 'infiltrator'):
                         continue
 
+                    # Skip submarines (invisible unless in combat)
+                    if unit_has_keyword(observed, 'submarine'):
+                        # Submarines can't see other submarines (like infiltrators)
+                        if unit_has_keyword(observer, 'submarine'):
+                            continue
+                        # Non-submarines only see submarines if they engaged in combat this turn
+                        # Use deferred import to avoid circular imports
+                        from handlers.naval_combat_handlers import is_submarine_in_combat_this_turn
+                        if not is_submarine_in_combat_this_turn(observed.id):
+                            continue
+
                     # Get observed unit's faction info
                     observed_faction_id = await get_unit_group_faction_id(conn, [observed], guild_id)
                     observed_faction = None
@@ -1516,6 +1544,12 @@ async def generate_aerial_scout_observations(
                         # Skip infiltrators (invisible)
                         if unit_has_keyword(observed, 'infiltrator'):
                             continue
+                        # Skip submarines (invisible unless in combat)
+                        if unit_has_keyword(observed, 'submarine'):
+                            # Aerial scouts can only see submarines in combat
+                            from handlers.naval_combat_handlers import is_submarine_in_combat_this_turn
+                            if not is_submarine_in_combat_this_turn(observed.id):
+                                continue
                         # Skip self
                         if any(observed.id == u.id for u in state.units):
                             continue

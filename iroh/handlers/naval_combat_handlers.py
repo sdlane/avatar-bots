@@ -20,10 +20,29 @@ from order_types import OrderStatus, TurnPhase
 from handlers.movement_handlers import (
     are_factions_at_war,
     are_factions_allied,
+    unit_has_keyword,
 )
 from handlers.combat_handlers import get_unit_faction_id
 
 logger = logging.getLogger(__name__)
+
+# Track which submarines engaged in combat this turn (for observation visibility)
+_submarines_in_combat_this_turn: Set[int] = set()
+
+
+def mark_submarine_in_combat(unit_id: int) -> None:
+    """Mark a submarine as having engaged in combat this turn."""
+    _submarines_in_combat_this_turn.add(unit_id)
+
+
+def is_submarine_in_combat_this_turn(unit_id: int) -> bool:
+    """Check if a submarine engaged in combat this turn."""
+    return unit_id in _submarines_in_combat_this_turn
+
+
+def clear_submarine_combat_tracking() -> None:
+    """Clear the submarine combat tracking for a new turn."""
+    _submarines_in_combat_this_turn.clear()
 
 
 @dataclass
@@ -237,6 +256,91 @@ async def group_units_into_naval_combat_sides(
     return sides
 
 
+def naval_side_has_spirit_unit(side: NavalCombatSide) -> bool:
+    """Check if any unit on a naval combat side has the spirit keyword."""
+    return any(unit_has_keyword(u, 'spirit') for u in side.units if u.status == 'ACTIVE')
+
+
+def should_submarine_engage(
+    submarine: Unit,
+    our_side: NavalCombatSide,
+    enemy_side: NavalCombatSide
+) -> bool:
+    """
+    Determine if a submarine should engage in combat.
+
+    Submarine only engages if its side would deal damage (attack > enemy defense).
+
+    Args:
+        submarine: The submarine unit
+        our_side: The submarine's side
+        enemy_side: The enemy side
+
+    Returns:
+        True if submarine should engage, False otherwise
+    """
+    # Calculate total attack for our side
+    return our_side.total_attack > enemy_side.total_defense
+
+
+def filter_submarines_from_combat(
+    sides: List[NavalCombatSide],
+    hostile_pairs: List[Tuple[int, int]]
+) -> List[NavalCombatSide]:
+    """
+    Filter out submarines that won't engage from combat sides.
+
+    Submarines only engage if their side would deal damage.
+    If a submarine won't engage, it's removed from its side for damage calculation.
+
+    Args:
+        sides: List of NavalCombatSide objects
+        hostile_pairs: List of hostile (side_index, side_index) pairs
+
+    Returns:
+        Modified list of NavalCombatSide objects with non-engaging submarines removed
+    """
+    # Build a set of submarines that will engage
+    engaging_submarines: Set[int] = set()
+
+    for i, j in hostile_pairs:
+        side_a, side_b = sides[i], sides[j]
+
+        # Check submarines in side_a
+        for unit in side_a.units:
+            if unit_has_keyword(unit, 'submarine') and unit.status == 'ACTIVE':
+                if should_submarine_engage(unit, side_a, side_b):
+                    engaging_submarines.add(unit.id)
+                    mark_submarine_in_combat(unit.id)
+
+        # Check submarines in side_b
+        for unit in side_b.units:
+            if unit_has_keyword(unit, 'submarine') and unit.status == 'ACTIVE':
+                if should_submarine_engage(unit, side_b, side_a):
+                    engaging_submarines.add(unit.id)
+                    mark_submarine_in_combat(unit.id)
+
+    # Create new sides with non-engaging submarines filtered out
+    filtered_sides = []
+    for side in sides:
+        filtered_units = []
+        for unit in side.units:
+            if unit_has_keyword(unit, 'submarine') and unit.id not in engaging_submarines:
+                # This submarine won't engage - skip it
+                continue
+            filtered_units.append(unit)
+
+        filtered_side = NavalCombatSide(
+            faction_ids=side.faction_ids,
+            units=filtered_units,
+            total_attack=sum(u.attack for u in filtered_units if u.status == 'ACTIVE'),
+            total_defense=sum(u.defense for u in filtered_units if u.status == 'ACTIVE')
+        )
+        filtered_sides.append(filtered_side)
+
+    return filtered_sides
+
+
 def calculate_naval_combat_damage_for_pairing(
     attacker_side: NavalCombatSide,
     defender_side: NavalCombatSide
@@ -245,20 +349,28 @@ def calculate_naval_combat_damage_for_pairing(
     Calculate org damage for a single attacker vs defender pairing.
 
     Each unit on defender side loses 2 org if attacker's total attack > defender's total defense.
+    If attacker has spirit units, defender takes +1 additional org damage (does not stack).
 
     Args:
         attacker_side: The attacking side
         defender_side: The defending side
 
     Returns:
-        Dict mapping defender unit IDs to org damage (2 for each affected unit)
+        Dict mapping defender unit IDs to org damage
     """
     damage: Dict[int, int] = {}
 
+    # Normal combat damage: 2 org if attack > defense
     if attacker_side.total_attack > defender_side.total_defense:
         for unit in defender_side.units:
             if unit.status == 'ACTIVE':
                 damage[unit.id] = 2
+
+    # Spirit bonus: if attacker has spirit unit, defender takes +1 org (flat, doesn't stack)
+    if naval_side_has_spirit_unit(attacker_side):
+        for unit in defender_side.units:
+            if unit.status == 'ACTIVE':
+                damage[unit.id] = damage.get(unit.id, 0) + 1
 
     return damage
 
@@ -391,7 +503,11 @@ async def resolve_naval_combat_in_territory(
     if not hostile_pairs:
         return events
 
-    # Generate NAVAL_COMBAT_STARTED event
+    # Filter submarines that won't engage (submarines only engage if they would deal damage)
+    # This also marks engaging submarines for observation visibility
+    filtered_sides = filter_submarines_from_combat(sides, hostile_pairs)
+
+    # Generate NAVAL_COMBAT_STARTED event (using original sides for reporting)
     all_participating_units = []
     all_faction_names = []
     all_affected_ids = []
@@ -422,6 +538,9 @@ async def resolve_naval_combat_in_territory(
         },
         guild_id=guild_id
     ))
+
+    # Use filtered sides for damage calculation (submarines that won't engage are excluded)
+    sides = filtered_sides
 
     # Calculate damage for each hostile pairing
     for i, j in hostile_pairs:
@@ -616,6 +735,9 @@ async def execute_naval_combat_phase(
     """
     events: List[TurnLog] = []
     logger.info(f"Naval combat phase: starting for guild {guild_id}, turn {turn_number}")
+
+    # Clear submarine combat tracking from previous turn
+    clear_submarine_combat_tracking()
 
     # Find all territories where naval combat will occur
     combat_territories = await find_all_naval_combat_territories(conn, guild_id)

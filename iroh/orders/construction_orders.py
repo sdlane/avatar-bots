@@ -394,6 +394,13 @@ async def handle_construction_order(
         if not territory:
             return await _fail_construction_order(conn, order, guild_id, turn_number, f'Territory {territory_id} not found')
 
+        # Check for sacred-land keyword - cannot construct on sacred land
+        if territory.keywords and 'sacred-land' in [k.lower() for k in territory.keywords]:
+            return await _fail_construction_order(
+                conn, order, guild_id, turn_number,
+                f"Territory {territory_id} has sacred-land keyword and cannot have buildings constructed"
+            )
+
         # Get target faction if using faction resources
         target_faction = None
         if faction_id:

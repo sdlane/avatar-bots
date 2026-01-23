@@ -637,6 +637,14 @@ async def submit_unit_order(
                 if 'infiltrator' in keywords_lower or 'aerial' in keywords_lower or 'aerial-transport' in keywords_lower:
                     return False, f"Unit '{unit.unit_id}' has infiltrator/aerial/aerial-transport keyword and cannot perform '{action}' action.", None
 
+    # IMMOBILE units cannot perform any movement actions
+    MOVEMENT_ACTIONS = ['transit', 'transport', 'patrol', 'raid', 'capture', 'siege', 'aerial_convoy', 'aerial_scout',
+                        'naval_transit', 'naval_convoy', 'naval_patrol', 'naval_transport']
+    if action in MOVEMENT_ACTIONS:
+        for unit in units:
+            if unit.keywords and 'immobile' in [k.lower() for k in unit.keywords]:
+                return False, f"Unit '{unit.unit_id}' has 'immobile' keyword and cannot move.", None
+
     # Validate authorization for all units
     unauthorized_units = []
     for unit in units:
@@ -1950,6 +1958,10 @@ async def submit_construction_order(
     territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
     if not territory:
         return False, f"Territory '{territory_id}' not found."
+
+    # Check for sacred-land keyword - cannot construct on sacred land
+    if territory.keywords and 'sacred-land' in [k.lower() for k in territory.keywords]:
+        return False, f"Cannot construct buildings on sacred land. Territory '{territory_id}' has the sacred-land keyword."
 
     use_faction_resources = False
     target_faction = None
