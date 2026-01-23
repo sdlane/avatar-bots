@@ -505,7 +505,7 @@ async def execute_combat_phase(
 
     return events
 
-async def _calculate_building_production_bonus(
+async def calculate_building_production_bonus(
     conn: asyncpg.Connection,
     territory: Territory,
     guild_id: int
@@ -701,7 +701,7 @@ async def _collect_territory_production(
             continue
 
         # Calculate building production bonus for this territory
-        building_bonus = await _calculate_building_production_bonus(conn, territory, guild_id)
+        building_bonus = await calculate_building_production_bonus(conn, territory, guild_id)
 
         if owner_type == 'character':
             char_id = territory.controller_character_id

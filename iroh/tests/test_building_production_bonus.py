@@ -14,7 +14,7 @@ Tests verify:
 Run with: docker compose -f ~/avatar-bots/docker-compose-development.yaml exec iroh-api pytest tests/test_building_production_bonus.py -v
 """
 import pytest
-from handlers.turn_handlers import execute_resource_collection_phase, _calculate_building_production_bonus
+from handlers.turn_handlers import execute_resource_collection_phase, calculate_building_production_bonus
 from handlers.building_handlers import create_building
 from db import Character, Territory, PlayerResources, Building, BuildingType
 from tests.conftest import TEST_GUILD_ID
@@ -549,7 +549,7 @@ async def test_multi_keyword_building(db_conn, test_server):
 
 @pytest.mark.asyncio
 async def test_calculate_building_production_bonus_helper(db_conn, test_server):
-    """Test the _calculate_building_production_bonus helper function directly."""
+    """Test the calculate_building_production_bonus helper function directly."""
     # Create territory with some natural production
     territory = Territory(
         territory_id="B109", name="Test Territory", terrain_type="plains",
@@ -590,7 +590,7 @@ async def test_calculate_building_production_bonus_helper(db_conn, test_server):
     await industrial_building.upsert(db_conn)
 
     # Calculate bonus
-    bonus = await _calculate_building_production_bonus(db_conn, territory, TEST_GUILD_ID)
+    bonus = await calculate_building_production_bonus(db_conn, territory, TEST_GUILD_ID)
 
     # Verify bonuses
     assert bonus['ore'] == 2  # Non-industrial ore building with natural production

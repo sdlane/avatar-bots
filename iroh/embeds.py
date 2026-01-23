@@ -987,6 +987,15 @@ def create_character_finances_embed(data: dict) -> discord.Embed:
             inline=False
         )
 
+    # Building Production Bonuses
+    building_prod = data.get('building_production')
+    if building_prod and not building_prod.is_empty():
+        embed.add_field(
+            name="Building Production Bonuses",
+            value=format_resource_totals(building_prod),
+            inline=False
+        )
+
     # Unit Upkeep
     unit_upkeep = data['unit_upkeep']
     unit_count = data['unit_count']
@@ -1071,6 +1080,15 @@ def create_faction_finances_embed(data: dict) -> discord.Embed:
         embed.add_field(
             name="Territory Production",
             value="No territories controlled",
+            inline=False
+        )
+
+    # Building Production Bonuses
+    building_prod = data.get('building_production')
+    if building_prod and not building_prod.is_empty():
+        embed.add_field(
+            name="Building Production Bonuses",
+            value=format_resource_totals(building_prod),
             inline=False
         )
 

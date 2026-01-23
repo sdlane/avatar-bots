@@ -8,6 +8,7 @@ from db import (
     Character, Faction, FactionMember, FactionPermission, FactionResources,
     Territory, Unit, Building, Order, PlayerResources
 )
+from handlers.turn_handlers import calculate_building_production_bonus
 
 
 @dataclass
@@ -121,6 +122,17 @@ async def get_character_finances(
         territory_production.cloth += t.cloth_production
         territory_production.platinum += t.platinum_production
 
+    # Building production bonuses
+    building_production = ResourceTotals()
+    for t in territories:
+        bonus = await calculate_building_production_bonus(conn, t, guild_id)
+        building_production.ore += bonus.get('ore', 0)
+        building_production.lumber += bonus.get('lumber', 0)
+        building_production.coal += bonus.get('coal', 0)
+        building_production.rations += bonus.get('rations', 0)
+        building_production.cloth += bonus.get('cloth', 0)
+        building_production.platinum += bonus.get('platinum', 0)
+
     # Unit upkeep (ACTIVE only)
     units = await Unit.fetch_by_owner(conn, character_id, guild_id)
     active_units = [u for u in units if u.status == 'ACTIVE']
@@ -163,7 +175,7 @@ async def get_character_finances(
         outgoing_transfers.platinum += order_data.get('platinum', 0)
 
     # Calculate total production and expenses
-    total_production = personal_production.add(territory_production)
+    total_production = personal_production.add(territory_production).add(building_production)
     total_expenses = unit_upkeep.add(building_upkeep).add(outgoing_transfers)
     net_resources = total_production.subtract(total_expenses)
 
@@ -172,6 +184,7 @@ async def get_character_finances(
         'current_resources': current_resources,
         'personal_production': personal_production,
         'territory_production': territory_production,
+        'building_production': building_production,
         'territory_count': len(territories),
         'unit_upkeep': unit_upkeep,
         'unit_count': len(active_units),
@@ -233,6 +246,17 @@ async def get_faction_finances(
         territory_production.cloth += t.cloth_production
         territory_production.platinum += t.platinum_production
 
+    # Building production bonuses
+    building_production = ResourceTotals()
+    for t in territories:
+        bonus = await calculate_building_production_bonus(conn, t, guild_id)
+        building_production.ore += bonus.get('ore', 0)
+        building_production.lumber += bonus.get('lumber', 0)
+        building_production.coal += bonus.get('coal', 0)
+        building_production.rations += bonus.get('rations', 0)
+        building_production.cloth += bonus.get('cloth', 0)
+        building_production.platinum += bonus.get('platinum', 0)
+
     # Unit upkeep (faction-owned units, ACTIVE only)
     units = await Unit.fetch_by_faction_owner(conn, faction_id, guild_id)
     active_units = [u for u in units if u.status == 'ACTIVE']
@@ -271,13 +295,15 @@ async def get_faction_finances(
     )
 
     # Calculate net resources
+    total_production = territory_production.add(building_production)
     total_expenses = unit_upkeep.add(building_upkeep).add(spending_targets)
-    net_resources = territory_production.subtract(total_expenses)
+    net_resources = total_production.subtract(total_expenses)
 
     return True, "", {
         'faction': faction,
         'current_resources': current_resources,
         'territory_production': territory_production,
+        'building_production': building_production,
         'territory_count': len(territories),
         'unit_upkeep': unit_upkeep,
         'unit_count': len(active_units),
