@@ -63,7 +63,8 @@ def load_products(filename: str) -> List[Product]:
     Load products from a CSV file.
 
     CSV columns:
-    Name, Macro, Type, Item Number, Flavor Text, Rules Text, Skip Export
+    Name, Macro, Type, Item Number, Flavor Text, Rules Text, Skip Export, Skip Prod
+    Note: 'Notes' column is ignored if present.
     """
     products = []
 
@@ -72,6 +73,7 @@ def load_products(filename: str) -> List[Product]:
         for row in reader:
             # Parse skip_export - true if column contains a value
             skip_export = bool(row.get('Skip Export', '').strip())
+            skip_prod = bool(row.get('Skip Prod', '').strip())
 
             product = Product(
                 item_number=row.get('Item Number', '').strip(),
@@ -80,7 +82,8 @@ def load_products(filename: str) -> List[Product]:
                 product_type=row.get('Type', '').strip() or None,
                 flavor_text=row.get('Flavor Text', '').strip() or None,
                 rules_text=row.get('Rules Text', '').strip() or None,
-                skip_export=skip_export
+                skip_export=skip_export,
+                skip_prod=skip_prod
             )
             products.append(product)
 

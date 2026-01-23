@@ -1053,6 +1053,20 @@ async def ensure_tables():
     await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS flavor_text TEXT;")
     await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS rules_text TEXT;")
     await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS skip_export BOOLEAN DEFAULT FALSE;")
+    await conn.execute("ALTER TABLE Product ADD COLUMN IF NOT EXISTS skip_prod BOOLEAN DEFAULT FALSE;")
+
+    # Migrate unique constraint from (item_number) to (item_number, product_type)
+    await conn.execute("""
+    DO $$
+    BEGIN
+        IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'product_item_number_key') THEN
+            ALTER TABLE Product DROP CONSTRAINT product_item_number_key;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'product_item_number_type_key') THEN
+            ALTER TABLE Product ADD CONSTRAINT product_item_number_type_key UNIQUE (item_number, product_type);
+        END IF;
+    END$$;
+    """)
 
     # --- SubsetRecipe table ---
     await conn.execute("""

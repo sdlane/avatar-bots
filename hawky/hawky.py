@@ -556,12 +556,17 @@ async def blend_herbs(
     if product.rules_text:
         embed.add_field(name="Effect", value=product.rules_text, inline=False)
 
-    # Add box room instructions
-    box_type = product.product_type.title() if product.product_type else "Product"
-    embed.set_footer(
-        text=f"Find this in the box room in the envelope labeled '{box_type}: {product.item_number}'. "
-             f"Please let the GMs know if the folder is running low."
-    )
+    # Add box room instructions (or apply-herbs instruction if skip_prod)
+    if product.skip_prod:
+        embed.set_footer(
+            text="This product cannot be found in the box room. Use the /apply-herbs command to apply it to a character."
+        )
+    else:
+        box_type = product.product_type.title() if product.product_type else "Product"
+        embed.set_footer(
+            text=f"Find this in the box room in the envelope labeled '{box_type}: {product.item_number}'. "
+                 f"Please let the GMs know if the folder is running low."
+        )
 
     await interaction.response.send_message(embed=embed, ephemeral=True)
 
@@ -571,23 +576,42 @@ async def blend_herbs(
     description="Apply an herbal product to a character"
 )
 @app_commands.describe(
-    character_identifier="The identifier of the character to apply the product to",
-    item_number="The item number of the herbal product"
+    item_number="The item number of the herbal product",
+    product_type="The type of the herbal product (tea, salve, tincture, decoction, bath, incense)",
+    character_identifier="The identifier of the character (optional, defaults to your character)"
 )
+@app_commands.choices(product_type=[
+    app_commands.Choice(name="Tea", value="tea"),
+    app_commands.Choice(name="Salve", value="salve"),
+    app_commands.Choice(name="Tincture", value="tincture"),
+    app_commands.Choice(name="Decoction", value="decoction"),
+    app_commands.Choice(name="Bath", value="bath"),
+    app_commands.Choice(name="Incense", value="incense"),
+])
 async def apply_herbs(
     interaction: discord.Interaction,
-    character_identifier: str,
-    item_number: str
+    item_number: str,
+    product_type: app_commands.Choice[str],
+    character_identifier: Optional[str] = None
 ):
     """Apply an herbal product to a character."""
     async with db_pool.acquire() as conn:
-        # Look up character
-        character = await Character.fetch_by_identifier(
-            conn, character_identifier.strip(), interaction.guild_id
-        )
+        # If no character specified, use the caller's character
+        if character_identifier is None:
+            character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+            if character is None:
+                await interaction.response.send_message(
+                    "You don't have a character assigned. Please specify a character identifier.",
+                    ephemeral=True
+                )
+                return
+        else:
+            character = await Character.fetch_by_identifier(
+                conn, character_identifier.strip(), interaction.guild_id
+            )
 
-        # Look up product
-        product = await Product.fetch_by_item_number(conn, item_number.strip())
+        # Look up product by item_number AND product_type
+        product = await Product.fetch_by_item_number_and_type(conn, item_number.strip(), product_type.value)
 
     # Handle character not found
     if character is None:
@@ -604,25 +628,11 @@ async def apply_herbs(
     # Handle product not found
     if product is None:
         logger.warning(
-            f"apply-herbs failed: Product '{item_number}' not found. "
+            f"apply-herbs failed: Product '{item_number}' with type '{product_type.value}' not found. "
             f"User: {interaction.user.id}, Guild: {interaction.guild_id}"
         )
         await interaction.response.send_message(
-            f"No herbal product found with item number '{item_number}'.",
-            ephemeral=True
-        )
-        return
-
-    # Check that product is a salve or decoction
-    valid_types = ("salve", "decoction")
-    if product.product_type is None or product.product_type.lower() not in valid_types:
-        logger.warning(
-            f"apply-herbs failed: Product '{item_number}' is type '{product.product_type}', "
-            f"not a salve or decoction. User: {interaction.user.id}, Guild: {interaction.guild_id}"
-        )
-        await interaction.response.send_message(
-            f"Product '{item_number}' is a {product.product_type or 'unknown type'}, not a salve or decoction. "
-            f"Only salves and decoctions can be applied to characters using this method.",
+            f"No herbal product found with item number '{item_number}' and type '{product_type.name}'.",
             ephemeral=True
         )
         return
