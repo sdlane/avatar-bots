@@ -154,6 +154,10 @@ class ConfigManager:
             if territory.victory_points > 0:
                 territory_dict['victory_points'] = territory.victory_points
 
+            # Keywords
+            if territory.keywords:
+                territory_dict['keywords'] = territory.keywords
+
             # Adjacent territories
             adjacent_ids = await TerritoryAdjacency.fetch_adjacent(conn, territory.territory_id, guild_id)
             if adjacent_ids:
@@ -241,6 +245,10 @@ class ConfigManager:
                 'platinum': building_type.upkeep_platinum
             }
 
+            # Keywords
+            if building_type.keywords:
+                building_type_dict['keywords'] = building_type.keywords
+
             config_dict['building_types'].append(building_type_dict)
 
         # Export Buildings
@@ -263,6 +271,10 @@ class ConfigManager:
 
             if building.status != 'ACTIVE':
                 building_dict['status'] = building.status
+
+            # Keywords (only if different from building type defaults)
+            if building.keywords:
+                building_dict['keywords'] = building.keywords
 
             config_dict['buildings'].append(building_dict)
 
@@ -601,6 +613,7 @@ class ConfigManager:
                     controller_character_id=controller_character_id,
                     controller_faction_id=controller_faction_id,
                     original_nation=territory_data.get('original_nation'),
+                    keywords=territory_data.get('keywords', []),
                     guild_id=guild_id
                 )
                 await territory.upsert(conn)
@@ -674,6 +687,7 @@ class ConfigManager:
                     upkeep_rations=upkeep.get('rations', 0),
                     upkeep_cloth=upkeep.get('cloth', 0),
                     upkeep_platinum=upkeep.get('platinum', 0),
+                    keywords=building_type_data.get('keywords', []),
                     guild_id=guild_id
                 )
                 await building_type.upsert(conn)
@@ -686,6 +700,12 @@ class ConfigManager:
                 if not building_type:
                     logger.warning(f"Building type {building_data['type']} not found, skipping building {building_data['building_id']}")
                     continue
+
+                # Keywords: use building_data keywords if provided, otherwise inherit from building_type
+                if 'keywords' in building_data:
+                    building_keywords = building_data['keywords']
+                else:
+                    building_keywords = building_type.keywords.copy() if building_type.keywords else []
 
                 building = Building(
                     building_id=building_data['building_id'],
@@ -700,6 +720,7 @@ class ConfigManager:
                     upkeep_rations=building_type.upkeep_rations,
                     upkeep_cloth=building_type.upkeep_cloth,
                     upkeep_platinum=building_type.upkeep_platinum,
+                    keywords=building_keywords,
                     guild_id=guild_id
                 )
                 await building.upsert(conn)

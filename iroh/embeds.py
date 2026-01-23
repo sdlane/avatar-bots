@@ -91,6 +91,14 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
             inline=False
         )
 
+    # Keywords
+    if territory.keywords:
+        embed.add_field(
+            name="Keywords",
+            value=", ".join(territory.keywords),
+            inline=False
+        )
+
     # Adjacent territories
     if adjacent_ids:
         embed.add_field(
@@ -482,6 +490,14 @@ def create_building_type_embed(building_type: BuildingType) -> discord.Embed:
         inline=False
     )
 
+    # Keywords
+    if building_type.keywords:
+        embed.add_field(
+            name="Keywords",
+            value=", ".join(building_type.keywords),
+            inline=False
+        )
+
     return embed
 
 
@@ -558,6 +574,14 @@ def create_building_embed(building: Building, building_type: Optional[BuildingTy
         value=" | ".join(upkeep_lines) if upkeep_lines else "None",
         inline=False
     )
+
+    # Keywords
+    if building.keywords:
+        embed.add_field(
+            name="Keywords",
+            value=", ".join(building.keywords),
+            inline=False
+        )
 
     return embed
 

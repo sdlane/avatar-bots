@@ -24,6 +24,7 @@ class BuildingType:
     upkeep_rations: int = 0
     upkeep_cloth: int = 0
     upkeep_platinum: int = 0
+    keywords: Optional[List[str]] = None
     guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
@@ -36,9 +37,9 @@ class BuildingType:
             type_id, name, description,
             cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
             upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-            guild_id
+            keywords, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
         ON CONFLICT (type_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             description = EXCLUDED.description,
@@ -53,14 +54,15 @@ class BuildingType:
             upkeep_coal = EXCLUDED.upkeep_coal,
             upkeep_rations = EXCLUDED.upkeep_rations,
             upkeep_cloth = EXCLUDED.upkeep_cloth,
-            upkeep_platinum = EXCLUDED.upkeep_platinum;
+            upkeep_platinum = EXCLUDED.upkeep_platinum,
+            keywords = EXCLUDED.keywords;
         """
         await conn.execute(
             query,
             self.type_id, self.name, self.description,
             self.cost_ore, self.cost_lumber, self.cost_coal, self.cost_rations, self.cost_cloth, self.cost_platinum,
             self.upkeep_ore, self.upkeep_lumber, self.upkeep_coal, self.upkeep_rations,
-            self.upkeep_cloth, self.upkeep_platinum, self.guild_id
+            self.upkeep_cloth, self.upkeep_platinum, self.keywords, self.guild_id
         )
 
     @classmethod
@@ -72,13 +74,15 @@ class BuildingType:
             SELECT id, type_id, name, description,
                    cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-                   guild_id
+                   keywords, guild_id
             FROM BuildingType
             WHERE id = $1;
         """, building_type_internal_id)
         if not row:
             return None
-        return cls(**dict(row))
+        data = dict(row)
+        data['keywords'] = list(data['keywords']) if data['keywords'] else []
+        return cls(**data)
 
     @classmethod
     async def fetch_by_type_id(cls, conn: asyncpg.Connection, type_id: str, guild_id: int) -> Optional["BuildingType"]:
@@ -89,13 +93,15 @@ class BuildingType:
             SELECT id, type_id, name, description,
                    cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-                   guild_id
+                   keywords, guild_id
             FROM BuildingType
             WHERE type_id = $1 AND guild_id = $2;
         """, type_id, guild_id)
         if not row:
             return None
-        return cls(**dict(row))
+        data = dict(row)
+        data['keywords'] = list(data['keywords']) if data['keywords'] else []
+        return cls(**data)
 
     @classmethod
     async def fetch_all(cls, conn: asyncpg.Connection, guild_id: int) -> List["BuildingType"]:
@@ -106,12 +112,17 @@ class BuildingType:
             SELECT id, type_id, name, description,
                    cost_ore, cost_lumber, cost_coal, cost_rations, cost_cloth, cost_platinum,
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-                   guild_id
+                   keywords, guild_id
             FROM BuildingType
             WHERE guild_id = $1
             ORDER BY type_id;
         """, guild_id)
-        return [cls(**dict(row)) for row in rows]
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['keywords'] = list(data['keywords']) if data['keywords'] else []
+            result.append(cls(**data))
+        return result
 
     @classmethod
     async def delete(cls, conn: asyncpg.Connection, type_id: str, guild_id: int) -> bool:

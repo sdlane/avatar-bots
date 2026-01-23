@@ -1464,7 +1464,8 @@ async def create_building_cmd(
     building_id="The building ID to edit",
     name="New name for the building (optional)",
     durability="New durability value (optional)",
-    status="New status: ACTIVE or DESTROYED (optional)"
+    status="New status: ACTIVE or DESTROYED (optional)",
+    keywords="Keywords (comma-separated, optional)"
 )
 @app_commands.checks.has_permissions(manage_guild=True)
 async def edit_building_cmd(
@@ -1472,13 +1473,14 @@ async def edit_building_cmd(
     building_id: str,
     name: str = None,
     durability: int = None,
-    status: str = None
+    status: str = None,
+    keywords: str = None
 ):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
         success, message = await handlers.edit_building(
-            conn, building_id, interaction.guild_id, name, durability, status
+            conn, building_id, interaction.guild_id, name, durability, status, keywords
         )
 
         if success:

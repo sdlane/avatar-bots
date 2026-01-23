@@ -35,7 +35,7 @@ async def create_building(
     if not territory:
         return False, f"Territory '{territory_id}' not found."
 
-    # Create building with upkeep from building type
+    # Create building with upkeep and keywords from building type
     building = Building(
         building_id=building_id,
         name=name,
@@ -49,6 +49,7 @@ async def create_building(
         upkeep_rations=building_type.upkeep_rations,
         upkeep_cloth=building_type.upkeep_cloth,
         upkeep_platinum=building_type.upkeep_platinum,
+        keywords=building_type.keywords.copy() if building_type.keywords else [],
         guild_id=guild_id
     )
 
@@ -69,7 +70,8 @@ async def edit_building(
     guild_id: int,
     name: Optional[str] = None,
     durability: Optional[int] = None,
-    status: Optional[str] = None
+    status: Optional[str] = None,
+    keywords: Optional[str] = None
 ) -> Tuple[bool, str]:
     """
     Edit an existing building.
@@ -100,6 +102,13 @@ async def edit_building(
             return False, f"Status must be one of: {', '.join(valid_statuses)}"
         building.status = status
         changes.append(f"status -> {status}")
+
+    if keywords is not None:
+        if keywords.strip():
+            building.keywords = [k.strip() for k in keywords.split(',') if k.strip()]
+        else:
+            building.keywords = []
+        changes.append(f"keywords -> {building.keywords}")
 
     if not changes:
         return False, "No changes specified."

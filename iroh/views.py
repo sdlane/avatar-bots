@@ -48,6 +48,16 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
         )
         self.add_item(self.production_input)
 
+        # Keywords field
+        self.keywords_input = discord.ui.TextInput(
+            label="Keywords (comma-separated)",
+            placeholder="e.g., capital, fortified, contested",
+            default=", ".join(territory.keywords) if territory.keywords else "",
+            required=False,
+            max_length=500
+        )
+        self.add_item(self.keywords_input)
+
     async def on_submit(self, interaction: discord.Interaction):
         """Handle form submission."""
         from helpers import emotive_message
@@ -79,6 +89,13 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
             )
             return
 
+        # Parse keywords
+        keywords_str = self.keywords_input.value.strip()
+        if keywords_str:
+            keywords = [k.strip() for k in keywords_str.split(',') if k.strip()]
+        else:
+            keywords = []
+
         # Update territory
         self.territory.name = self.name_input.value if self.name_input.value else None
         self.territory.original_nation = self.original_nation_input.value if self.original_nation_input.value else None
@@ -88,6 +105,7 @@ class EditTerritoryModal(discord.ui.Modal, title="Edit Territory"):
         self.territory.rations_production = rations
         self.territory.cloth_production = cloth
         self.territory.platinum_production = platinum
+        self.territory.keywords = keywords
 
         # Save to database
         async with self.db_pool.acquire() as conn:
@@ -411,6 +429,21 @@ class EditBuildingTypeModal(discord.ui.Modal, title="Edit Building Type"):
         )
         self.add_item(self.upkeep_input)
 
+        # Keywords field
+        if building_type:
+            keywords_str = ", ".join(building_type.keywords) if building_type.keywords else ""
+        else:
+            keywords_str = ""
+
+        self.keywords_input = discord.ui.TextInput(
+            label="Keywords (comma-separated)",
+            placeholder="e.g., fortification, production, military",
+            default=keywords_str,
+            required=False,
+            max_length=500
+        )
+        self.add_item(self.keywords_input)
+
     async def on_submit(self, interaction: discord.Interaction):
         """Handle form submission."""
         from helpers import emotive_message
@@ -470,6 +503,13 @@ class EditBuildingTypeModal(discord.ui.Modal, title="Edit Building Type"):
         # Get description from input (empty string becomes None)
         description = self.description_input.value.strip() if self.description_input.value.strip() else None
 
+        # Parse keywords
+        keywords_str = self.keywords_input.value.strip()
+        if keywords_str:
+            keywords = [k.strip() for k in keywords_str.split(',') if k.strip()]
+        else:
+            keywords = []
+
         # Update or create building type
         if self.building_type:
             # Update existing
@@ -486,6 +526,7 @@ class EditBuildingTypeModal(discord.ui.Modal, title="Edit Building Type"):
             self.building_type.upkeep_rations = upkeep_rations
             self.building_type.upkeep_cloth = upkeep_cloth
             self.building_type.upkeep_platinum = upkeep_platinum
+            self.building_type.keywords = keywords
 
             # Save to database
             async with self.db_pool.acquire() as conn:
@@ -515,6 +556,7 @@ class EditBuildingTypeModal(discord.ui.Modal, title="Edit Building Type"):
                 upkeep_rations=upkeep_rations,
                 upkeep_cloth=upkeep_cloth,
                 upkeep_platinum=upkeep_platinum,
+                keywords=keywords,
                 guild_id=interaction.guild_id
             )
 

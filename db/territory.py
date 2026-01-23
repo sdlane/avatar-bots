@@ -26,6 +26,7 @@ class Territory:
     controller_character_id: Optional[int] = None
     controller_faction_id: Optional[int] = None
     original_nation: Optional[str] = None
+    keywords: Optional[List[str]] = None
     guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
@@ -37,9 +38,9 @@ class Territory:
         INSERT INTO Territory (
             territory_id, name, terrain_type, ore_production, lumber_production,
             coal_production, rations_production, cloth_production, platinum_production,
-            victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
+            victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
         ON CONFLICT (territory_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             terrain_type = EXCLUDED.terrain_type,
@@ -52,7 +53,8 @@ class Territory:
             victory_points = EXCLUDED.victory_points,
             controller_character_id = EXCLUDED.controller_character_id,
             controller_faction_id = EXCLUDED.controller_faction_id,
-            original_nation = EXCLUDED.original_nation;
+            original_nation = EXCLUDED.original_nation,
+            keywords = EXCLUDED.keywords;
         """
         await conn.execute(
             query,
@@ -69,6 +71,7 @@ class Territory:
             self.controller_character_id,
             self.controller_faction_id,
             self.original_nation,
+            self.keywords,
             self.guild_id
         )
 
@@ -80,11 +83,15 @@ class Territory:
         row = await conn.fetchrow("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE id = $1;
         """, territory_internal_id)
-        return cls(**row) if row else None
+        if not row:
+            return None
+        data = dict(row)
+        data['keywords'] = list(data['keywords']) if data['keywords'] else []
+        return cls(**data)
 
     @classmethod
     async def fetch_by_territory_id(cls, conn: asyncpg.Connection, territory_id: str, guild_id: int) -> Optional["Territory"]:
@@ -94,11 +101,15 @@ class Territory:
         row = await conn.fetchrow("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE territory_id = $1 AND guild_id = $2;
         """, territory_id, guild_id)
-        return cls(**row) if row else None
+        if not row:
+            return None
+        data = dict(row)
+        data['keywords'] = list(data['keywords']) if data['keywords'] else []
+        return cls(**data)
 
     @classmethod
     async def fetch_all(cls, conn: asyncpg.Connection, guild_id: int) -> List["Territory"]:
@@ -108,12 +119,17 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE guild_id = $1
             ORDER BY territory_id;
         """, guild_id)
-        return [cls(**row) for row in rows]
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['keywords'] = list(data['keywords']) if data['keywords'] else []
+            result.append(cls(**data))
+        return result
 
     @classmethod
     async def fetch_by_controller(cls, conn: asyncpg.Connection, character_id: int, guild_id: int) -> List["Territory"]:
@@ -123,12 +139,17 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE controller_character_id = $1 AND guild_id = $2
             ORDER BY territory_id;
         """, character_id, guild_id)
-        return [cls(**row) for row in rows]
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['keywords'] = list(data['keywords']) if data['keywords'] else []
+            result.append(cls(**data))
+        return result
 
     @classmethod
     async def fetch_by_faction_controller(cls, conn: asyncpg.Connection, faction_id: int, guild_id: int) -> List["Territory"]:
@@ -138,12 +159,17 @@ class Territory:
         rows = await conn.fetch("""
             SELECT id, territory_id, name, terrain_type, ore_production, lumber_production,
                    coal_production, rations_production, cloth_production, platinum_production,
-                   victory_points, controller_character_id, controller_faction_id, original_nation, guild_id
+                   victory_points, controller_character_id, controller_faction_id, original_nation, keywords, guild_id
             FROM Territory
             WHERE controller_faction_id = $1 AND guild_id = $2
             ORDER BY territory_id;
         """, faction_id, guild_id)
-        return [cls(**row) for row in rows]
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['keywords'] = list(data['keywords']) if data['keywords'] else []
+            result.append(cls(**data))
+        return result
 
     @classmethod
     async def delete(cls, conn: asyncpg.Connection, territory_id: str, guild_id: int) -> bool:

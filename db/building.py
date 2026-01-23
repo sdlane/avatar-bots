@@ -21,6 +21,7 @@ class Building:
     upkeep_rations: int = 0
     upkeep_cloth: int = 0
     upkeep_platinum: int = 0
+    keywords: Optional[List[str]] = None
     guild_id: Optional[int] = None
 
     async def upsert(self, conn: asyncpg.Connection):
@@ -32,9 +33,9 @@ class Building:
         INSERT INTO Building (
             building_id, name, building_type, territory_id, durability, status,
             upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-            guild_id
+            keywords, guild_id
         )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
         ON CONFLICT (building_id, guild_id) DO UPDATE
         SET name = EXCLUDED.name,
             building_type = EXCLUDED.building_type,
@@ -46,7 +47,8 @@ class Building:
             upkeep_coal = EXCLUDED.upkeep_coal,
             upkeep_rations = EXCLUDED.upkeep_rations,
             upkeep_cloth = EXCLUDED.upkeep_cloth,
-            upkeep_platinum = EXCLUDED.upkeep_platinum;
+            upkeep_platinum = EXCLUDED.upkeep_platinum,
+            keywords = EXCLUDED.keywords;
         """
         await conn.execute(
             query,
@@ -54,7 +56,7 @@ class Building:
             self.durability, self.status,
             self.upkeep_ore, self.upkeep_lumber, self.upkeep_coal,
             self.upkeep_rations, self.upkeep_cloth, self.upkeep_platinum,
-            self.guild_id
+            self.keywords, self.guild_id
         )
 
     @classmethod
@@ -65,13 +67,15 @@ class Building:
         row = await conn.fetchrow("""
             SELECT id, building_id, name, building_type, territory_id, durability, status,
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-                   guild_id
+                   keywords, guild_id
             FROM Building
             WHERE id = $1;
         """, building_internal_id)
         if not row:
             return None
-        return cls(**dict(row))
+        data = dict(row)
+        data['keywords'] = list(data['keywords']) if data['keywords'] else []
+        return cls(**data)
 
     @classmethod
     async def fetch_by_building_id(cls, conn: asyncpg.Connection, building_id: str, guild_id: int) -> Optional["Building"]:
@@ -81,13 +85,15 @@ class Building:
         row = await conn.fetchrow("""
             SELECT id, building_id, name, building_type, territory_id, durability, status,
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-                   guild_id
+                   keywords, guild_id
             FROM Building
             WHERE building_id = $1 AND guild_id = $2;
         """, building_id, guild_id)
         if not row:
             return None
-        return cls(**dict(row))
+        data = dict(row)
+        data['keywords'] = list(data['keywords']) if data['keywords'] else []
+        return cls(**data)
 
     @classmethod
     async def fetch_all(cls, conn: asyncpg.Connection, guild_id: int) -> List["Building"]:
@@ -97,12 +103,17 @@ class Building:
         rows = await conn.fetch("""
             SELECT id, building_id, name, building_type, territory_id, durability, status,
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-                   guild_id
+                   keywords, guild_id
             FROM Building
             WHERE guild_id = $1
             ORDER BY building_id;
         """, guild_id)
-        return [cls(**dict(row)) for row in rows]
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['keywords'] = list(data['keywords']) if data['keywords'] else []
+            result.append(cls(**data))
+        return result
 
     @classmethod
     async def fetch_active_for_upkeep(cls, conn: asyncpg.Connection, guild_id: int) -> List["Building"]:
@@ -113,12 +124,17 @@ class Building:
         rows = await conn.fetch("""
             SELECT id, building_id, name, building_type, territory_id, durability, status,
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-                   guild_id
+                   keywords, guild_id
             FROM Building
             WHERE guild_id = $1 AND status = 'ACTIVE'
             ORDER BY durability ASC, territory_id ASC, id ASC;
         """, guild_id)
-        return [cls(**dict(row)) for row in rows]
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['keywords'] = list(data['keywords']) if data['keywords'] else []
+            result.append(cls(**data))
+        return result
 
     @classmethod
     async def fetch_by_territory(cls, conn: asyncpg.Connection, territory_id: str, guild_id: int) -> List["Building"]:
@@ -128,12 +144,17 @@ class Building:
         rows = await conn.fetch("""
             SELECT id, building_id, name, building_type, territory_id, durability, status,
                    upkeep_ore, upkeep_lumber, upkeep_coal, upkeep_rations, upkeep_cloth, upkeep_platinum,
-                   guild_id
+                   keywords, guild_id
             FROM Building
             WHERE territory_id = $1 AND guild_id = $2
             ORDER BY building_id;
         """, territory_id, guild_id)
-        return [cls(**dict(row)) for row in rows]
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['keywords'] = list(data['keywords']) if data['keywords'] else []
+            result.append(cls(**data))
+        return result
 
     @classmethod
     async def delete(cls, conn: asyncpg.Connection, building_id: str, guild_id: int) -> bool:
