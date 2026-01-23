@@ -100,51 +100,47 @@ async def view_faction_cmd(interaction: discord.Interaction, faction_id: str):
 
     async with db_pool.acquire() as conn:
         admin = is_admin(interaction)
-        success, message, data = await handlers.view_faction(conn, faction_id, interaction.guild_id, admin)
+
+        # Get viewer's character for permission checks
+        viewer_character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        viewer_character_id = viewer_character.id if viewer_character else None
+
+        success, message, data = await handlers.view_faction(
+            conn, faction_id, interaction.guild_id,
+            viewer_character_id=viewer_character_id,
+            is_admin=admin
+        )
 
         if not success:
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
+
+        faction = data['faction']
+        viewer_is_member = data['viewer_is_member']
 
         # Determine if user can see spending info
         # (admin, faction leader, or has FINANCIAL permission)
         show_spending = False
         if admin:
             show_spending = True
-        else:
-            # Check if user's character is leader or has FINANCIAL permission
-            character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
-            if character:
-                faction = data['faction']
-                # Check if they are the leader
-                if faction.leader_character_id == character.id:
+        elif viewer_character_id:
+            # Check if they are the leader
+            if faction.leader_character_id == viewer_character_id:
+                show_spending = True
+            else:
+                # Check for FINANCIAL permission
+                has_financial = await FactionPermission.has_permission(
+                    conn, faction.id, viewer_character_id, 'FINANCIAL', interaction.guild_id
+                )
+                if has_financial:
                     show_spending = True
-                else:
-                    # Check for FINANCIAL permission
-                    has_financial = await FactionPermission.has_permission(
-                        conn, faction.id, character.id, 'FINANCIAL', interaction.guild_id
-                    )
-                    if has_financial:
-                        show_spending = True
 
         # Create and send embed
-        if admin:
-            embed = create_faction_embed(
-                data['faction'], data['members'], data['leader'],
-                show_spending=show_spending
-            )
-        else:
-            # Limited info for non-admins
-            embed = discord.Embed(
-                title=f"⚔️ {data['faction'].name}",
-                description=f"Faction ID: `{data['faction'].faction_id}`",
-                color=discord.Color.red()
-            )
-            embed.add_field(
-                name="Information",
-                value="Full faction details are only visible to server administrators.",
-                inline=False
-            )
+        embed = create_faction_embed(
+            data['faction'], data['members'], data['leader'],
+            show_spending=show_spending,
+            viewer_is_member=viewer_is_member
+        )
 
         await interaction.followup.send(embed=embed)
 
@@ -159,7 +155,16 @@ async def view_unit_cmd(interaction: discord.Interaction, unit_id: str):
 
     async with db_pool.acquire() as conn:
         admin = is_admin(interaction)
-        success, message, data = await handlers.view_unit(conn, unit_id, interaction.guild_id, admin)
+
+        # Get viewer's character for permission checks
+        viewer_character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        viewer_character_id = viewer_character.id if viewer_character else None
+
+        success, message, data = await handlers.view_unit(
+            conn, unit_id, interaction.guild_id,
+            viewer_character_id=viewer_character_id,
+            is_admin=admin
+        )
 
         if not success:
             await interaction.followup.send(emotive_message(message), ephemeral=True)
@@ -172,7 +177,7 @@ async def view_unit_cmd(interaction: discord.Interaction, unit_id: str):
             data['owner'],
             data['commander'],
             data['faction'],
-            show_full_details=admin
+            viewer_has_full_access=data['viewer_has_full_access']
         )
         await interaction.followup.send(embed=embed)
 
@@ -1089,16 +1094,23 @@ async def revoke_faction_permission_cmd(
 
 @tree.command(
     name="view-faction-permissions",
-    description="[Admin] View all permissions for a faction"
+    description="View all permissions for a faction (faction members only)"
 )
 @app_commands.describe(faction_id="The faction ID")
-@app_commands.checks.has_permissions(manage_guild=True)
 async def view_faction_permissions_cmd(interaction: discord.Interaction, faction_id: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
+        admin = is_admin(interaction)
+
+        # Get viewer's character for permission checks
+        viewer_character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        viewer_character_id = viewer_character.id if viewer_character else None
+
         success, message, data = await handlers.get_faction_permissions(
-            conn, faction_id, interaction.guild_id
+            conn, faction_id, interaction.guild_id,
+            viewer_character_id=viewer_character_id,
+            is_admin=admin
         )
 
         if not success:
@@ -1824,15 +1836,24 @@ async def modify_character_vp_cmd(interaction: discord.Interaction, character: s
 
 @tree.command(
     name="view-faction-resources",
-    description="[Admin] View a faction's resource stockpile"
+    description="View a faction's resource stockpile (leader/FINANCIAL permission required)"
 )
 @app_commands.describe(faction_id="Faction ID to view resources for")
-@app_commands.checks.has_permissions(manage_guild=True)
 async def view_faction_resources_cmd(interaction: discord.Interaction, faction_id: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
-        success, message, data = await handlers.get_faction_resources(conn, faction_id, interaction.guild_id)
+        admin = is_admin(interaction)
+
+        # Get viewer's character for permission checks
+        viewer_character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        viewer_character_id = viewer_character.id if viewer_character else None
+
+        success, message, data = await handlers.get_faction_resources(
+            conn, faction_id, interaction.guild_id,
+            viewer_character_id=viewer_character_id,
+            is_admin=admin
+        )
 
         if not success:
             await interaction.followup.send(
@@ -1959,7 +1980,7 @@ async def edit_faction_spending_cmd(
 
 @tree.command(
     name="view-faction-spending",
-    description="View a faction's per-turn resource spending configuration"
+    description="View a faction's per-turn resource spending configuration (leader/FINANCIAL permission required)"
 )
 @app_commands.describe(faction_id="Faction ID to view spending for")
 async def view_faction_spending_cmd(interaction: discord.Interaction, faction_id: str):
@@ -1968,15 +1989,14 @@ async def view_faction_spending_cmd(interaction: discord.Interaction, faction_id
     async with db_pool.acquire() as conn:
         admin = is_admin(interaction)
 
-        # Get user's character to check faction membership (if not admin)
-        character_id = None
-        if not admin:
-            character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
-            if character:
-                character_id = character.id
+        # Get viewer's character for permission checks
+        viewer_character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+        viewer_character_id = viewer_character.id if viewer_character else None
 
         success, message, data = await handlers.get_faction_spending(
-            conn, faction_id, interaction.guild_id, character_id if not admin else None
+            conn, faction_id, interaction.guild_id,
+            viewer_character_id=viewer_character_id,
+            is_admin=admin
         )
 
         if not success:

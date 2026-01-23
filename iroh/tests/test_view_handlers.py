@@ -139,8 +139,8 @@ async def test_view_faction_full_details(db_conn, test_server):
     )
     await member2.insert(db_conn)
 
-    # View faction with full details
-    success, message, data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID, show_full_details=True)
+    # View faction as admin (full details)
+    success, message, data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID, is_admin=True)
 
     # Verify
     assert success is True
@@ -148,6 +148,8 @@ async def test_view_faction_full_details(db_conn, test_server):
     assert 'faction' in data
     assert 'leader' in data
     assert 'members' in data
+    assert 'viewer_is_member' in data
+    assert data['viewer_is_member'] is True  # Admin has full access
     assert data['faction'].faction_id == "test-faction"
     assert data['leader'].name == "Leader Character"
     assert len(data['members']) == 2
@@ -167,15 +169,17 @@ async def test_view_faction_minimal(db_conn, test_server):
     )
     await faction.upsert(db_conn)
 
-    # View faction without full details
-    success, message, data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID, show_full_details=False)
+    # View faction as non-member (no character, not admin)
+    success, message, data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID, viewer_character_id=None, is_admin=False)
 
     # Verify
     assert success is True
     assert data is not None
     assert 'faction' in data
-    assert data['leader'] is None
-    assert data['members'] == []
+    assert 'viewer_is_member' in data
+    assert data['viewer_is_member'] is False  # Non-member has limited access
+    assert data['leader'] is None  # Not shown to non-members
+    assert data['members'] == []  # Not shown to non-members
 
     # Cleanup
     await db_conn.execute("DELETE FROM Faction WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -191,8 +195,8 @@ async def test_view_faction_no_leader(db_conn, test_server):
     )
     await faction.upsert(db_conn)
 
-    # View faction
-    success, message, data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID, show_full_details=True)
+    # View faction as admin
+    success, message, data = await view_faction(db_conn, "test-faction", TEST_GUILD_ID, is_admin=True)
 
     # Verify
     assert success is True
@@ -271,8 +275,8 @@ async def test_view_unit_full_details(db_conn, test_server):
     )
     await unit.upsert(db_conn)
 
-    # View unit with full details
-    success, message, data = await view_unit(db_conn, "UNIT-001", TEST_GUILD_ID, show_full_details=True)
+    # View unit as admin (full details)
+    success, message, data = await view_unit(db_conn, "UNIT-001", TEST_GUILD_ID, is_admin=True)
 
     # Verify
     assert success is True
@@ -282,6 +286,8 @@ async def test_view_unit_full_details(db_conn, test_server):
     assert 'owner' in data
     assert 'commander' in data
     assert 'faction' in data
+    assert 'viewer_has_full_access' in data
+    assert data['viewer_has_full_access'] is True
     assert data['unit'].unit_id == "UNIT-001"
     assert data['unit_type'].type_id == "infantry"
     assert data['owner'].name == "Unit Owner"
@@ -344,13 +350,15 @@ async def test_view_unit_minimal(db_conn, test_server):
     )
     await unit.upsert(db_conn)
 
-    # View unit without full details
-    success, message, data = await view_unit(db_conn, "UNIT-001", TEST_GUILD_ID, show_full_details=False)
+    # View unit as non-owner/non-admin (limited details)
+    success, message, data = await view_unit(db_conn, "UNIT-001", TEST_GUILD_ID, viewer_character_id=None, is_admin=False)
 
     # Verify
     assert success is True
-    assert data['owner'] is None
-    assert data['commander'] is None
+    assert 'viewer_has_full_access' in data
+    assert data['viewer_has_full_access'] is False
+    assert data['owner'] is None  # Not shown to non-authorized viewers
+    assert data['commander'] is None  # Not shown to non-authorized viewers
 
     # Cleanup
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -408,8 +416,8 @@ async def test_view_unit_no_commander(db_conn, test_server):
     )
     await unit.upsert(db_conn)
 
-    # View unit
-    success, message, data = await view_unit(db_conn, "UNIT-001", TEST_GUILD_ID, show_full_details=True)
+    # View unit as admin
+    success, message, data = await view_unit(db_conn, "UNIT-001", TEST_GUILD_ID, is_admin=True)
 
     # Verify
     assert success is True

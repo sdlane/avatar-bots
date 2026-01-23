@@ -5,9 +5,84 @@ import asyncpg
 from typing import Optional, Tuple, List, Any
 from db import (
     Territory, Faction, FactionMember, Unit, UnitType, BuildingType, Building,
-    PlayerResources, Character, TerritoryAdjacency, Order
+    PlayerResources, Character, TerritoryAdjacency, Order, FactionPermission
 )
 from order_types import OrderType, OrderStatus
+
+
+async def _get_unit_viewer_access(
+    conn: asyncpg.Connection,
+    unit: Unit,
+    viewer_character_id: Optional[int],
+    is_admin: bool,
+    guild_id: int
+) -> bool:
+    """
+    Determine if viewer has full access to unit details.
+
+    Full access is granted to:
+    - Admins (manage_guild permission)
+    - Unit owner
+    - Unit commander
+    - Characters with COMMAND permission if unit is faction-owned
+
+    Args:
+        conn: Database connection
+        unit: The unit being viewed
+        viewer_character_id: Internal character ID of the viewer (or None if no character)
+        is_admin: Whether the viewer is a server admin
+        guild_id: Guild ID
+
+    Returns:
+        True if viewer has full access, False otherwise
+    """
+    if is_admin:
+        return True
+    if viewer_character_id is None:
+        return False
+    if unit.owner_character_id == viewer_character_id:
+        return True
+    if unit.commander_character_id == viewer_character_id:
+        return True
+    # Check COMMAND permission if faction-owned
+    if unit.faction_id:
+        has_command = await FactionPermission.has_permission(
+            conn, unit.faction_id, viewer_character_id, "COMMAND", guild_id
+        )
+        return has_command
+    return False
+
+
+async def _get_faction_viewer_access(
+    conn: asyncpg.Connection,
+    faction: Faction,
+    viewer_character_id: Optional[int],
+    is_admin: bool,
+    guild_id: int
+) -> bool:
+    """
+    Determine if viewer has member-level access to faction details.
+
+    Full access is granted to:
+    - Admins (manage_guild permission)
+    - Faction members
+
+    Args:
+        conn: Database connection
+        faction: The faction being viewed
+        viewer_character_id: Internal character ID of the viewer (or None if no character)
+        is_admin: Whether the viewer is a server admin
+        guild_id: Guild ID
+
+    Returns:
+        True if viewer is admin or faction member, False otherwise
+    """
+    if is_admin:
+        return True
+    if viewer_character_id is None:
+        return False
+    membership = await FactionMember.fetch_membership(conn, faction.id, viewer_character_id, guild_id)
+    return membership is not None
 
 
 async def view_territory(conn: asyncpg.Connection, territory_id: str, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
@@ -47,25 +122,44 @@ async def view_territory(conn: asyncpg.Connection, territory_id: str, guild_id: 
     }
 
 
-async def view_faction(conn: asyncpg.Connection, faction_id: str, guild_id: int, show_full_details: bool = True) -> Tuple[bool, str, Optional[dict]]:
+async def view_faction(
+    conn: asyncpg.Connection,
+    faction_id: str,
+    guild_id: int,
+    viewer_character_id: Optional[int] = None,
+    is_admin: bool = False
+) -> Tuple[bool, str, Optional[dict]]:
     """
     Fetch faction information for display.
+
+    Args:
+        conn: Database connection
+        faction_id: The faction ID to view
+        guild_id: Guild ID
+        viewer_character_id: Internal character ID of the viewer (for permission checks)
+        is_admin: Whether the viewer is a server admin
 
     Returns:
         (success, message, data) where data contains:
         - faction: Faction object
-        - leader: Character object (if show_full_details and exists)
-        - members: List of Character objects (if show_full_details)
+        - leader: Character object (if viewer is member/admin and exists)
+        - members: List of Character objects (if viewer is member/admin)
+        - viewer_is_member: bool indicating membership status
     """
     faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
 
     if not faction:
         return False, f"Faction '{faction_id}' not found.", None
 
+    # Determine viewer access level
+    viewer_is_member = await _get_faction_viewer_access(
+        conn, faction, viewer_character_id, is_admin, guild_id
+    )
+
     leader = None
     members = []
 
-    if show_full_details:
+    if viewer_is_member:
         # Fetch leader
         if faction.leader_character_id:
             leader = await Character.fetch_by_id(conn, faction.leader_character_id)
@@ -80,34 +174,54 @@ async def view_faction(conn: asyncpg.Connection, faction_id: str, guild_id: int,
     return True, "", {
         'faction': faction,
         'leader': leader,
-        'members': members
+        'members': members,
+        'viewer_is_member': viewer_is_member
     }
 
 
-async def view_unit(conn: asyncpg.Connection, unit_id: str, guild_id: int, show_full_details: bool = True) -> Tuple[bool, str, Optional[dict]]:
+async def view_unit(
+    conn: asyncpg.Connection,
+    unit_id: str,
+    guild_id: int,
+    viewer_character_id: Optional[int] = None,
+    is_admin: bool = False
+) -> Tuple[bool, str, Optional[dict]]:
     """
     Fetch unit information for display.
+
+    Args:
+        conn: Database connection
+        unit_id: The unit ID to view
+        guild_id: Guild ID
+        viewer_character_id: Internal character ID of the viewer (for permission checks)
+        is_admin: Whether the viewer is a server admin
 
     Returns:
         (success, message, data) where data contains:
         - unit: Unit object
         - unit_type: UnitType object
-        - owner: Character object (if show_full_details)
-        - commander: Character object (if show_full_details and exists)
+        - owner: Character object (if viewer has full access)
+        - commander: Character object (if viewer has full access and exists)
         - faction: Faction object (if exists)
+        - viewer_has_full_access: bool indicating access level
     """
     unit = await Unit.fetch_by_unit_id(conn, unit_id, guild_id)
 
     if not unit:
         return False, f"Unit '{unit_id}' not found.", None
 
+    # Determine viewer access level
+    viewer_has_full_access = await _get_unit_viewer_access(
+        conn, unit, viewer_character_id, is_admin, guild_id
+    )
+
     # Fetch unit type
     unit_type = await UnitType.fetch_by_type_id(conn, unit.unit_type, guild_id)
 
-    # Fetch owner/commander only for admins
+    # Fetch owner/commander only for authorized viewers
     owner = None
     commander = None
-    if show_full_details:
+    if viewer_has_full_access:
         if unit.owner_character_id:
             owner = await Character.fetch_by_id(conn, unit.owner_character_id)
         if unit.commander_character_id:
@@ -123,7 +237,8 @@ async def view_unit(conn: asyncpg.Connection, unit_id: str, guild_id: int, show_
         'unit_type': unit_type,
         'owner': owner,
         'commander': commander,
-        'faction': faction
+        'faction': faction,
+        'viewer_has_full_access': viewer_has_full_access
     }
 
 

@@ -163,15 +163,23 @@ async def revoke_faction_permission(
 async def get_faction_permissions(
     conn: asyncpg.Connection,
     faction_id: str,
-    guild_id: int
+    guild_id: int,
+    viewer_character_id: Optional[int] = None,
+    is_admin: bool = False
 ) -> Tuple[bool, str, Optional[List[Dict[str, Any]]]]:
     """
     Get all permissions for a faction.
+
+    Access is granted to:
+    - Admins (manage_guild permission)
+    - Faction members
 
     Args:
         conn: Database connection
         faction_id: Faction identifier (user-facing)
         guild_id: Guild ID
+        viewer_character_id: Internal character ID of the viewer (for permission checks)
+        is_admin: Whether the viewer is a server admin
 
     Returns:
         (success, message, list of permission dicts or None)
@@ -180,6 +188,16 @@ async def get_faction_permissions(
     faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
     if not faction:
         return False, f"Faction '{faction_id}' not found.", None
+
+    # Check permissions (unless admin)
+    if not is_admin:
+        if viewer_character_id is None:
+            return False, "You must be a member to view this faction's permissions.", None
+
+        # Check if viewer is a member of this faction
+        membership = await FactionMember.fetch_membership(conn, faction.id, viewer_character_id, guild_id)
+        if not membership:
+            return False, "You must be a member to view this faction's permissions.", None
 
     # Fetch all permissions
     permissions = await FactionPermission.fetch_by_faction(conn, faction.id, guild_id)
@@ -799,16 +817,23 @@ async def get_faction_spending(
     conn: asyncpg.Connection,
     faction_id: str,
     guild_id: int,
-    character_id: Optional[int] = None
+    viewer_character_id: Optional[int] = None,
+    is_admin: bool = False
 ) -> Tuple[bool, str, Optional[Dict[str, Any]]]:
     """
     Get a faction's spending configuration.
+
+    Access is granted to:
+    - Admins (manage_guild permission)
+    - Faction leader
+    - Characters with FINANCIAL permission
 
     Args:
         conn: Database connection
         faction_id: Faction identifier (user-facing)
         guild_id: Guild ID
-        character_id: Optional - if provided, verify they are a member of the faction
+        viewer_character_id: Internal character ID of the viewer (for permission checks)
+        is_admin: Whether the viewer is a server admin
 
     Returns:
         (success, message, spending_dict or None)
@@ -818,11 +843,21 @@ async def get_faction_spending(
     if not faction:
         return False, f"Faction '{faction_id}' not found.", None
 
-    # If character_id provided, verify they are a member
-    if character_id is not None:
-        membership = await FactionMember.fetch_by_character(conn, character_id, guild_id)
-        if not membership or membership.faction_id != faction.id:
-            return False, f"You are not a member of {faction.name}.", None
+    # Check permissions (unless admin)
+    if not is_admin:
+        if viewer_character_id is None:
+            return False, "You don't have permission to view this faction's spending.", None
+
+        # Check if viewer is faction leader
+        is_leader = faction.leader_character_id == viewer_character_id
+
+        # Check if viewer has FINANCIAL permission
+        has_financial = await FactionPermission.has_permission(
+            conn, faction.id, viewer_character_id, "FINANCIAL", guild_id
+        )
+
+        if not is_leader and not has_financial:
+            return False, "You don't have permission to view this faction's spending.", None
 
     # Return spending data
     spending_data = {

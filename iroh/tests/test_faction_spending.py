@@ -305,8 +305,8 @@ async def test_edit_faction_spending_negative_not_allowed(db_conn, test_server):
 
 
 @pytest.mark.asyncio
-async def test_get_faction_spending_member_access(db_conn, test_server):
-    """Test faction member can view their faction's spending."""
+async def test_get_faction_spending_regular_member_denied(db_conn, test_server):
+    """Test regular faction member cannot view spending (only leader/FINANCIAL can)."""
     # Create character
     character = Character(
         identifier="member-char", name="Member Character",
@@ -339,12 +339,15 @@ async def test_get_faction_spending_member_access(db_conn, test_server):
     )
     await member.insert(db_conn)
 
-    # Get spending as member
-    success, message, data = await get_faction_spending(db_conn, "member-view-faction", TEST_GUILD_ID, character.id)
+    # Regular member should NOT be able to view spending (only leader/FINANCIAL can)
+    success, message, data = await get_faction_spending(
+        db_conn, "member-view-faction", TEST_GUILD_ID,
+        viewer_character_id=character.id, is_admin=False
+    )
 
-    assert success is True
-    assert data['ore'] == 15
-    assert data['faction_name'] == "Member View Faction"
+    assert success is False
+    assert "permission" in message.lower()
+    assert data is None
 
 
 @pytest.mark.asyncio
@@ -373,10 +376,13 @@ async def test_get_faction_spending_non_member_denied(db_conn, test_server):
     await faction.upsert(db_conn)
 
     # Try to get spending as non-member
-    success, message, data = await get_faction_spending(db_conn, "restricted-faction", TEST_GUILD_ID, character.id)
+    success, message, data = await get_faction_spending(
+        db_conn, "restricted-faction", TEST_GUILD_ID,
+        viewer_character_id=character.id, is_admin=False
+    )
 
     assert success is False
-    assert "not a member" in message
+    assert "permission" in message.lower()
     assert data is None
 
 

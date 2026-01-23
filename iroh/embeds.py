@@ -111,15 +111,37 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
 
 
 def create_faction_embed(faction: Faction, members: List[Character], leader: Optional[Character] = None,
-                         show_spending: bool = False) -> discord.Embed:
-    """Create a rich embed displaying faction information."""
+                         show_spending: bool = False, viewer_is_member: bool = True) -> discord.Embed:
+    """
+    Create a rich embed displaying faction information.
+
+    Args:
+        faction: The faction to display
+        members: List of member characters (used only if viewer_is_member)
+        leader: Optional leader character (shown only if viewer_is_member)
+        show_spending: Whether to show per-turn spending configuration
+        viewer_is_member: If True, show full details (leader, members).
+                          If False, show only faction name and nation.
+    """
     embed = discord.Embed(
         title=f"⚔️ {faction.name}",
         description=f"Faction ID: `{faction.faction_id}`",
         color=discord.Color.red()
     )
 
-    # Leader
+    # Nation (visible to all)
+    if faction.nation:
+        embed.add_field(
+            name="Nation",
+            value=faction.nation,
+            inline=True
+        )
+
+    # For non-members, only show nation - no leader or member details
+    if not viewer_is_member:
+        return embed
+
+    # Leader (members only)
     if leader:
         embed.add_field(
             name="Leader",
@@ -139,14 +161,6 @@ def create_faction_embed(faction: Faction, members: List[Character], leader: Opt
         value=str(len(members)),
         inline=True
     )
-
-    # Nation
-    if faction.nation:
-        embed.add_field(
-            name="Nation",
-            value=faction.nation,
-            inline=True
-        )
 
     # List members
     if members:
@@ -200,16 +214,27 @@ def create_faction_embed(faction: Faction, members: List[Character], leader: Opt
 
 def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: Optional[Character] = None,
                       commander: Optional[Character] = None, faction: Optional[Faction] = None,
-                      show_full_details: bool = True) -> discord.Embed:
-    """Create a rich embed displaying unit information."""
+                      viewer_has_full_access: bool = True) -> discord.Embed:
+    """
+    Create a rich embed displaying unit information.
+
+    Args:
+        unit: The unit to display
+        unit_type: Optional unit type for additional info
+        owner: Optional owner character (shown only if viewer_has_full_access)
+        commander: Optional commander character (shown only if viewer_has_full_access)
+        faction: Optional faction for display
+        viewer_has_full_access: If True, show owner/commander, current org, and location.
+                                If False, show only public info (stats, max org, upkeep, keywords).
+    """
     embed = discord.Embed(
         title=f"🎖️ {unit.name or unit.unit_id}",
         description=f"Unit ID: `{unit.unit_id}` | Type: {unit.unit_type}",
         color=discord.Color.blue()
     )
 
-    # Ownership info (only for admins)
-    if show_full_details:
+    # Ownership info (only for authorized viewers)
+    if viewer_has_full_access:
         if owner:
             embed.add_field(
                 name="Owner",
@@ -238,19 +263,20 @@ def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: O
             inline=True
         )
 
-    # Location
-    if unit.current_territory_id is not None:
-        embed.add_field(
-            name="Location",
-            value=f"Territory {unit.current_territory_id}",
-            inline=True
-        )
-    else:
-        embed.add_field(
-            name="Location",
-            value="Not deployed",
-            inline=True
-        )
+    # Location (only for authorized viewers)
+    if viewer_has_full_access:
+        if unit.current_territory_id is not None:
+            embed.add_field(
+                name="Location",
+                value=f"Territory {unit.current_territory_id}",
+                inline=True
+            )
+        else:
+            embed.add_field(
+                name="Location",
+                value="Not deployed",
+                inline=True
+            )
 
     # Type
     embed.add_field(
@@ -259,7 +285,7 @@ def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: O
         inline=True
     )
 
-    # Status
+    # Status (visible to all)
     status_emoji = "🟢" if unit.status == "ACTIVE" else "🔴"
     embed.add_field(
         name="Status",
@@ -267,8 +293,8 @@ def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: O
         inline=True
     )
 
-    # Stats (only for admins)
-    if show_full_details:
+    # Combat stats are visible to all, but current organization only to authorized viewers
+    if viewer_has_full_access:
         stats_lines = [
             f"**Movement:** {unit.movement}",
             f"**Organization:** {unit.organization}/{unit.max_organization}",
@@ -276,50 +302,52 @@ def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: O
             f"**Siege Attack:** {unit.siege_attack} | **Siege Defense:** {unit.siege_defense}",
             f"**Size:** {unit.size} dot{'s' if unit.size != 1 else ''}"
         ]
+    else:
+        # Public view - show max org only, not current
+        stats_lines = [
+            f"**Movement:** {unit.movement}",
+            f"**Max Organization:** {unit.max_organization}",
+            f"**Attack:** {unit.attack} | **Defense:** {unit.defense}",
+            f"**Siege Attack:** {unit.siege_attack} | **Siege Defense:** {unit.siege_defense}",
+            f"**Size:** {unit.size} dot{'s' if unit.size != 1 else ''}"
+        ]
 
-        if unit.capacity > 0:
-            stats_lines.append(f"**Capacity:** {unit.capacity} dot{'s' if unit.capacity != 1 else ''}")
+    if unit.capacity > 0:
+        stats_lines.append(f"**Capacity:** {unit.capacity} dot{'s' if unit.capacity != 1 else ''}")
 
+    embed.add_field(
+        name="Combat Statistics",
+        value="\n".join(stats_lines),
+        inline=False
+    )
+
+    # Upkeep (visible to all)
+    upkeep_lines = []
+    if unit.upkeep_ore > 0:
+        upkeep_lines.append(f"⛏️ {unit.upkeep_ore}")
+    if unit.upkeep_lumber > 0:
+        upkeep_lines.append(f"🪵 {unit.upkeep_lumber}")
+    if unit.upkeep_coal > 0:
+        upkeep_lines.append(f"⚫ {unit.upkeep_coal}")
+    if unit.upkeep_rations > 0:
+        upkeep_lines.append(f"🍖 {unit.upkeep_rations}")
+    if unit.upkeep_cloth > 0:
+        upkeep_lines.append(f"🧵 {unit.upkeep_cloth}")
+    if unit.upkeep_platinum > 0:
+        upkeep_lines.append(f"🪙 {unit.upkeep_platinum}")
+
+    if upkeep_lines:
         embed.add_field(
-            name="Combat Statistics",
-            value="\n".join(stats_lines),
+            name="Upkeep (per turn)",
+            value=" | ".join(upkeep_lines),
             inline=False
         )
 
-        # Upkeep (only for admins)
-        upkeep_lines = []
-        if unit.upkeep_ore > 0:
-            upkeep_lines.append(f"⛏️ {unit.upkeep_ore}")
-        if unit.upkeep_lumber > 0:
-            upkeep_lines.append(f"🪵 {unit.upkeep_lumber}")
-        if unit.upkeep_coal > 0:
-            upkeep_lines.append(f"⚫ {unit.upkeep_coal}")
-        if unit.upkeep_rations > 0:
-            upkeep_lines.append(f"🍖 {unit.upkeep_rations}")
-        if unit.upkeep_cloth > 0:
-            upkeep_lines.append(f"🧵 {unit.upkeep_cloth}")
-        if unit.upkeep_platinum > 0:
-            upkeep_lines.append(f"🪙 {unit.upkeep_platinum}")
-
-        if upkeep_lines:
-            embed.add_field(
-                name="Upkeep (per turn)",
-                value=" | ".join(upkeep_lines),
-                inline=False
-            )
-
-        # Keywords (only for admins)
-        if unit.keywords:
-            embed.add_field(
-                name="Keywords",
-                value=", ".join(unit.keywords),
-                inline=False
-            )
-    else:
-        # Limited info for non-admins
+    # Keywords (visible to all)
+    if unit.keywords:
         embed.add_field(
-            name="Information",
-            value="Full unit details are only visible to server administrators.",
+            name="Keywords",
+            value=", ".join(unit.keywords),
             inline=False
         )
 

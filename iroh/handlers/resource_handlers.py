@@ -3,7 +3,7 @@ Resource management command handlers.
 """
 import asyncpg
 from typing import Tuple, Optional, Dict
-from db import PlayerResources, Character, Faction, FactionResources
+from db import PlayerResources, Character, Faction, FactionResources, FactionMember, FactionPermission
 
 
 async def modify_resources(conn: asyncpg.Connection, character_identifier: str, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
@@ -86,15 +86,24 @@ async def modify_character_vp(
 async def get_faction_resources(
     conn: asyncpg.Connection,
     faction_id: str,
-    guild_id: int
+    guild_id: int,
+    viewer_character_id: Optional[int] = None,
+    is_admin: bool = False
 ) -> Tuple[bool, str, Optional[Dict]]:
     """
     Get a faction's resource stockpile.
+
+    Access is granted to:
+    - Admins (manage_guild permission)
+    - Faction leader
+    - Characters with FINANCIAL permission
 
     Args:
         conn: Database connection
         faction_id: Faction identifier (user-facing)
         guild_id: Guild ID
+        viewer_character_id: Internal character ID of the viewer (for permission checks)
+        is_admin: Whether the viewer is a server admin
 
     Returns:
         (success, message, resources_dict or None)
@@ -103,6 +112,22 @@ async def get_faction_resources(
     faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
     if not faction:
         return False, f"Faction '{faction_id}' not found.", None
+
+    # Check permissions (unless admin)
+    if not is_admin:
+        if viewer_character_id is None:
+            return False, "You don't have permission to view this faction's resources.", None
+
+        # Check if viewer is faction leader
+        is_leader = faction.leader_character_id == viewer_character_id
+
+        # Check if viewer has FINANCIAL permission
+        has_financial = await FactionPermission.has_permission(
+            conn, faction.id, viewer_character_id, "FINANCIAL", guild_id
+        )
+
+        if not is_leader and not has_financial:
+            return False, "You don't have permission to view this faction's resources.", None
 
     # Fetch or create resources
     resources = await FactionResources.fetch_by_faction(conn, faction.id, guild_id)
