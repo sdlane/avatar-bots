@@ -935,6 +935,29 @@ async def ensure_tables():
         ON NavalUnitPosition(unit_id, guild_id);
     """)
 
+    # --- SpiritNexus table (mystical nexus points damaged by industrial buildings) ---
+    await conn.execute("""
+    CREATE TABLE IF NOT EXISTS SpiritNexus (
+        id SERIAL PRIMARY KEY,
+        identifier VARCHAR(50) NOT NULL,
+        health INTEGER DEFAULT 0,
+        territory_id VARCHAR(50) NOT NULL,
+        guild_id BIGINT NOT NULL REFERENCES ServerConfig(guild_id) ON DELETE CASCADE,
+        UNIQUE(identifier, guild_id)
+    );
+    """)
+
+    await conn.execute("ALTER TABLE SpiritNexus ADD COLUMN IF NOT EXISTS identifier VARCHAR(50);")
+    await conn.execute("ALTER TABLE SpiritNexus ADD COLUMN IF NOT EXISTS health INTEGER DEFAULT 0;")
+    await conn.execute("ALTER TABLE SpiritNexus ADD COLUMN IF NOT EXISTS territory_id VARCHAR(50);")
+    await conn.execute("ALTER TABLE SpiritNexus ADD COLUMN IF NOT EXISTS guild_id BIGINT;")
+
+    # Create index for SpiritNexus territory lookup
+    await conn.execute("""
+    CREATE INDEX IF NOT EXISTS idx_spirit_nexus_territory
+        ON SpiritNexus(territory_id, guild_id);
+    """)
+
     # --- Add foreign key constraints for faction ownership ---
     # FK for Territory.controller_faction_id -> Faction.id (ON DELETE SET NULL)
     await conn.execute("""

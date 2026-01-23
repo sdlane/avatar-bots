@@ -25,6 +25,7 @@ from .wargame_config import *
 from .order import *
 from .turn_log import *
 from .naval_unit_position import *
+from .spirit_nexus import *
 
 # Herbalism models
 from .ingredient import *

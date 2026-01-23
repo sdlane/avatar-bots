@@ -8,6 +8,7 @@ from db import (
     Unit, UnitType, Building, BuildingType, PlayerResources, FactionResources,
     Alliance, FactionPermission
 )
+from handlers.spirit_nexus_handlers import apply_industrial_damage, building_type_is_industrial
 import asyncpg
 from typing import List, Optional
 import logging
@@ -480,6 +481,18 @@ async def handle_construction_order(
         )
         await building.upsert(conn)
 
+        # Check for industrial damage to spirit nexuses
+        nexus_damage_log = None
+        if building_type_is_industrial(building_type):
+            nexus_damage_log = await apply_industrial_damage(
+                conn=conn,
+                territory_id=territory_id,
+                guild_id=guild_id,
+                turn_number=turn_number,
+                building_type_name=building_type.name,
+                building_id=new_building_id
+            )
+
         # Mark order as success
         order.status = OrderStatus.SUCCESS.value
         order.result_data = {
@@ -505,7 +518,7 @@ async def handle_construction_order(
 
         logger.info(f"Construction: Created building {new_building_id} ({building_type.name}) in territory {territory_id}")
 
-        return [TurnLog(
+        logs = [TurnLog(
             turn_number=turn_number,
             phase=TurnPhase.CONSTRUCTION.value,
             event_type='BUILDING_CONSTRUCTED',
@@ -523,6 +536,12 @@ async def handle_construction_order(
             },
             guild_id=guild_id
         )]
+
+        # Add nexus damage log if present (GM-only event)
+        if nexus_damage_log:
+            logs.append(nexus_damage_log)
+
+        return logs
 
     except Exception as e:
         logger.error(f"Error processing construction order {order.order_id}: {e}")

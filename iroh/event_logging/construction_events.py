@@ -89,3 +89,32 @@ def construction_failed_gm_line(event_data: Dict[str, Any]) -> str:
     order_id = event_data.get('order_id', '?')
 
     return f"CONSTRUCTION FAILED [{order_id}]: {error}"
+
+
+def nexus_damaged_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
+    """
+    Generate character report line for NEXUS_DAMAGED event.
+    This event is GM-only, so this should not be called, but we provide a stub.
+    """
+    return ""  # GM-only event, no character visibility
+
+
+def nexus_damaged_gm_line(event_data: Dict[str, Any]) -> str:
+    """Generate GM report line for NEXUS_DAMAGED event."""
+    nexus_identifier = event_data.get('nexus_identifier', '?')
+    old_health = event_data.get('old_health', '?')
+    new_health = event_data.get('new_health', '?')
+    source_building_type = event_data.get('source_building_type', '?')
+    source_territory_id = event_data.get('source_territory_id', '?')
+    distance = event_data.get('distance_from_source', '?')
+    was_pole_swapped = event_data.get('was_pole_swapped', False)
+    original_nearest = event_data.get('original_nearest_nexus')
+
+    swap_note = ""
+    if was_pole_swapped and original_nearest:
+        swap_note = f" (pole swapped from {original_nearest})"
+
+    return (
+        f"SPIRIT NEXUS DAMAGED: **{nexus_identifier}** health {old_health} -> {new_health} "
+        f"[source: {source_building_type} at {source_territory_id}, distance: {distance}]{swap_note}"
+    )

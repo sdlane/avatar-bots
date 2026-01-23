@@ -3360,4 +3360,225 @@ async def delete_war_cmd(interaction: discord.Interaction, war_id: str):
         )
 
 
+# Spirit Nexus Admin Commands
+@tree.command(
+    name="create-nexus",
+    description="[Admin] Create a new spirit nexus at a territory"
+)
+@app_commands.describe(
+    identifier="Unique identifier for the nexus (e.g., 'north-pole')",
+    territory_id="The territory where the nexus is located",
+    health="Initial health of the nexus (default: 5)"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def create_nexus(
+    interaction: discord.Interaction,
+    identifier: str,
+    territory_id: str,
+    health: int = 5
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        # Check if nexus with this identifier already exists
+        existing = await SpiritNexus.fetch_by_identifier(conn, identifier, interaction.guild_id)
+        if existing:
+            await interaction.followup.send(
+                f"A spirit nexus with identifier '{identifier}' already exists.",
+                ephemeral=True
+            )
+            return
+
+        # Create the nexus
+        nexus = SpiritNexus(
+            identifier=identifier,
+            health=health,
+            territory_id=territory_id,
+            guild_id=interaction.guild_id
+        )
+
+        ok, error = nexus.verify()
+        if not ok:
+            await interaction.followup.send(f"Invalid nexus data: {error}", ephemeral=True)
+            return
+
+        await nexus.upsert(conn)
+
+    logger.info(f"Admin {interaction.user.name} created spirit nexus '{identifier}' at {territory_id} with health {health}")
+    await interaction.followup.send(
+        f"Created spirit nexus **{identifier}** at territory **{territory_id}** with health **{health}**."
+    )
+
+
+@tree.command(
+    name="view-nexus",
+    description="[Admin] View details of a spirit nexus"
+)
+@app_commands.describe(
+    identifier="The identifier of the nexus to view"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def view_nexus(interaction: discord.Interaction, identifier: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        nexus = await SpiritNexus.fetch_by_identifier(conn, identifier, interaction.guild_id)
+
+    if nexus is None:
+        await interaction.followup.send(
+            f"No spirit nexus found with identifier '{identifier}'.",
+            ephemeral=True
+        )
+        return
+
+    embed = discord.Embed(
+        title=f"Spirit Nexus: {nexus.identifier}",
+        color=discord.Color.purple()
+    )
+    embed.add_field(name="Health", value=str(nexus.health), inline=True)
+    embed.add_field(name="Territory", value=nexus.territory_id, inline=True)
+    embed.add_field(name="Internal ID", value=str(nexus.id), inline=True)
+
+    await interaction.followup.send(embed=embed)
+
+
+@tree.command(
+    name="edit-nexus",
+    description="[Admin] Edit an existing spirit nexus"
+)
+@app_commands.describe(
+    identifier="The identifier of the nexus to edit",
+    health="New health value (can be negative)",
+    territory_id="New territory location",
+    new_identifier="New identifier for the nexus"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def edit_nexus(
+    interaction: discord.Interaction,
+    identifier: str,
+    health: Optional[int] = None,
+    territory_id: Optional[str] = None,
+    new_identifier: Optional[str] = None
+):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        nexus = await SpiritNexus.fetch_by_identifier(conn, identifier, interaction.guild_id)
+
+        if nexus is None:
+            await interaction.followup.send(
+                f"No spirit nexus found with identifier '{identifier}'.",
+                ephemeral=True
+            )
+            return
+
+        # Check if new_identifier conflicts with existing
+        if new_identifier and new_identifier != identifier:
+            existing = await SpiritNexus.fetch_by_identifier(conn, new_identifier, interaction.guild_id)
+            if existing:
+                await interaction.followup.send(
+                    f"A spirit nexus with identifier '{new_identifier}' already exists.",
+                    ephemeral=True
+                )
+                return
+
+        # Apply updates
+        changes = []
+        if health is not None:
+            changes.append(f"health: {nexus.health} -> {health}")
+            nexus.health = health
+        if territory_id is not None:
+            changes.append(f"territory: {nexus.territory_id} -> {territory_id}")
+            nexus.territory_id = territory_id
+        if new_identifier is not None:
+            changes.append(f"identifier: {nexus.identifier} -> {new_identifier}")
+            # Delete old and create new since identifier is part of unique constraint
+            await SpiritNexus.delete(conn, identifier, interaction.guild_id)
+            nexus.identifier = new_identifier
+            nexus.id = None  # Reset ID so it gets a new one
+
+        if not changes:
+            await interaction.followup.send(
+                "No changes specified.",
+                ephemeral=True
+            )
+            return
+
+        ok, error = nexus.verify()
+        if not ok:
+            await interaction.followup.send(f"Invalid nexus data: {error}", ephemeral=True)
+            return
+
+        await nexus.upsert(conn)
+
+    logger.info(f"Admin {interaction.user.name} edited spirit nexus '{identifier}': {', '.join(changes)}")
+    await interaction.followup.send(f"Updated spirit nexus: {', '.join(changes)}")
+
+
+@tree.command(
+    name="delete-nexus",
+    description="[Admin] Delete a spirit nexus"
+)
+@app_commands.describe(
+    identifier="The identifier of the nexus to delete"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def delete_nexus(interaction: discord.Interaction, identifier: str):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        nexus = await SpiritNexus.fetch_by_identifier(conn, identifier, interaction.guild_id)
+
+        if nexus is None:
+            await interaction.followup.send(
+                f"No spirit nexus found with identifier '{identifier}'.",
+                ephemeral=True
+            )
+            return
+
+        deleted = await SpiritNexus.delete(conn, identifier, interaction.guild_id)
+
+    if deleted:
+        logger.info(f"Admin {interaction.user.name} deleted spirit nexus '{identifier}'")
+        await interaction.followup.send(f"Deleted spirit nexus **{identifier}**.")
+    else:
+        await interaction.followup.send(
+            f"Failed to delete spirit nexus '{identifier}'.",
+            ephemeral=True
+        )
+
+
+@tree.command(
+    name="list-nexi",
+    description="[Admin] List all spirit nexuses"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def list_nexi(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        nexuses = await SpiritNexus.fetch_all(conn, interaction.guild_id)
+
+    if not nexuses:
+        await interaction.followup.send(
+            "No spirit nexuses found.",
+            ephemeral=True
+        )
+        return
+
+    embed = discord.Embed(
+        title="Spirit Nexuses",
+        color=discord.Color.purple()
+    )
+
+    for nexus in nexuses:
+        embed.add_field(
+            name=nexus.identifier,
+            value=f"Health: {nexus.health}\nTerritory: {nexus.territory_id}",
+            inline=True
+        )
+
+    await interaction.followup.send(embed=embed)
+
+
 client.run(BOT_TOKEN)

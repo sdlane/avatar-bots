@@ -120,6 +120,8 @@ from .construction_events import (
     building_constructed_gm_line,
     construction_failed_character_line,
     construction_failed_gm_line,
+    nexus_damaged_character_line,
+    nexus_damaged_gm_line,
 )
 
 from .building_upkeep_events import (
@@ -387,6 +389,10 @@ EVENT_HANDLERS: Dict[str, EventHandler] = {
     'CONSTRUCTION_FAILED': EventHandler(
         get_character_line=construction_failed_character_line,
         get_gm_line=construction_failed_gm_line
+    ),
+    'NEXUS_DAMAGED': EventHandler(
+        get_character_line=nexus_damaged_character_line,
+        get_gm_line=nexus_damaged_gm_line
     ),
 
     # Building upkeep events
