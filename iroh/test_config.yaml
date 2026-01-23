@@ -483,6 +483,26 @@ building_types:
       cloth: 0
       platinum: 0
 
+  # Hospital building (provides +2 organization recovery per turn)
+  - type_id: "hospital"
+    name: "Field Hospital"
+    description: "A medical facility that helps units recover faster"
+    keywords: ["hospital"]
+    cost:
+      ore: 10
+      lumber: 15
+      coal: 0
+      rations: 5
+      cloth: 10
+      platinum: 0
+    upkeep:
+      ore: 0
+      lumber: 1
+      coal: 0
+      rations: 2
+      cloth: 1
+      platinum: 0
+
 buildings:
   # Fire Nation buildings
   - building_id: "fire-barracks-1"

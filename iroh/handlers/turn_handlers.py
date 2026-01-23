@@ -53,6 +53,35 @@ RESOURCE_KEYWORDS = {'ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum'}
 BONUS_PER_BUILDING = 2
 # Siege defense bonus per fortification building
 FORTIFICATION_BONUS = 2
+# Organization recovery bonus per hospital building
+HOSPITAL_BONUS = 2
+
+
+async def calculate_hospital_bonus(
+    conn: asyncpg.Connection,
+    territory_id: str,
+    guild_id: int
+) -> int:
+    """
+    Calculate organization recovery bonus from ACTIVE hospital buildings.
+
+    Args:
+        conn: Database connection
+        territory_id: The territory to check for hospital buildings
+        guild_id: Guild ID
+
+    Returns:
+        Total organization recovery bonus (HOSPITAL_BONUS per active hospital)
+    """
+    buildings = await Building.fetch_by_territory(conn, territory_id, guild_id)
+    active_buildings = [b for b in buildings if b.status == 'ACTIVE']
+
+    hospital_count = sum(
+        1 for b in active_buildings
+        if b.keywords and 'hospital' in [k.lower() for k in b.keywords]
+    )
+
+    return hospital_count * HOSPITAL_BONUS
 
 
 async def calculate_territory_siege_defense(
@@ -2019,7 +2048,9 @@ async def recover_organization_in_friendly_territory(
     turn_number: int
 ) -> List[TurnLog]:
     """
-    Increase organization by 1 for units in territory controlled by their faction.
+    Increase organization for units in territory controlled by their faction.
+
+    Base recovery is +1. Hospital buildings in the territory add +2 each.
 
     "Territory controlled by faction" means:
     - territory.controller_character_id is a member of unit.faction_id
@@ -2053,9 +2084,13 @@ async def recover_organization_in_friendly_territory(
         if not controller_faction or controller_faction.faction_id != unit.faction_id:
             continue
 
-        # Increase organization by 1 (capped at max)
+        # Calculate hospital bonus from ACTIVE hospital buildings
+        hospital_bonus = await calculate_hospital_bonus(conn, unit.current_territory_id, guild_id)
+
+        # Increase organization by 1 + hospital bonus (capped at max)
         old_org = unit.organization
-        unit.organization = min(unit.organization + 1, unit.max_organization)
+        recovery_amount = 1 + hospital_bonus
+        unit.organization = min(unit.organization + recovery_amount, unit.max_organization)
         await unit.upsert(conn)
 
         # Build affected_character_ids
