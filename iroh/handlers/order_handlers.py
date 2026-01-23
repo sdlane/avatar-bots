@@ -676,13 +676,13 @@ async def submit_unit_order(
             if territory and territory.terrain_type.lower() not in WATER_TERRAIN_TYPES:
                 return False, f"Naval units cannot traverse land territory '{territory_id}' (terrain: {territory.terrain_type}).", None
 
-    # Validate terrain for land actions (no water unless all infiltrators)
+    # Validate terrain for land actions (no water unless all infiltrators/aerial)
     if not is_naval_action and action != 'transport':
-        all_infiltrators = all(
-            unit.keywords and any(k.lower() == 'infiltrator' for k in unit.keywords)
+        all_can_traverse_water = all(
+            unit.keywords and any(k.lower() in ('infiltrator', 'aerial') for k in unit.keywords)
             for unit in units
         )
-        if not all_infiltrators:
+        if not all_can_traverse_water:
             for territory_id in path:
                 territory = await Territory.fetch_by_territory_id(conn, territory_id, guild_id)
                 if territory and territory.terrain_type.lower() in WATER_TERRAIN_TYPES:
