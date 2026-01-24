@@ -240,7 +240,7 @@ class SendLetterModal(ui.Modal, title="Send Letter"):
         self.sender = sender
 
     async def on_submit(self, interaction: discord.Interaction):
-        await self.callback(interaction, self.message, self.sender, self.recipient_identifier.value)
+        await self.callback(interaction, self.message, self.sender, self.recipient_identifier.value.lower())
 
 
 

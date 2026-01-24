@@ -112,6 +112,7 @@ async def handle_reset_counts(conn: asyncpg.Connection, task: HawkyTask):
     )
     await next_task.insert(conn)
 
+
     logger.info(f"Scheduled next reset for guild {task.guild_id} at {next_reset}")
 
 
@@ -351,8 +352,8 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
                 ephemeral=True)
             return
 
-        # Find all unresponded letters sent to this character within the last 8 hours
-        eight_hours_ago = datetime.now() - timedelta(hours=8)
+        # Find all unresponded letters sent to this character within the last 24 hours
+        window_start = datetime.now() - timedelta(hours=24)
         sent_letter_rows = await conn.fetch("""
             SELECT id, message_id, channel_id, sender_identifier, recipient_identifier,
                 original_message_channel_id, original_message_id, has_response,
@@ -361,11 +362,11 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
             WHERE recipient_identifier = $1 AND guild_id = $2 AND has_response = FALSE
             AND sent_time >= $3
             ORDER BY sent_time DESC;
-        """, sender.identifier, interaction.guild_id, eight_hours_ago)
+        """, sender.identifier, interaction.guild_id, window_start)
 
         if not sent_letter_rows:
             await interaction.response.send_message(
-                emotive_message("No unreplied letters found for your character in the last 8 hours!"),
+                emotive_message("No unreplied letters found for your character in the last 24 hours!"),
                 ephemeral=True)
             return
 
