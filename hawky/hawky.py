@@ -259,7 +259,7 @@ async def send_letter_callback(interaction: discord.Interaction,
     # Send confirmation
     logger.info(f"Letter queued from {sender_identifier} to {recipient.identifier} (scheduled: {scheduled_time})")
     await interaction.response.edit_message(
-        content=emotive_message(f"Message queued to send to {recipient.name}"), view=None)
+        content=emotive_message(f"Message queued to send to {recipient.identifier}"), view=None)
 
 
 @tree.context_menu(
