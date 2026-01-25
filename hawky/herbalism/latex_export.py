@@ -29,8 +29,7 @@ else:
 # Update these paths to point to your CSV files
 
 INGREDIENTS_FILE = "production_data/herbal_ingredients.csv"
-PRODUCTS_FILE = "production_data/herbal_ingredients.csv"
-PRODUCTS_FILE = None
+PRODUCTS_FILE = "production_data/herbal_products.csv"
 
 
 def convert_ingredient(ingredient: Ingredient) -> str:
