@@ -16,6 +16,8 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
+    filename="iroh-log.txt",
+    filemode='a',
     level=logging.DEBUG,
     format='%(asctime)s - Iroh Logging - %(levelname)s - %(message)s'
 )

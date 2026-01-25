@@ -23,6 +23,8 @@ load_dotenv()
 
 # Configure logging
 logging.basicConfig(
+    filename='hawky-log.txt',
+    filemode='a',
     level=logging.INFO,
     format='%(asctime)s - Hawky Logging - %(levelname)s - %(message)s'
 )
