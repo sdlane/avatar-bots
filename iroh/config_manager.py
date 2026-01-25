@@ -5,7 +5,7 @@ import logging
 from db import (
     Territory, Faction, FactionMember, Unit, UnitType, BuildingType, Building,
     PlayerResources, TerritoryAdjacency, WargameConfig, Character,
-    FactionResources, FactionPermission, VALID_PERMISSION_TYPES
+    FactionResources, FactionPermission, VALID_PERMISSION_TYPES, SpiritNexus
 )
 
 logger = logging.getLogger(__name__)
@@ -355,6 +355,16 @@ class ConfigManager:
                         'permission_type': perm.permission_type
                     })
 
+        # Export Spirit Nexuses
+        spirit_nexuses = await SpiritNexus.fetch_all(conn, guild_id)
+        config_dict['spirit_nexuses'] = []
+        for nexus in spirit_nexuses:
+            config_dict['spirit_nexuses'].append({
+                'identifier': nexus.identifier,
+                'territory_id': nexus.territory_id,
+                'health': nexus.health
+            })
+
         return yaml.dump(config_dict, default_flow_style=False, sort_keys=False)
 
     @staticmethod
@@ -632,6 +642,17 @@ class ConfigManager:
                             guild_id=guild_id
                         )
                         await adjacency.insert(conn)
+
+        # Import Spirit Nexuses
+        if 'spirit_nexuses' in config_dict:
+            for nexus_data in config_dict['spirit_nexuses']:
+                nexus = SpiritNexus(
+                    identifier=nexus_data['identifier'],
+                    territory_id=str(nexus_data['territory_id']),
+                    health=nexus_data.get('health', 0),
+                    guild_id=guild_id
+                )
+                await nexus.upsert(conn)
 
         # Import Unit Types
         if 'unit_types' in config_dict:

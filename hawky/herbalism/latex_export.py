@@ -29,7 +29,7 @@ else:
 # Update these paths to point to your CSV files
 
 INGREDIENTS_FILE = "production_data/herbal_ingredients.csv"
-#PRODUCTS_FILE = "products.csv"
+PRODUCTS_FILE = "production_data/herbal_ingredients.csv"
 PRODUCTS_FILE = None
 
 
