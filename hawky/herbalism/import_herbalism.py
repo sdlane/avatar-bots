@@ -69,7 +69,7 @@ CONSTRAINT_RECIPES_FILES: List[str] = [
     "production_data/two_chakra.csv",
     "production_data/one_chakra.csv"
 ]
-FAILED_BLENDS_FILE = "production_data/failed_failed_blends.csv"
+FAILED_BLENDS_FILE = "production_data/failed_blends.csv"
 
 DB_URL = "postgresql://AVATAR:password@db:5432/AVATAR"
 
