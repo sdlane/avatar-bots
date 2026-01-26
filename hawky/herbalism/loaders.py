@@ -289,6 +289,103 @@ def load_constraint_recipes(filename: str) -> List[ConstraintRecipe]:
     return recipes
 
 
+def validate_subset_recipes_unique(recipes: List[SubsetRecipe]) -> tuple[bool, str]:
+    """
+    Validate that all subset recipes have unique matching criteria.
+
+    Uniqueness key: (product_type, tuple(sorted_ingredients))
+
+    Flags duplicates even if they produce different products, since
+    having the same ingredients with different outputs is ambiguous.
+
+    Returns:
+        (True, "") if valid
+        (False, error_message) if duplicates found
+    """
+    seen = {}
+    duplicates = []
+
+    for i, recipe in enumerate(recipes):
+        # Create key from matching criteria only
+        key = (recipe.product_type, tuple(sorted(recipe.ingredients)))
+        if key in seen:
+            first_idx, first_product = seen[key]
+            duplicates.append((key, first_idx, first_product, i, recipe.product_item_number))
+        else:
+            seen[key] = (i, recipe.product_item_number)
+
+    if duplicates:
+        lines = ["Duplicate subset recipes found (same product_type and ingredients):"]
+        for key, first_idx, first_product, dup_idx, dup_product in duplicates:
+            product_type, ingredients = key
+            lines.append(
+                f"  product_type={product_type}, ingredients={list(ingredients)}"
+            )
+            lines.append(
+                f"    - row {first_idx + 2}: product_item_number={first_product}"
+            )
+            lines.append(
+                f"    - row {dup_idx + 2}: product_item_number={dup_product}"
+            )
+        return False, "\n".join(lines)
+
+    return True, ""
+
+
+def validate_constraint_recipes_unique(recipes: List[ConstraintRecipe]) -> tuple[bool, str]:
+    """
+    Validate that all constraint recipes have unique matching criteria.
+
+    Uniqueness key: (product_type, tuple(ingredients) or None, primary_chakra,
+                     primary_is_boon, secondary_chakra, secondary_is_boon, tier)
+
+    Flags duplicates even if they produce different products, since
+    having the same constraints with different outputs is ambiguous.
+
+    Returns:
+        (True, "") if valid
+        (False, error_message) if duplicates found
+    """
+    seen = {}
+    duplicates = []
+
+    for i, recipe in enumerate(recipes):
+        # Create key from matching criteria only
+        ingredients_key = tuple(sorted(recipe.ingredients)) if recipe.ingredients else None
+        key = (
+            recipe.product_type,
+            ingredients_key,
+            recipe.primary_chakra,
+            recipe.primary_is_boon,
+            recipe.secondary_chakra,
+            recipe.secondary_is_boon,
+            recipe.tier
+        )
+        if key in seen:
+            first_idx, first_product = seen[key]
+            duplicates.append((key, first_idx, first_product, i, recipe.product_item_number))
+        else:
+            seen[key] = (i, recipe.product_item_number)
+
+    if duplicates:
+        lines = ["Duplicate constraint recipes found (same matching criteria):"]
+        for key, first_idx, first_product, dup_idx, dup_product in duplicates:
+            product_type, ingredients, p_chakra, p_boon, s_chakra, s_boon, tier = key
+            lines.append(
+                f"  product_type={product_type}, ingredients={list(ingredients) if ingredients else None}, "
+                f"primary={p_chakra}/{p_boon}, secondary={s_chakra}/{s_boon}, tier={tier}"
+            )
+            lines.append(
+                f"    - row {first_idx + 2}: product_item_number={first_product}"
+            )
+            lines.append(
+                f"    - row {dup_idx + 2}: product_item_number={dup_product}"
+            )
+        return False, "\n".join(lines)
+
+    return True, ""
+
+
 def load_failed_blends(filename: str) -> List[FailedBlend]:
     """
     Load failed blends from a CSV file.

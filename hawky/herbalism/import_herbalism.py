@@ -30,6 +30,8 @@ if __name__ == "__main__":
         load_products,
         validate_products_unique,
         validate_products_have_recipes,
+        validate_subset_recipes_unique,
+        validate_constraint_recipes_unique,
         load_subset_recipes,
         load_constraint_recipes,
         load_failed_blends,
@@ -41,6 +43,8 @@ else:
         load_products,
         validate_products_unique,
         validate_products_have_recipes,
+        validate_subset_recipes_unique,
+        validate_constraint_recipes_unique,
         load_subset_recipes,
         load_constraint_recipes,
         load_failed_blends,
@@ -112,6 +116,16 @@ async def import_herbalism_data(
     )
     if not valid:
         logger.warning(f"Orphaned products found (no recipes):\n{error_msg}")
+
+    logger.info("Validating subset recipes for duplicates...")
+    valid, error_msg = validate_subset_recipes_unique(subset_recipes)
+    if not valid:
+        raise ValueError(f"Subset recipe validation failed:\n{error_msg}")
+
+    logger.info("Validating constraint recipes for duplicates...")
+    valid, error_msg = validate_constraint_recipes_unique(all_constraint_recipes)
+    if not valid:
+        raise ValueError(f"Constraint recipe validation failed:\n{error_msg}")
 
     # === Phase 3: Clear existing data and insert ===
     logger.info("Clearing existing herbalism data...")
