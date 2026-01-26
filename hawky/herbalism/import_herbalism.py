@@ -29,6 +29,7 @@ if __name__ == "__main__":
         load_ingredients,
         load_products,
         validate_products_unique,
+        validate_products_have_recipes,
         load_subset_recipes,
         load_constraint_recipes,
         load_failed_blends,
@@ -39,6 +40,7 @@ else:
         load_ingredients,
         load_products,
         validate_products_unique,
+        validate_products_have_recipes,
         load_subset_recipes,
         load_constraint_recipes,
         load_failed_blends,
@@ -78,12 +80,41 @@ async def import_herbalism_data(
     Import all herbalism data from the specified files.
     Clears existing data before importing.
     """
+    # === Phase 1: Load all data ===
+    logger.info(f"Loading ingredients from {ingredients_file}...")
+    ingredients = load_ingredients(ingredients_file)
+
+    logger.info(f"Loading products from {products_file}...")
+    products = load_products(products_file)
+
+    logger.info(f"Loading subset recipes from {subset_recipes_file}...")
+    subset_recipes = load_subset_recipes(subset_recipes_file)
+
+    all_constraint_recipes = []
+    for file in constraint_recipes_files:
+        logger.info(f"Loading constraint recipes from {file}...")
+        recipes = load_constraint_recipes(file)
+        all_constraint_recipes.extend(recipes)
+
+    logger.info(f"Loading failed blends from {failed_blends_file}...")
+    failed_blends = load_failed_blends(failed_blends_file)
+
+    # === Phase 2: Validate all data ===
+    logger.info("Validating products...")
+    valid, error_msg = validate_products_unique(products)
+    if not valid:
+        raise ValueError(f"Product validation failed:\n{error_msg}")
+
+    valid, error_msg = validate_products_have_recipes(
+        products, subset_recipes, all_constraint_recipes, failed_blends
+    )
+    if not valid:
+        raise ValueError(f"Product validation failed:\n{error_msg}")
+
+    # === Phase 3: Clear existing data and insert ===
     logger.info("Clearing existing herbalism data...")
     await clear_herbal_data(conn)
 
-    # Load and insert ingredients
-    logger.info(f"Loading ingredients from {ingredients_file}...")
-    ingredients = load_ingredients(ingredients_file)
     logger.info(f"Inserting {len(ingredients)} ingredients...")
     for ing in ingredients:
         # Normalize chakra names to lowercase
@@ -93,37 +124,18 @@ async def import_herbalism_data(
             ing.secondary_chakra = ing.secondary_chakra.lower()
         await ing.upsert(conn)
 
-    # Load and validate products
-    logger.info(f"Loading products from {products_file}...")
-    products = load_products(products_file)
-    valid, error_msg = validate_products_unique(products)
-    if not valid:
-        raise ValueError(f"Product validation failed:\n{error_msg}")
     logger.info(f"Inserting {len(products)} products...")
     for prod in products:
         await prod.upsert(conn)
 
-    # Load and insert subset recipes
-    logger.info(f"Loading subset recipes from {subset_recipes_file}...")
-    subset_recipes = load_subset_recipes(subset_recipes_file)
     logger.info(f"Inserting {len(subset_recipes)} subset recipes...")
     for recipe in subset_recipes:
         await recipe.upsert(conn)
-
-    # Load and insert constraint recipes (in order)
-    all_constraint_recipes = []
-    for file in constraint_recipes_files:
-        logger.info(f"Loading constraint recipes from {file}...")
-        recipes = load_constraint_recipes(file)
-        all_constraint_recipes.extend(recipes)
 
     logger.info(f"Inserting {len(all_constraint_recipes)} constraint recipes...")
     for recipe in all_constraint_recipes:
         await recipe.insert(conn)
 
-    # Load and insert failed blends
-    logger.info(f"Loading failed blends from {failed_blends_file}...")
-    failed_blends = load_failed_blends(failed_blends_file)
     logger.info(f"Inserting {len(failed_blends)} failed blends...")
     for fb in failed_blends:
         await fb.upsert(conn)

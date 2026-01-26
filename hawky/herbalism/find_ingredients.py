@@ -8,39 +8,317 @@ Usage:
 Examples:
     python3 find_ingredients.py 6111 tea
     python3 find_ingredients.py 6312 tincture --max-results 5
+    python3 find_ingredients.py 9999 tea  # No recipe found -> prompts for constraints
 """
 
 import argparse
+import csv
 import os
 import sys
+from dataclasses import dataclass
 from itertools import combinations
-from typing import List, Optional, Tuple
+from typing import List, Optional
 
-# Add parent directories to path for imports
-_script_dir = os.path.dirname(os.path.abspath(__file__))
-_hawky_dir = os.path.dirname(_script_dir)
-_project_root = os.path.dirname(_hawky_dir)
-sys.path.insert(0, _project_root)
-sys.path.insert(0, _hawky_dir)
-sys.path.insert(0, _script_dir)
-
-from loaders import load_ingredients, load_subset_recipes, load_constraint_recipes
-from blending import (
-    calculate_chakras,
-    ChakraResult,
-    all_have_property,
-    has_property,
-    count_property,
-    VALID_PRODUCT_TYPES,
-)
-from db import Ingredient, SubsetRecipe, ConstraintRecipe
 
 # --- Configuration ---
 # Paths are relative to this script's directory
+_script_dir = os.path.dirname(os.path.abspath(__file__))
 INGREDIENTS_FILE = os.path.join(_script_dir, "test_data/test_ingredients.csv")
 SUBSET_RECIPES_FILE = os.path.join(_script_dir, "test_data/test_subset_recipes.csv")
 CONSTRAINT_RECIPES_FILES = [os.path.join(_script_dir, "test_data/test_constraint_recipes.csv")]
 
+# Valid product types
+VALID_PRODUCT_TYPES = {"tea", "salve", "tincture", "decoction", "bath", "incense"}
+
+# Valid chakras for reference
+VALID_CHAKRAS = ["earth", "water", "fire", "air", "sound", "light", "thought"]
+
+
+# --- Local Dataclasses (no asyncpg dependency) ---
+
+@dataclass
+class Ingredient:
+    """Local ingredient dataclass for standalone script."""
+    item_number: str
+    name: str
+    macro: Optional[str] = None
+    rarity: Optional[str] = None
+    primary_chakra: Optional[str] = None
+    primary_chakra_strength: Optional[int] = None
+    secondary_chakra: Optional[str] = None
+    secondary_chakra_strength: Optional[int] = None
+    properties: Optional[str] = None
+    flavor_text: Optional[str] = None
+    rules_text: Optional[str] = None
+    skip_export: bool = False
+
+    def has_property(self, property_name: str) -> bool:
+        """Check if the ingredient has a specific property."""
+        if self.properties is None:
+            return False
+        props = [p.strip().lower() for p in self.properties.split(",")]
+        return property_name.lower() in props
+
+
+@dataclass
+class SubsetRecipe:
+    """Local subset recipe dataclass."""
+    product_item_number: str
+    product_type: str
+    quantity_produced: int = 1
+    ingredients: Optional[List[str]] = None
+
+
+@dataclass
+class ConstraintRecipe:
+    """Local constraint recipe dataclass."""
+    product_item_number: str
+    product_type: str
+    quantity_produced: int = 1
+    ingredients: Optional[List[str]] = None
+    primary_chakra: Optional[str] = None
+    primary_is_boon: Optional[str] = None
+    secondary_chakra: Optional[str] = None
+    secondary_is_boon: Optional[str] = None
+    tier: Optional[int] = None
+
+    @staticmethod
+    def _pattern_matches(pattern: str, value: str) -> bool:
+        """Check if a value matches a pattern with '*' as single-char wildcard."""
+        if len(pattern) != len(value):
+            return False
+        for p_char, v_char in zip(pattern, value):
+            if p_char != '*' and p_char != v_char:
+                return False
+        return True
+
+    def _ingredients_match(self, ingredient_numbers: List[str]) -> bool:
+        """Check if provided ingredients match all required recipe ingredients."""
+        if self.ingredients is None or len(self.ingredients) == 0:
+            return True
+        for required in self.ingredients:
+            matched = any(
+                self._pattern_matches(required, actual)
+                for actual in ingredient_numbers
+            )
+            if not matched:
+                return False
+        return True
+
+
+@dataclass
+class ChakraResult:
+    """Result of chakra calculation."""
+    primary_chakra: Optional[str] = None
+    primary_magnitude: int = 0
+    primary_is_boon: Optional[str] = None
+    secondary_chakra: Optional[str] = None
+    secondary_magnitude: int = 0
+    secondary_is_boon: Optional[str] = None
+    tier: int = 0
+
+
+# --- CSV Loading Functions ---
+
+def load_ingredients(filename: str) -> List[Ingredient]:
+    """Load ingredients from a CSV file."""
+    ingredients = []
+    with open(filename, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            primary_strength = None
+            if row.get('Primary Chakra Strength'):
+                try:
+                    primary_strength = int(row['Primary Chakra Strength'])
+                except ValueError:
+                    pass
+
+            secondary_strength = None
+            if row.get('Secondary Chakra Strength'):
+                try:
+                    secondary_strength = int(row['Secondary Chakra Strength'])
+                except ValueError:
+                    pass
+
+            skip_export = bool(row.get('Skip Export', '').strip())
+
+            ingredient = Ingredient(
+                item_number=row.get('Item Number', '').strip(),
+                name=row.get('Name', '').strip(),
+                macro=row.get('Macro', '').strip() or None,
+                rarity=row.get('Rarity', '').strip() or None,
+                primary_chakra=row.get('Primary Chakra', '').strip() or None,
+                primary_chakra_strength=primary_strength,
+                secondary_chakra=row.get('Secondary Chakra', '').strip() or None,
+                secondary_chakra_strength=secondary_strength,
+                properties=row.get('Properties', '').strip() or None,
+                flavor_text=row.get('Flavor Text', '').strip() or None,
+                rules_text=row.get('Rules Text', '').strip() or None,
+                skip_export=skip_export
+            )
+            ingredients.append(ingredient)
+    return ingredients
+
+
+def load_subset_recipes(filename: str) -> List[SubsetRecipe]:
+    """Load subset recipes from a CSV file."""
+    recipes = []
+    with open(filename, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            quantity = 1
+            if row.get('Quantity Produced'):
+                try:
+                    quantity = int(row['Quantity Produced'])
+                except ValueError:
+                    pass
+
+            ingredients = []
+            for i in range(1, 7):
+                col = f'Ingredient {i}'
+                if row.get(col) and row[col].strip():
+                    ingredients.append(row[col].strip())
+
+            if not ingredients:
+                continue
+
+            ingredients.sort(reverse=True)
+
+            recipe = SubsetRecipe(
+                product_item_number=row.get('Product Item Number', '').strip(),
+                product_type=row.get('Product Type', '').strip(),
+                quantity_produced=quantity,
+                ingredients=ingredients
+            )
+            recipes.append(recipe)
+    return recipes
+
+
+def load_constraint_recipes(filename: str) -> List[ConstraintRecipe]:
+    """Load constraint recipes from a CSV file."""
+    recipes = []
+    with open(filename, 'r', encoding='utf-8') as f:
+        reader = csv.DictReader(f)
+        for row in reader:
+            quantity = 1
+            if row.get('Quantity Produced'):
+                try:
+                    quantity = int(row['Quantity Produced'])
+                except ValueError:
+                    pass
+
+            ingredients = []
+            for i in range(1, 7):
+                col = f'Ingredient {i}'
+                if row.get(col) and row[col].strip():
+                    ingredients.append(row[col].strip())
+
+            ingredients_list = ingredients if ingredients else None
+
+            tier = None
+            if row.get('Tier'):
+                try:
+                    tier = int(row['Tier'])
+                except ValueError:
+                    pass
+
+            recipe = ConstraintRecipe(
+                product_item_number=row.get('Product Item Number', '').strip(),
+                product_type=row.get('Product Type', '').strip(),
+                quantity_produced=quantity,
+                ingredients=ingredients_list,
+                primary_chakra=row.get('Primary Chakra', '').strip() or None,
+                primary_is_boon=row.get('Primary Is Boon', '').strip() or None,
+                secondary_chakra=row.get('Secondary Chakra', '').strip() or None,
+                secondary_is_boon=row.get('Secondary Is Boon', '').strip() or None,
+                tier=tier
+            )
+            recipes.append(recipe)
+    return recipes
+
+
+# --- Blending Logic (copied from blending.py) ---
+
+def all_have_property(ingredients: List[Ingredient], property_name: str) -> bool:
+    """Check if all ingredients have the specified property."""
+    if not ingredients:
+        return False
+    return all(ing.has_property(property_name) for ing in ingredients)
+
+
+def has_property(ingredients: List[Ingredient], property_name: str) -> bool:
+    """Check if at least one ingredient has the specified property."""
+    if not ingredients:
+        return False
+    return any(ing.has_property(property_name) for ing in ingredients)
+
+
+def count_property(ingredients: List[Ingredient], property_name: str) -> int:
+    """Count how many ingredients have the specified property."""
+    return sum(1 for ing in ingredients if ing.has_property(property_name))
+
+
+def calculate_chakras(ingredients: List[Ingredient]) -> ChakraResult:
+    """Calculate the primary and secondary chakras and tier from ingredients."""
+    if not ingredients:
+        return ChakraResult()
+
+    chakra_totals: dict = {}
+
+    for ing in ingredients:
+        if ing.primary_chakra and ing.primary_chakra_strength is not None:
+            chakra = ing.primary_chakra.lower()
+            if chakra not in chakra_totals:
+                chakra_totals[chakra] = 0
+            chakra_totals[chakra] += ing.primary_chakra_strength
+
+        if ing.secondary_chakra and ing.secondary_chakra_strength is not None:
+            chakra = ing.secondary_chakra.lower()
+            if chakra not in chakra_totals:
+                chakra_totals[chakra] = 0
+            chakra_totals[chakra] += ing.secondary_chakra_strength
+
+    if not chakra_totals:
+        return ChakraResult()
+
+    sorted_chakras = sorted(
+        chakra_totals.items(),
+        key=lambda x: abs(x[1]),
+        reverse=True
+    )
+
+    result = ChakraResult()
+
+    if len(sorted_chakras) >= 1:
+        result.primary_chakra = sorted_chakras[0][0]
+        result.primary_magnitude = sorted_chakras[0][1]
+        result.primary_is_boon = "boon" if sorted_chakras[0][1] > 0 else "bane"
+
+    if len(sorted_chakras) >= 2:
+        result.secondary_chakra = sorted_chakras[1][0]
+        result.secondary_magnitude = sorted_chakras[1][1]
+        result.secondary_is_boon = "boon" if sorted_chakras[1][1] > 0 else "bane"
+
+    primary_abs = abs(result.primary_magnitude)
+    secondary_abs = abs(result.secondary_magnitude) if result.secondary_chakra else 0
+    diff = primary_abs - secondary_abs
+
+    if diff > 10:
+        result.tier = 3
+    elif 8 <= diff <= 10:
+        result.tier = 2
+    elif 4 <= diff <= 7:
+        result.tier = 1
+    else:
+        result.tier = 0
+
+    if result.secondary_chakra is None:
+        result.tier += 1
+
+    return result
+
+
+# --- Product Type Logic ---
 
 def get_product_type(ingredients: List[Ingredient]) -> Optional[str]:
     """
@@ -73,32 +351,22 @@ def get_product_type(ingredients: List[Ingredient]) -> Optional[str]:
 
 
 def filter_for_product_type(ingredients: List[Ingredient], product_type: str) -> List[Ingredient]:
-    """
-    Pre-filter ingredients that could potentially work for the target product type.
-    """
+    """Pre-filter ingredients that could potentially work for the target product type."""
     if product_type == "tea":
-        # Tea requires all ingestible and no alcohol
         return [i for i in ingredients
                 if i.has_property("ingestible") and not i.has_property("alcohol")]
     elif product_type == "tincture":
-        # Tincture requires all ingestible (alcohol ingredients are also needed)
         return [i for i in ingredients if i.has_property("ingestible")]
     elif product_type == "decoction":
-        # Decoction: 1 alcohol + not all ingestible + not aromatic
-        # Include alcohol ingredients and non-ingestible ingredients
         return [i for i in ingredients
                 if i.has_property("alcohol") or not i.has_property("ingestible")]
     elif product_type == "incense":
-        # Incense: 1 alcohol + aromatic + not all ingestible
-        # Include alcohol, aromatic, and non-ingestible ingredients
         return [i for i in ingredients
                 if i.has_property("alcohol") or i.has_property("aromatic")
                 or not i.has_property("ingestible")]
     elif product_type == "bath":
-        # Bath: no alcohol, has salt, not all ingestible
         return [i for i in ingredients if not i.has_property("alcohol")]
     else:  # salve
-        # Salve: no alcohol, no salt, not all ingestible
         return [i for i in ingredients
                 if not i.has_property("alcohol") and not i.has_property("salt")]
 
@@ -108,18 +376,14 @@ def filter_for_chakra(
     chakra_name: str,
     is_boon: str
 ) -> List[Ingredient]:
-    """
-    Filter to ingredients that contribute to the required chakra direction.
-    """
+    """Filter to ingredients that contribute to the required chakra direction."""
     matching = []
     for ing in ingredients:
-        # Check primary chakra
         if ing.primary_chakra and ing.primary_chakra.lower() == chakra_name.lower():
             strength = ing.primary_chakra_strength or 0
             if (is_boon == "boon" and strength > 0) or (is_boon == "bane" and strength < 0):
                 matching.append(ing)
                 continue
-        # Check secondary chakra
         if ing.secondary_chakra and ing.secondary_chakra.lower() == chakra_name.lower():
             strength = ing.secondary_chakra_strength or 0
             if (is_boon == "boon" and strength > 0) or (is_boon == "bane" and strength < 0):
@@ -137,47 +401,41 @@ def get_chakra_strength(ing: Ingredient, chakra_name: str) -> int:
     return total
 
 
+# --- Recipe Matching ---
+
 def matches_constraint_recipe(
     recipe: ConstraintRecipe,
     ingredients: List[Ingredient],
     chakra_result: ChakraResult
 ) -> bool:
-    """
-    Check if the given ingredients match a constraint recipe.
-    """
-    # Check tier
+    """Check if the given ingredients match a constraint recipe."""
     if recipe.tier is not None and recipe.tier != chakra_result.tier:
         return False
 
-    # Check primary chakra
     if recipe.primary_chakra is not None:
         if chakra_result.primary_chakra is None:
             return False
         if chakra_result.primary_chakra.lower() != recipe.primary_chakra.lower():
             return False
 
-    # Check primary_is_boon
     if recipe.primary_is_boon is not None:
         if chakra_result.primary_is_boon is None:
             return False
         if chakra_result.primary_is_boon.lower() != recipe.primary_is_boon.lower():
             return False
 
-    # Check secondary chakra
     if recipe.secondary_chakra is not None:
         if chakra_result.secondary_chakra is None:
             return False
         if chakra_result.secondary_chakra.lower() != recipe.secondary_chakra.lower():
             return False
 
-    # Check secondary_is_boon
     if recipe.secondary_is_boon is not None:
         if chakra_result.secondary_is_boon is None:
             return False
         if chakra_result.secondary_is_boon.lower() != recipe.secondary_is_boon.lower():
             return False
 
-    # Check ingredient wildcards if specified
     if recipe.ingredients is not None and len(recipe.ingredients) > 0:
         ingredient_numbers = [ing.item_number for ing in ingredients]
         if not recipe._ingredients_match(ingredient_numbers):
@@ -192,22 +450,17 @@ def find_combinations_for_constraint(
     target_type: str,
     max_results: int = 10
 ) -> List[List[Ingredient]]:
-    """
-    Find ingredient combinations that match a constraint recipe.
-    """
+    """Find ingredient combinations that match a constraint recipe."""
     results = []
 
-    # Pre-filter ingredients by product type
     type_filtered = filter_for_product_type(all_ingredients, target_type)
 
-    # If recipe has chakra constraints, filter by chakra contribution
     if recipe.primary_chakra and recipe.primary_is_boon:
         core_ingredients = filter_for_chakra(
             type_filtered,
             recipe.primary_chakra,
             recipe.primary_is_boon
         )
-        # Sort by strength (strongest contributors first)
         core_ingredients.sort(
             key=lambda i: abs(get_chakra_strength(i, recipe.primary_chakra)),
             reverse=True
@@ -215,7 +468,6 @@ def find_combinations_for_constraint(
     else:
         core_ingredients = type_filtered
 
-    # If recipe requires specific ingredients, we need to include them
     required_ingredients = []
     if recipe.ingredients:
         for pattern in recipe.ingredients:
@@ -224,18 +476,15 @@ def find_combinations_for_constraint(
                     required_ingredients.append(ing)
                     break
 
-    # Try combinations of increasing size (1-6 ingredients)
     for combo_size in range(1, 7):
         if len(results) >= max_results:
             break
 
-        # If we have required ingredients, they must be in the combo
         if required_ingredients:
             remaining_slots = combo_size - len(required_ingredients)
             if remaining_slots < 0:
                 continue
 
-            # Get other eligible ingredients (excluding required ones)
             other_ingredients = [i for i in core_ingredients
                                if i not in required_ingredients]
 
@@ -255,20 +504,74 @@ def find_combinations_for_constraint(
 
             combo_list_ing = list(combo)
 
-            # Check product type matches
             actual_type = get_product_type(combo_list_ing)
             if actual_type != target_type:
                 continue
 
-            # Calculate chakras
             chakra_result = calculate_chakras(combo_list_ing)
 
-            # Check if matches recipe constraints
             if matches_constraint_recipe(recipe, combo_list_ing, chakra_result):
                 results.append(combo_list_ing)
 
     return results
 
+
+# --- Interactive Mode ---
+
+def prompt_for_constraints(product_type: str) -> dict:
+    """Prompt user for constraint parameters interactively."""
+    print(f"No recipe found. Enter constraints for {product_type}:")
+    print(f"Valid chakras: {', '.join(VALID_CHAKRAS)}")
+    print()
+
+    primary_chakra = input("Primary chakra: ").strip().lower()
+    while primary_chakra and primary_chakra not in VALID_CHAKRAS:
+        print(f"Invalid chakra. Valid options: {', '.join(VALID_CHAKRAS)}")
+        primary_chakra = input("Primary chakra: ").strip().lower()
+
+    primary_is_boon = None
+    if primary_chakra:
+        primary_is_boon = input("Primary is boon (boon/bane): ").strip().lower()
+        while primary_is_boon not in ("boon", "bane"):
+            print("Please enter 'boon' or 'bane'")
+            primary_is_boon = input("Primary is boon (boon/bane): ").strip().lower()
+
+    secondary_chakra = input("Secondary chakra (or press Enter for none): ").strip().lower()
+    if secondary_chakra and secondary_chakra not in VALID_CHAKRAS:
+        while secondary_chakra and secondary_chakra not in VALID_CHAKRAS:
+            print(f"Invalid chakra. Valid options: {', '.join(VALID_CHAKRAS)}")
+            secondary_chakra = input("Secondary chakra (or press Enter for none): ").strip().lower()
+
+    secondary_is_boon = None
+    if secondary_chakra:
+        secondary_is_boon = input("Secondary is boon (boon/bane): ").strip().lower()
+        while secondary_is_boon not in ("boon", "bane"):
+            print("Please enter 'boon' or 'bane'")
+            secondary_is_boon = input("Secondary is boon (boon/bane): ").strip().lower()
+    else:
+        secondary_chakra = None
+
+    tier_input = input("Tier (1-3): ").strip()
+    tier = None
+    if tier_input:
+        try:
+            tier = int(tier_input)
+            if tier < 1 or tier > 3:
+                print("Tier must be 1, 2, or 3. Ignoring tier constraint.")
+                tier = None
+        except ValueError:
+            print("Invalid tier. Ignoring tier constraint.")
+
+    return {
+        "primary_chakra": primary_chakra or None,
+        "primary_is_boon": primary_is_boon,
+        "secondary_chakra": secondary_chakra,
+        "secondary_is_boon": secondary_is_boon,
+        "tier": tier,
+    }
+
+
+# --- Output ---
 
 def print_ingredients_latex(ingredients: List[Ingredient]):
     """Print ingredients in LaTeX format."""
@@ -276,10 +579,11 @@ def print_ingredients_latex(ingredients: List[Ingredient]):
         if ing.macro:
             print(f"\\i{ing.macro}{{}}")
         else:
-            # Fallback to name without spaces if no macro
             safe_name = ing.name.replace(" ", "")
             print(f"\\i{safe_name}{{}}")
 
+
+# --- Main ---
 
 def main():
     parser = argparse.ArgumentParser(
@@ -318,11 +622,9 @@ def main():
             break
 
     if matching_subset:
-        # For subset recipes, just return the specific ingredients
         print(f"% Subset recipe for {args.product_item_number} ({product_type})")
         print(f"% Required ingredients: {matching_subset.ingredients}")
 
-        # Find the actual ingredient objects
         result_ingredients = []
         for item_num in matching_subset.ingredients:
             for ing in ingredients:
@@ -373,9 +675,44 @@ def main():
             print_ingredients_latex(combo)
         return
 
-    print(f"Error: No recipe found for {args.product_item_number} ({product_type})",
-          file=sys.stderr)
-    sys.exit(1)
+    # No recipe found - prompt for constraints interactively
+    constraints = prompt_for_constraints(product_type)
+
+    # Create a temporary constraint recipe from user input
+    user_recipe = ConstraintRecipe(
+        product_item_number=args.product_item_number,
+        product_type=product_type,
+        **constraints
+    )
+
+    print()
+    print(f"% Searching for {product_type} with constraints:")
+    constraint_desc = []
+    if constraints["primary_chakra"]:
+        constraint_desc.append(f"primary={constraints['primary_chakra']}/{constraints['primary_is_boon']}")
+    if constraints["secondary_chakra"]:
+        constraint_desc.append(f"secondary={constraints['secondary_chakra']}/{constraints['secondary_is_boon']}")
+    if constraints["tier"]:
+        constraint_desc.append(f"tier={constraints['tier']}")
+    print(f"% {', '.join(constraint_desc)}")
+    print()
+
+    results = find_combinations_for_constraint(
+        ingredients,
+        user_recipe,
+        product_type,
+        args.max_results
+    )
+
+    if not results:
+        print("% No matching combinations found", file=sys.stderr)
+        sys.exit(1)
+
+    for i, combo in enumerate(results):
+        if i > 0:
+            print()
+        print(f"% Combination {i + 1}:")
+        print_ingredients_latex(combo)
 
 
 if __name__ == "__main__":

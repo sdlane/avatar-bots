@@ -117,6 +117,63 @@ def validate_products_unique(products: List[Product]) -> tuple[bool, str]:
     return True, ""
 
 
+def validate_products_have_recipes(
+    products: List[Product],
+    subset_recipes: List[SubsetRecipe],
+    constraint_recipes: List[ConstraintRecipe],
+    failed_blends: List[FailedBlend]
+) -> tuple[bool, str]:
+    """
+    Validate that all products have at least one recipe (subset or constraint).
+
+    Excludes:
+    - Products listed in failed_blends (ruined products)
+    - Sludge product (item_number 6000)
+
+    Returns:
+        (True, "") if valid
+        (False, error_message) if products without recipes found
+    """
+    # Collect all product keys referenced by subset recipes
+    products_with_recipes = set()
+    for recipe in subset_recipes:
+        key = (recipe.product_item_number, recipe.product_type)
+        products_with_recipes.add(key)
+
+    # Collect all product keys referenced by constraint recipes
+    for recipe in constraint_recipes:
+        key = (recipe.product_item_number, recipe.product_type)
+        products_with_recipes.add(key)
+
+    # Build set of excluded products: failed_blends + sludge (6000)
+    excluded_products = set()
+    for fb in failed_blends:
+        key = (fb.product_item_number, fb.product_type)
+        excluded_products.add(key)
+
+    # Find products without recipes (excluding failed blends and sludge)
+    orphan_products = []
+    for prod in products:
+        key = (prod.item_number, prod.product_type)
+        # Skip sludge (item_number 6000)
+        if prod.item_number == "6000":
+            continue
+        # Skip failed blends
+        if key in excluded_products:
+            continue
+        # Check if product has a recipe
+        if key not in products_with_recipes:
+            orphan_products.append(prod)
+
+    if orphan_products:
+        lines = ["Products without recipes found:"]
+        for prod in orphan_products:
+            lines.append(f"  {prod.name} ({prod.product_type}, item_number={prod.item_number})")
+        return False, "\n".join(lines)
+
+    return True, ""
+
+
 def load_subset_recipes(filename: str) -> List[SubsetRecipe]:
     """
     Load subset recipes from a CSV file.
