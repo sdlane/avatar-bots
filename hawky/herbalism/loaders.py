@@ -212,9 +212,10 @@ def load_subset_recipes(filename: str) -> List[SubsetRecipe]:
             # Sort ingredients descending
             ingredients.sort(reverse=True)
 
+            product_type_raw = row.get('Product Type', '').strip()
             recipe = SubsetRecipe(
                 product_item_number=row.get('Product Item Number', '').strip(),
-                product_type=row.get('Product Type', '').strip(),
+                product_type=product_type_raw.lower() if product_type_raw else "",
                 quantity_produced=quantity,
                 ingredients=ingredients
             )
@@ -269,9 +270,10 @@ def load_constraint_recipes(filename: str) -> List[ConstraintRecipe]:
             secondary_chakra_raw = row.get('Secondary Chakra', '').strip()
             secondary_is_boon_raw = row.get('Secondary Is Boon', '').strip()
 
+            product_type_raw = row.get('Product Type', '').strip()
             recipe = ConstraintRecipe(
                 product_item_number=row.get('Product Item Number', '').strip(),
-                product_type=row.get('Product Type', '').strip(),
+                product_type=product_type_raw.lower() if product_type_raw else "",
                 quantity_produced=quantity,
                 ingredients=ingredients_list,
                 primary_chakra=primary_chakra_raw.lower() if primary_chakra_raw else None,

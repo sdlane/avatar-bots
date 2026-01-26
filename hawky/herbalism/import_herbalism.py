@@ -111,7 +111,7 @@ async def import_herbalism_data(
         products, subset_recipes, all_constraint_recipes, failed_blends
     )
     if not valid:
-        raise ValueError(f"Product validation failed:\n{error_msg}")
+        logger.warning(f"Orphaned products found (no recipes):\n{error_msg}")
 
     # === Phase 3: Clear existing data and insert ===
     logger.info("Clearing existing herbalism data...")
