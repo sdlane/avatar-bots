@@ -8106,6 +8106,11 @@ factions:
   nation: fire-nation
   members:
   - zairah
+  spending:
+    lumber: 3
+    rations: 3
+    cloth: 3
+    platinum: 6
 - faction_id: fire-sages
   name: Fire Sages
   nation: fire-nation

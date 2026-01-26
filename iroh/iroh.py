@@ -2120,7 +2120,7 @@ async def modify_character_vp_cmd(interaction: discord.Interaction, character: s
 )
 @app_commands.describe(faction_id="Faction ID to view resources for")
 async def view_faction_resources_cmd(interaction: discord.Interaction, faction_id: str):
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
 
     async with db_pool.acquire() as conn:
         admin = is_admin(interaction)
@@ -2264,7 +2264,7 @@ async def edit_faction_spending_cmd(
 )
 @app_commands.describe(faction_id="Faction ID to view spending for")
 async def view_faction_spending_cmd(interaction: discord.Interaction, faction_id: str):
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
 
     async with db_pool.acquire() as conn:
         admin = is_admin(interaction)
@@ -2292,7 +2292,7 @@ async def view_faction_spending_cmd(interaction: discord.Interaction, faction_id
         response += f"Cloth: {data['cloth']}\n"
         response += f"Platinum: {data['platinum']}\n"
 
-        await interaction.followup.send(response)
+        await interaction.followup.send(response, ephemeral=True)
 
 
 # Order Management Commands (Player)
@@ -3233,7 +3233,7 @@ async def order_dissolve_alliance_cmd(interaction: discord.Interaction, target_f
     description="View alliances in this wargame"
 )
 async def view_alliances_cmd(interaction: discord.Interaction):
-    await interaction.response.defer()
+    await interaction.response.defer(ephemeral=True)
 
     async with db_pool.acquire() as conn:
         # Determine viewer's permission level
@@ -3283,7 +3283,7 @@ async def view_alliances_cmd(interaction: discord.Interaction):
 
             embed.add_field(name=field_name, value=field_value, inline=False)
 
-        await interaction.followup.send(embed=embed)
+        await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @tree.command(
