@@ -199,6 +199,9 @@ async def send_letter_modal_callback(interaction: discord.Interaction,
     # Character exists, proceed with send_letter_callback using the character's actual identifier
     await send_letter_callback(interaction, message, sender, recipient, recipient_identifier)
 
+DISCORD_MESSAGE_LIMIT = 2000
+
+
 async def send_letter_callback(interaction: discord.Interaction,
                                message: discord.Message,
                                sender: Character,
@@ -208,6 +211,15 @@ async def send_letter_callback(interaction: discord.Interaction,
     async with db_pool.acquire() as conn:
         guild_id = interaction.guild_id
         # recipient = await Character.fetch_by_identifier(conn, recipient_identifier, guild_id)
+
+        # Check if adding the mention would exceed Discord's message limit
+        mention_length = len(f"<@{recipient.user_id}>\n") if recipient.user_id else 0
+        total_length = mention_length + len(message.content)
+        if total_length > DISCORD_MESSAGE_LIMIT:
+            await interaction.followup.send(
+                emotive_message(f"Your message is too long! With the recipient mention, it would be {total_length} characters (limit is {DISCORD_MESSAGE_LIMIT}). Please shorten your message by at least {total_length - DISCORD_MESSAGE_LIMIT} characters."),
+                ephemeral=True)
+            return
 
         # Get the ServerConfig for this server to get the letter delay
         config = await ServerConfig.fetch(conn, guild_id)
@@ -439,6 +451,33 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
     Show confirmation dialog and schedule the response task.
     """
     async with db_pool.acquire() as conn:
+        # Check if adding the mention would exceed Discord's message limit
+        # For responses, we need to check the recipient (original sender of the letter)
+        recipient_identifier = selected_letter['sender_identifier']
+
+        # Calculate mention length based on recipient type
+        if recipient_identifier.startswith("ADMIN:"):
+            # Admin recipient - mention will be added
+            admin_user_id = recipient_identifier.split(":")[1]
+            mention_length = len(f"<@{admin_user_id}>\n")
+            # Admin responses also include a link to original message
+            # Format: "In response to: https://discord.com/channels/{guild}/{channel}/{message}\n\n"
+            # This adds roughly 80-100 characters
+            mention_length += 100  # Conservative estimate for the link line
+        else:
+            # Character recipient - check if they have a user assigned
+            original_sender = await Character.fetch_by_identifier(conn, recipient_identifier, interaction.guild_id)
+            mention_length = len(f"<@{original_sender.user_id}>\n") if original_sender and original_sender.user_id else 0
+
+        total_length = mention_length + len(message.content)
+        if total_length > DISCORD_MESSAGE_LIMIT:
+            error_msg = f"Your response is too long! With the recipient mention, it would be {total_length} characters (limit is {DISCORD_MESSAGE_LIMIT}). Please shorten your message by at least {total_length - DISCORD_MESSAGE_LIMIT} characters."
+            if interaction.response.is_done():
+                await interaction.edit_original_response(content=emotive_message(error_msg))
+            else:
+                await interaction.response.send_message(emotive_message(error_msg), ephemeral=True)
+            return
+
         # Get the ServerConfig for this server to get the letter delay
         config = await ServerConfig.fetch(conn, interaction.guild_id)
 
