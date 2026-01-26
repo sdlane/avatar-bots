@@ -351,6 +351,30 @@ async def my_units_cmd(interaction: discord.Interaction):
                 inline=False
             )
 
+        # Faction units sections (for each faction where character has COMMAND permission)
+        faction_units_by_faction = data.get('faction_units_by_faction', {})
+        for faction, faction_units in faction_units_by_faction.items():
+            faction_list = []
+            for unit in faction_units:
+                unit_str = f"`{unit.unit_id}`: {unit.name or unit.unit_type}"
+                if unit.current_territory_id is not None:
+                    unit_str += f" (Territory {unit.current_territory_id})"
+                faction_list.append(unit_str)
+
+            # Split into chunks if too many
+            if len(faction_list) <= 15:
+                embed.add_field(
+                    name=f"{faction.name} Units ({len(faction_list)})",
+                    value="\n".join(faction_list),
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name=f"{faction.name} Units ({len(faction_list)})",
+                    value="\n".join(faction_list[:15]) + f"\n... and {len(faction_list) - 15} more",
+                    inline=False
+                )
+
         # Disbanded units section
         disbanded_list = []
         for unit in data['disbanded_units']:
@@ -386,39 +410,76 @@ async def my_territories_cmd(interaction: discord.Interaction):
 
         # Create summary embed
         character_name = data['character'].name
+        territories = data['territories']
+        faction_territories_by_faction = data.get('faction_territories_by_faction', {})
+        total_faction_count = sum(len(t) for t in faction_territories_by_faction.values())
+        total_count = len(territories) + total_faction_count
+
         embed = discord.Embed(
             title=f"🗺️ {character_name}'s Territories",
-            description=f"{len(data['territories'])} territories controlled",
+            description=f"{total_count} territories accessible",
             color=discord.Color.green()
         )
 
-        territory_list = []
-        for territory in data['territories']:
-            adjacent_ids = data['adjacencies'].get(territory.territory_id, [])
+        # Character-controlled territories
+        if territories:
+            territory_list = []
+            for territory in territories:
+                adjacent_ids = data['adjacencies'].get(territory.territory_id, [])
 
-            # Calculate total production
-            total_prod = (territory.ore_production + territory.lumber_production +
-                         territory.coal_production + territory.rations_production +
-                         territory.cloth_production)
+                # Calculate total production
+                total_prod = (territory.ore_production + territory.lumber_production +
+                             territory.coal_production + territory.rations_production +
+                             territory.cloth_production)
 
-            terr_str = f"**{territory.territory_id}**: {territory.name or 'Unnamed'} ({territory.terrain_type})\n"
-            terr_str += f"  Production: {total_prod}/turn | Adjacent: {', '.join(str(t) for t in sorted(adjacent_ids)) if adjacent_ids else 'None'}"
+                terr_str = f"**{territory.territory_id}**: {territory.name or 'Unnamed'} ({territory.terrain_type})\n"
+                terr_str += f"  Production: {total_prod}/turn | Adjacent: {', '.join(str(t) for t in sorted(adjacent_ids)) if adjacent_ids else 'None'}"
 
-            territory_list.append(terr_str)
+                territory_list.append(terr_str)
 
-        # Split into chunks if too many
-        if len(territory_list) <= 10:
-            embed.add_field(
-                name="Controlled Territories",
-                value="\n\n".join(territory_list),
-                inline=False
-            )
-        else:
-            embed.add_field(
-                name="Controlled Territories (first 10)",
-                value="\n\n".join(territory_list[:10]) + f"\n\n... and {len(territory_list) - 10} more",
-                inline=False
-            )
+            # Split into chunks if too many
+            if len(territory_list) <= 10:
+                embed.add_field(
+                    name=f"Controlled Territories ({len(territory_list)})",
+                    value="\n\n".join(territory_list),
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name=f"Controlled Territories ({len(territory_list)})",
+                    value="\n\n".join(territory_list[:10]) + f"\n\n... and {len(territory_list) - 10} more",
+                    inline=False
+                )
+
+        # Faction-controlled territories (for each faction where character has permission)
+        for faction, faction_territories in faction_territories_by_faction.items():
+            faction_terr_list = []
+            for territory in faction_territories:
+                adjacent_ids = data['adjacencies'].get(territory.territory_id, [])
+
+                # Calculate total production
+                total_prod = (territory.ore_production + territory.lumber_production +
+                             territory.coal_production + territory.rations_production +
+                             territory.cloth_production)
+
+                terr_str = f"**{territory.territory_id}**: {territory.name or 'Unnamed'} ({territory.terrain_type})\n"
+                terr_str += f"  Production: {total_prod}/turn | Adjacent: {', '.join(str(t) for t in sorted(adjacent_ids)) if adjacent_ids else 'None'}"
+
+                faction_terr_list.append(terr_str)
+
+            # Split into chunks if too many
+            if len(faction_terr_list) <= 10:
+                embed.add_field(
+                    name=f"{faction.name} Territories ({len(faction_terr_list)})",
+                    value="\n\n".join(faction_terr_list),
+                    inline=False
+                )
+            else:
+                embed.add_field(
+                    name=f"{faction.name} Territories ({len(faction_terr_list)})",
+                    value="\n\n".join(faction_terr_list[:10]) + f"\n\n... and {len(faction_terr_list) - 10} more",
+                    inline=False
+                )
 
         embed.set_footer(text="Use /view-territory <territory_id> for detailed information")
 
@@ -439,16 +500,21 @@ async def my_units_list_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        # Combine and deduplicate
+        # Combine and deduplicate owned and commanded
         all_units = {unit.id: unit for unit in data['owned_units'] + data['commanded_units']}.values()
-
-        # Create list of unit IDs
         unit_ids = [unit.unit_id for unit in all_units]
 
-        await interaction.followup.send(
-            f"**Your unit IDs:**\n`{', '.join(unit_ids)}`\n\nUse `/view-unit <unit_id>` for details.",
-            ephemeral=True
-        )
+        response = f"**Your unit IDs:**\n`{', '.join(unit_ids) if unit_ids else 'None'}`"
+
+        # Include faction units for each faction
+        faction_units_by_faction = data.get('faction_units_by_faction', {})
+        for faction, faction_units in faction_units_by_faction.items():
+            faction_unit_ids = [unit.unit_id for unit in faction_units]
+            response += f"\n\n**{faction.name} unit IDs:**\n`{', '.join(faction_unit_ids)}`"
+
+        response += "\n\nUse `/view-unit <unit_id>` for details."
+
+        await interaction.followup.send(response, ephemeral=True)
 
 
 @tree.command(
@@ -469,10 +535,17 @@ async def my_territories_list_cmd(interaction: discord.Interaction):
         territory_ids = [str(t.territory_id) for t in data['territories']]
         character_name = data['character'].name
 
-        await interaction.followup.send(
-            f"**{character_name}'s territory IDs:**\n`{', '.join(territory_ids)}`\n\nUse `/view-territory <territory_id>` for details.",
-            ephemeral=True
-        )
+        response = f"**{character_name}'s territory IDs:**\n`{', '.join(territory_ids) if territory_ids else 'None'}`"
+
+        # Include faction territories for each faction
+        faction_territories_by_faction = data.get('faction_territories_by_faction', {})
+        for faction, faction_territories in faction_territories_by_faction.items():
+            faction_territory_ids = [str(t.territory_id) for t in faction_territories]
+            response += f"\n\n**{faction.name} territory IDs:**\n`{', '.join(faction_territory_ids)}`"
+
+        response += "\n\nUse `/view-territory <territory_id>` for details."
+
+        await interaction.followup.send(response, ephemeral=True)
 
 
 @tree.command(

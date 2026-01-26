@@ -435,13 +435,15 @@ async def view_faction_membership(conn: asyncpg.Connection, user_id: int, guild_
 
 async def view_units_for_character(conn: asyncpg.Connection, user_id: int, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
     """
-    Fetch units owned or commanded by player's character.
+    Fetch units owned or commanded by player's character, plus faction units from all factions
+    where they have COMMAND permission.
 
     Returns:
         (success, message, data) where data contains:
         - character: Character object
         - owned_units: List of ACTIVE Unit objects owned
         - commanded_units: List of ACTIVE Unit objects commanded
+        - faction_units_by_faction: Dict mapping Faction -> List of ACTIVE Unit objects
         - disbanded_units: List of DISBANDED Unit objects (owned or commanded)
     """
     character = await Character.fetch_by_user(conn, user_id, guild_id)
@@ -461,26 +463,55 @@ async def view_units_for_character(conn: asyncpg.Connection, user_id: int, guild
     all_units = list({u.id: u for u in owned_units + commanded_units}.values())
     disbanded_units = [u for u in all_units if u.status == 'DISBANDED']
 
-    if not active_owned and not active_commanded and not disbanded_units:
+    # Track unit IDs we've already listed
+    listed_unit_ids = {u.id for u in active_owned} | {u.id for u in active_commanded}
+
+    # Check ALL factions where the character has COMMAND permission or is leader
+    faction_units_by_faction = {}
+
+    # Get all factions where character is leader
+    all_factions = await Faction.fetch_all(conn, guild_id)
+    for faction in all_factions:
+        is_leader = faction.leader_character_id == character.id
+        has_command = await FactionPermission.has_permission(
+            conn, faction.id, character.id, 'COMMAND', guild_id
+        )
+
+        if is_leader or has_command:
+            # Fetch faction-owned units
+            all_faction_units = await Unit.fetch_by_faction_owner(conn, faction.id, guild_id)
+            # Filter to active and exclude already-listed units
+            faction_units = [
+                u for u in all_faction_units
+                if u.status == 'ACTIVE' and u.id not in listed_unit_ids
+            ]
+            if faction_units:
+                faction_units_by_faction[faction] = faction_units
+                # Add to listed to avoid duplicates across factions
+                listed_unit_ids.update(u.id for u in faction_units)
+
+    if not active_owned and not active_commanded and not faction_units_by_faction and not disbanded_units:
         return False, f"{character.name} doesn't own or command any units.", None
 
     return True, "", {
         'character': character,
         'owned_units': active_owned,
         'commanded_units': active_commanded,
+        'faction_units_by_faction': faction_units_by_faction,
         'disbanded_units': disbanded_units
     }
 
 
 async def view_territories_for_character(conn: asyncpg.Connection, user_id: int, guild_id: int) -> Tuple[bool, str, Optional[dict]]:
     """
-    Fetch territories controlled by the player's character.
+    Fetch territories controlled by the player's character, plus faction territories from all
+    factions where they have any permission.
 
     Returns:
         (success, message, data) where data contains:
         - character: Character object
-        - faction: Faction object (optional, for display)
-        - territories: List of Territory objects
+        - territories: List of Territory objects (character-controlled)
+        - faction_territories_by_faction: Dict mapping Faction -> List of Territory objects
         - adjacencies: Dict mapping territory_id to list of adjacent territory IDs
     """
     character = await Character.fetch_by_user(conn, user_id, guild_id)
@@ -491,25 +522,51 @@ async def view_territories_for_character(conn: asyncpg.Connection, user_id: int,
     # Fetch territories controlled by this character
     territories = await Territory.fetch_by_controller(conn, character.id, guild_id)
 
-    if not territories:
-        return False, f"{character.name} doesn't control any territories.", None
+    # Track territory IDs we've already listed
+    listed_territory_ids = {t.territory_id for t in territories}
 
-    # Fetch faction for display (optional)
-    faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
-    faction = None
-    if faction_member:
-        faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+    # Get all permissions for this character
+    all_permissions = await FactionPermission.fetch_by_character(conn, character.id, guild_id)
+    faction_ids_with_permission = {p.faction_id for p in all_permissions}
 
-    # Fetch adjacencies for each territory
+    # Check ALL factions where the character has any permission or is leader
+    faction_territories_by_faction = {}
+
+    all_factions = await Faction.fetch_all(conn, guild_id)
+    for faction in all_factions:
+        is_leader = faction.leader_character_id == character.id
+        has_any_permission = faction.id in faction_ids_with_permission
+
+        if is_leader or has_any_permission:
+            # Fetch faction-controlled territories
+            all_faction_territories = await Territory.fetch_by_faction_controller(conn, faction.id, guild_id)
+            # Exclude already-listed territories
+            faction_territories = [
+                t for t in all_faction_territories
+                if t.territory_id not in listed_territory_ids
+            ]
+            if faction_territories:
+                faction_territories_by_faction[faction] = faction_territories
+                # Add to listed to avoid duplicates across factions
+                listed_territory_ids.update(t.territory_id for t in faction_territories)
+
+    if not territories and not faction_territories_by_faction:
+        return False, f"{character.name} doesn't control any territories and has no faction access.", None
+
+    # Fetch adjacencies for all territories
     adjacencies = {}
     for territory in territories:
         adjacent_ids = await TerritoryAdjacency.fetch_adjacent(conn, territory.territory_id, guild_id)
         adjacencies[territory.territory_id] = adjacent_ids
+    for faction_territories in faction_territories_by_faction.values():
+        for territory in faction_territories:
+            adjacent_ids = await TerritoryAdjacency.fetch_adjacent(conn, territory.territory_id, guild_id)
+            adjacencies[territory.territory_id] = adjacent_ids
 
     return True, "", {
         'character': character,
-        'faction': faction,
         'territories': territories,
+        'faction_territories_by_faction': faction_territories_by_faction,
         'adjacencies': adjacencies
     }
 
