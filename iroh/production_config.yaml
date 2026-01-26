@@ -8131,9 +8131,9 @@ factions:
     ore: 37
     lumber: 20
     coal: 33
-    rations: 30
-    cloth: 35
-    platinum: 20
+    rations: 24
+    cloth: 31
+    platinum: 16
 - faction_id: omashu
   name: Omashu
   nation: earth-kingdom
