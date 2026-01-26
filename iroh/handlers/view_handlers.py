@@ -467,7 +467,8 @@ async def view_units_for_character(conn: asyncpg.Connection, user_id: int, guild
     listed_unit_ids = {u.id for u in active_owned} | {u.id for u in active_commanded}
 
     # Check ALL factions where the character has COMMAND permission or is leader
-    faction_units_by_faction = {}
+    # Use list of tuples since Faction is not hashable
+    faction_units_list = []  # List of (faction, units) tuples
 
     # Get all factions where character is leader
     all_factions = await Faction.fetch_all(conn, guild_id)
@@ -486,18 +487,18 @@ async def view_units_for_character(conn: asyncpg.Connection, user_id: int, guild
                 if u.status == 'ACTIVE' and u.id not in listed_unit_ids
             ]
             if faction_units:
-                faction_units_by_faction[faction] = faction_units
+                faction_units_list.append((faction, faction_units))
                 # Add to listed to avoid duplicates across factions
                 listed_unit_ids.update(u.id for u in faction_units)
 
-    if not active_owned and not active_commanded and not faction_units_by_faction and not disbanded_units:
+    if not active_owned and not active_commanded and not faction_units_list and not disbanded_units:
         return False, f"{character.name} doesn't own or command any units.", None
 
     return True, "", {
         'character': character,
         'owned_units': active_owned,
         'commanded_units': active_commanded,
-        'faction_units_by_faction': faction_units_by_faction,
+        'faction_units_list': faction_units_list,
         'disbanded_units': disbanded_units
     }
 
@@ -530,7 +531,8 @@ async def view_territories_for_character(conn: asyncpg.Connection, user_id: int,
     faction_ids_with_permission = {p.faction_id for p in all_permissions}
 
     # Check ALL factions where the character has any permission or is leader
-    faction_territories_by_faction = {}
+    # Use list of tuples since Faction is not hashable
+    faction_territories_list = []  # List of (faction, territories) tuples
 
     all_factions = await Faction.fetch_all(conn, guild_id)
     for faction in all_factions:
@@ -546,11 +548,11 @@ async def view_territories_for_character(conn: asyncpg.Connection, user_id: int,
                 if t.territory_id not in listed_territory_ids
             ]
             if faction_territories:
-                faction_territories_by_faction[faction] = faction_territories
+                faction_territories_list.append((faction, faction_territories))
                 # Add to listed to avoid duplicates across factions
                 listed_territory_ids.update(t.territory_id for t in faction_territories)
 
-    if not territories and not faction_territories_by_faction:
+    if not territories and not faction_territories_list:
         return False, f"{character.name} doesn't control any territories and has no faction access.", None
 
     # Fetch adjacencies for all territories
@@ -558,7 +560,7 @@ async def view_territories_for_character(conn: asyncpg.Connection, user_id: int,
     for territory in territories:
         adjacent_ids = await TerritoryAdjacency.fetch_adjacent(conn, territory.territory_id, guild_id)
         adjacencies[territory.territory_id] = adjacent_ids
-    for faction_territories in faction_territories_by_faction.values():
+    for faction, faction_territories in faction_territories_list:
         for territory in faction_territories:
             adjacent_ids = await TerritoryAdjacency.fetch_adjacent(conn, territory.territory_id, guild_id)
             adjacencies[territory.territory_id] = adjacent_ids
@@ -566,7 +568,7 @@ async def view_territories_for_character(conn: asyncpg.Connection, user_id: int,
     return True, "", {
         'character': character,
         'territories': territories,
-        'faction_territories_by_faction': faction_territories_by_faction,
+        'faction_territories_list': faction_territories_list,
         'adjacencies': adjacencies
     }
 

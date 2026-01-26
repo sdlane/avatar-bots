@@ -352,8 +352,8 @@ async def my_units_cmd(interaction: discord.Interaction):
             )
 
         # Faction units sections (for each faction where character has COMMAND permission)
-        faction_units_by_faction = data.get('faction_units_by_faction', {})
-        for faction, faction_units in faction_units_by_faction.items():
+        faction_units_list = data.get('faction_units_list', [])
+        for faction, faction_units in faction_units_list:
             faction_list = []
             for unit in faction_units:
                 unit_str = f"`{unit.unit_id}`: {unit.name or unit.unit_type}"
@@ -411,8 +411,8 @@ async def my_territories_cmd(interaction: discord.Interaction):
         # Create summary embed
         character_name = data['character'].name
         territories = data['territories']
-        faction_territories_by_faction = data.get('faction_territories_by_faction', {})
-        total_faction_count = sum(len(t) for t in faction_territories_by_faction.values())
+        faction_territories_list = data.get('faction_territories_list', [])
+        total_faction_count = sum(len(t) for _, t in faction_territories_list)
         total_count = len(territories) + total_faction_count
 
         embed = discord.Embed(
@@ -452,7 +452,7 @@ async def my_territories_cmd(interaction: discord.Interaction):
                 )
 
         # Faction-controlled territories (for each faction where character has permission)
-        for faction, faction_territories in faction_territories_by_faction.items():
+        for faction, faction_territories in faction_territories_list:
             faction_terr_list = []
             for territory in faction_territories:
                 adjacent_ids = data['adjacencies'].get(territory.territory_id, [])
@@ -507,8 +507,8 @@ async def my_units_list_cmd(interaction: discord.Interaction):
         response = f"**Your unit IDs:**\n`{', '.join(unit_ids) if unit_ids else 'None'}`"
 
         # Include faction units for each faction
-        faction_units_by_faction = data.get('faction_units_by_faction', {})
-        for faction, faction_units in faction_units_by_faction.items():
+        faction_units_list = data.get('faction_units_list', [])
+        for faction, faction_units in faction_units_list:
             faction_unit_ids = [unit.unit_id for unit in faction_units]
             response += f"\n\n**{faction.name} unit IDs:**\n`{', '.join(faction_unit_ids)}`"
 
@@ -538,8 +538,8 @@ async def my_territories_list_cmd(interaction: discord.Interaction):
         response = f"**{character_name}'s territory IDs:**\n`{', '.join(territory_ids) if territory_ids else 'None'}`"
 
         # Include faction territories for each faction
-        faction_territories_by_faction = data.get('faction_territories_by_faction', {})
-        for faction, faction_territories in faction_territories_by_faction.items():
+        faction_territories_list = data.get('faction_territories_list', [])
+        for faction, faction_territories in faction_territories_list:
             faction_territory_ids = [str(t.territory_id) for t in faction_territories]
             response += f"\n\n**{faction.name} territory IDs:**\n`{', '.join(faction_territory_ids)}`"
 
