@@ -71,7 +71,7 @@ def load_products(filename: str) -> List[Product]:
     Note: 'Notes' column is ignored if present.
     """
     products = []
-
+    
     with open(filename, 'r', encoding='utf-8') as f:
         reader = csv.DictReader(f)
         for row in reader:
@@ -79,11 +79,13 @@ def load_products(filename: str) -> List[Product]:
             skip_export = bool(row.get('Skip Export', '').strip())
             skip_prod = bool(row.get('Skip Prod', '').strip())
 
+            product_type_raw=row.get('Type', '').strip() or None
+            
             product = Product(
                 item_number=row.get('Item Number', '').strip(),
                 name=row.get('Name', '').strip() or None,
                 macro=row.get('Macro', '').strip() or None,
-                product_type=row.get('Type', '').strip() or None,
+                product_type= product_type_raw.lower() if product_type_raw else None,
                 flavor_text=row.get('Flavor Text', '').strip() or None,
                 rules_text=row.get('Rules Text', '').strip() or None,
                 skip_export=skip_export,
@@ -273,7 +275,7 @@ def load_constraint_recipes(filename: str) -> List[ConstraintRecipe]:
             product_type_raw = row.get('Product Type', '').strip()
             recipe = ConstraintRecipe(
                 product_item_number=row.get('Product Item Number', '').strip(),
-                product_type=product_type_raw if product_type_raw else "",
+                product_type=product_type_raw.lower() if product_type_raw else "",
                 quantity_produced=quantity,
                 ingredients=ingredients_list,
                 primary_chakra=primary_chakra_raw.lower() if primary_chakra_raw else None,
@@ -301,7 +303,7 @@ def load_failed_blends(filename: str) -> List[FailedBlend]:
         for row in reader:
             failed_blend = FailedBlend(
                 product_item_number=row.get('Product Item Number', '').strip(),
-                product_type=row.get('Type', '').strip()
+                product_type=row.get('Type', '').strip().lower()
             )
             failed_blends.append(failed_blend)
 
