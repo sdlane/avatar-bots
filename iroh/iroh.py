@@ -60,6 +60,64 @@ async def advice(interaction: discord.Interaction):
     await interaction.response.send_message(get_emote_text())
 
 
+@tree.command(
+    name="iroh-help",
+    description="List all available player commands"
+)
+async def iroh_help_cmd(interaction: discord.Interaction):
+    """List all non-admin commands with their descriptions."""
+    # Get all commands and filter to non-admin ones
+    commands = tree.get_commands()
+
+    # Filter out admin commands (those with [Admin] in description)
+    player_commands = [
+        cmd for cmd in commands
+        if not cmd.description.startswith("[Admin]")
+    ]
+
+    # Sort alphabetically by name
+    player_commands.sort(key=lambda c: c.name)
+
+    # Group commands by category
+    categories = {
+        "View Commands": [],
+        "My Character": [],
+        "Orders": [],
+        "Faction Management": [],
+        "Other": [],
+    }
+
+    for cmd in player_commands:
+        name = cmd.name
+        if name.startswith("view-"):
+            categories["View Commands"].append(cmd)
+        elif name.startswith("my-"):
+            categories["My Character"].append(cmd)
+        elif name.startswith("order-") or name == "cancel-order":
+            categories["Orders"].append(cmd)
+        elif name in ("set-representation", "view-faction-permissions"):
+            categories["Faction Management"].append(cmd)
+        else:
+            categories["Other"].append(cmd)
+
+    # Build embed
+    embed = discord.Embed(
+        title="☕ Iroh Commands",
+        description="Available commands for players",
+        color=discord.Color.gold()
+    )
+
+    for category, cmds in categories.items():
+        if cmds:
+            value = "\n".join([f"`/{c.name}` - {c.description}" for c in cmds])
+            # Discord field value limit is 1024 chars
+            if len(value) > 1024:
+                value = value[:1020] + "..."
+            embed.add_field(name=category, value=value, inline=False)
+
+    await interaction.response.send_message(embed=embed)
+
+
 # Helper function to check admin permissions
 def is_admin(interaction: discord.Interaction) -> bool:
     """Check if user has manage_guild permission"""

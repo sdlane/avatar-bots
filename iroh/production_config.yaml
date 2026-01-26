@@ -8899,7 +8899,7 @@ buildings:
 - building_id: temple-E016
   type: temple
   territory_id: E016
-# Fire Nation shrines and temples (10)
+# Fire Nation shrines and temples (11)
 - building_id: shrine-F001
   type: shrine
   territory_id: F001
@@ -8930,6 +8930,9 @@ buildings:
 - building_id: temple-F018
   type: temple
   territory_id: F018
+- building_id: temple-mainka
+  type: temple
+  territory_id: mainka
 # Fire Sages shrines and temples (2)
 - building_id: temple-F037
   type: temple
