@@ -57,13 +57,15 @@ logger = logging.getLogger(__name__)
 # --- Configuration ---
 # Update these paths to point to your CSV files
 
-INGREDIENTS_FILE = "test_data/test_ingredients.csv"
-PRODUCTS_FILE = "test_data/test_products.csv"
-SUBSET_RECIPES_FILE = "test_data/test_subset_recipes.csv"
+INGREDIENTS_FILE = "production_data/herbal_ingredients.csv"
+PRODUCTS_FILE = "production_data/herbal_products.csv"
+SUBSET_RECIPES_FILE = "production_data/subset_recipes.csv"
 CONSTRAINT_RECIPES_FILES: List[str] = [
-    "test_data/test_constraint_recipes.csv",
+    "production_data/healing.csv",
+    "production_data/two_chakra.csv",
+    "production_data/one_chakra.csv"
 ]
-FAILED_BLENDS_FILE = "test_data/test_failed_blends.csv"
+FAILED_BLENDS_FILE = "production_data/failed_failed_blends.csv"
 
 DB_URL = "postgresql://AVATAR:password@db:5432/AVATAR"
 

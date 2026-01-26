@@ -21,11 +21,14 @@ from typing import List, Optional
 
 
 # --- Configuration ---
-# Paths are relative to this script's directory
-_script_dir = os.path.dirname(os.path.abspath(__file__))
-INGREDIENTS_FILE = os.path.join(_script_dir, "test_data/test_ingredients.csv")
-SUBSET_RECIPES_FILE = os.path.join(_script_dir, "test_data/test_subset_recipes.csv")
-CONSTRAINT_RECIPES_FILES = [os.path.join(_script_dir, "test_data/test_constraint_recipes.csv")]
+INGREDIENTS_FILE = "production_data/herbal_ingredients.csv"
+PRODUCTS_FILE = "production_data/herbal_products.csv"
+SUBSET_RECIPES_FILE = "production_data/subset_recipes.csv"
+CONSTRAINT_RECIPES_FILES: List[str] = [
+    "production_data/healing.csv",
+    "production_data/two_chakra.csv",
+    "production_data/one_chakra.csv"
+]
 
 # Valid product types
 VALID_PRODUCT_TYPES = {"tea", "salve", "tincture", "decoction", "bath", "incense"}
