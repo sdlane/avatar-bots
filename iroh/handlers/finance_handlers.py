@@ -111,10 +111,13 @@ async def get_character_finances(
         platinum=character.platinum_production
     )
 
-    # Territory production
+    # Territory production (excluding sacred-land territories)
     territories = await Territory.fetch_by_controller(conn, character_id, guild_id)
     territory_production = ResourceTotals()
     for t in territories:
+        # Skip sacred-land territories - they don't produce resources
+        if t.keywords and 'sacred-land' in t.keywords:
+            continue
         territory_production.ore += t.ore_production
         territory_production.lumber += t.lumber_production
         territory_production.coal += t.coal_production
@@ -122,9 +125,12 @@ async def get_character_finances(
         territory_production.cloth += t.cloth_production
         territory_production.platinum += t.platinum_production
 
-    # Building production bonuses
+    # Building production bonuses (excluding sacred-land territories)
     building_production = ResourceTotals()
     for t in territories:
+        # Skip sacred-land territories - buildings don't provide production bonuses
+        if t.keywords and 'sacred-land' in t.keywords:
+            continue
         bonus = await calculate_building_production_bonus(conn, t, guild_id)
         building_production.ore += bonus.get('ore', 0)
         building_production.lumber += bonus.get('lumber', 0)
@@ -235,10 +241,13 @@ async def get_faction_finances(
     else:
         current_resources = ResourceTotals()
 
-    # Territory production (faction-controlled territories)
+    # Territory production (faction-controlled territories, excluding sacred-land)
     territories = await Territory.fetch_by_faction_controller(conn, faction_id, guild_id)
     territory_production = ResourceTotals()
     for t in territories:
+        # Skip sacred-land territories - they don't produce resources
+        if t.keywords and 'sacred-land' in t.keywords:
+            continue
         territory_production.ore += t.ore_production
         territory_production.lumber += t.lumber_production
         territory_production.coal += t.coal_production
@@ -246,9 +255,12 @@ async def get_faction_finances(
         territory_production.cloth += t.cloth_production
         territory_production.platinum += t.platinum_production
 
-    # Building production bonuses
+    # Building production bonuses (excluding sacred-land territories)
     building_production = ResourceTotals()
     for t in territories:
+        # Skip sacred-land territories - buildings don't provide production bonuses
+        if t.keywords and 'sacred-land' in t.keywords:
+            continue
         bonus = await calculate_building_production_bonus(conn, t, guild_id)
         building_production.ore += bonus.get('ore', 0)
         building_production.lumber += bonus.get('lumber', 0)
