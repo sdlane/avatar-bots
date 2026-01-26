@@ -2471,7 +2471,7 @@ UNIT_ACTION_CHOICES = [
 
 @tree.command(
     name="order-unit",
-    description="[Unit Commander] Submit a unit order (transit, patrol, raid, capture, siege, etc.)"
+    description="Submit a unit order (transit, patrol, raid, capture, siege, etc.)"
 )
 @app_commands.describe(
     unit_ids="Comma-separated unit IDs (e.g., 'FN-001' or 'FN-001,FN-002')",
