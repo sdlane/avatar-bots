@@ -39,14 +39,18 @@ def load_ingredients(filename: str) -> List[Ingredient]:
             # Parse skip_export - true if column contains a value
             skip_export = bool(row.get('Skip Export', '').strip())
 
+            # Lowercase chakra names for consistent comparison
+            primary_chakra_raw = row.get('Primary Chakra', '').strip()
+            secondary_chakra_raw = row.get('Secondary Chakra', '').strip()
+
             ingredient = Ingredient(
                 item_number=row.get('Item Number', '').strip(),
                 name=row.get('Name', '').strip(),
                 macro=row.get('Macro', '').strip() or None,
                 rarity=row.get('Rarity', '').strip() or None,
-                primary_chakra=row.get('Primary Chakra', '').strip() or None,
+                primary_chakra=primary_chakra_raw.lower() if primary_chakra_raw else None,
                 primary_chakra_strength=primary_strength,
-                secondary_chakra=row.get('Secondary Chakra', '').strip() or None,
+                secondary_chakra=secondary_chakra_raw.lower() if secondary_chakra_raw else None,
                 secondary_chakra_strength=secondary_strength,
                 properties=row.get('Properties', '').strip() or None,
                 flavor_text=row.get('Flavor Text', '').strip() or None,
@@ -259,15 +263,21 @@ def load_constraint_recipes(filename: str) -> List[ConstraintRecipe]:
                 except ValueError:
                     pass
 
+            # Lowercase chakra and is_boon fields for consistent comparison
+            primary_chakra_raw = row.get('Primary Chakra', '').strip()
+            primary_is_boon_raw = row.get('Primary Is Boon', '').strip()
+            secondary_chakra_raw = row.get('Secondary Chakra', '').strip()
+            secondary_is_boon_raw = row.get('Secondary Is Boon', '').strip()
+
             recipe = ConstraintRecipe(
                 product_item_number=row.get('Product Item Number', '').strip(),
                 product_type=row.get('Product Type', '').strip(),
                 quantity_produced=quantity,
                 ingredients=ingredients_list,
-                primary_chakra=row.get('Primary Chakra', '').strip() or None,
-                primary_is_boon=row.get('Primary Is Boon', '').strip() or None,
-                secondary_chakra=row.get('Secondary Chakra', '').strip() or None,
-                secondary_is_boon=row.get('Secondary Is Boon', '').strip() or None,
+                primary_chakra=primary_chakra_raw.lower() if primary_chakra_raw else None,
+                primary_is_boon=primary_is_boon_raw.lower() if primary_is_boon_raw else None,
+                secondary_chakra=secondary_chakra_raw.lower() if secondary_chakra_raw else None,
+                secondary_is_boon=secondary_is_boon_raw.lower() if secondary_is_boon_raw else None,
                 tier=tier
             )
             recipes.append(recipe)
