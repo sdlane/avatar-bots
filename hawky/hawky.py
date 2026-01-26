@@ -556,8 +556,11 @@ async def blend_herbs(
     # Parse comma-separated list and strip whitespace
     ingredient_numbers = [num.strip() for num in ingredients.split(",") if num.strip()]
 
+    logger.debug(f"blend_herbs: user={interaction.user.id}, ingredients={ingredient_numbers}")
+
     # Validate ingredient count
     if len(ingredient_numbers) == 0:
+        logger.debug(f"blend_herbs: rejected - no ingredients provided")
         await interaction.response.send_message(
             "Please provide at least one ingredient.",
             ephemeral=True
@@ -565,6 +568,7 @@ async def blend_herbs(
         return
 
     if len(ingredient_numbers) > 6:
+        logger.debug(f"blend_herbs: rejected - too many ingredients ({len(ingredient_numbers)})")
         await interaction.response.send_message(
             f"Too many ingredients ({len(ingredient_numbers)}). Maximum is 6.",
             ephemeral=True
@@ -575,6 +579,7 @@ async def blend_herbs(
         result = await make_blend(conn, ingredient_numbers)
 
     if not result.success:
+        logger.debug(f"blend_herbs: blend failed - {result.error_message}")
         await interaction.response.send_message(
             result.error_message,
             ephemeral=True
@@ -582,6 +587,7 @@ async def blend_herbs(
         return
 
     product = result.product
+    logger.debug(f"blend_herbs: success - product={product.item_number} ({product.name}), type={product.product_type}, qty={result.quantity}")
 
     # Build the embed
     embed = discord.Embed(
