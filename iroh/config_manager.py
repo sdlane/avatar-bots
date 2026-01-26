@@ -5,7 +5,8 @@ import logging
 from db import (
     Territory, Faction, FactionMember, Unit, UnitType, BuildingType, Building,
     PlayerResources, TerritoryAdjacency, WargameConfig, Character,
-    FactionResources, FactionPermission, VALID_PERMISSION_TYPES, SpiritNexus
+    FactionResources, FactionPermission, VALID_PERMISSION_TYPES, SpiritNexus,
+    Alliance
 )
 
 logger = logging.getLogger(__name__)
@@ -377,6 +378,21 @@ class ConfigManager:
                 'health': nexus.health
             })
 
+        # Export Alliances
+        # Create reverse map from internal faction ID to faction_id string
+        faction_id_map = {f.id: f.faction_id for f in factions}
+        alliances = await Alliance.fetch_all(conn, guild_id)
+        config_dict['alliances'] = []
+        for alliance in alliances:
+            faction_a_str = faction_id_map.get(alliance.faction_a_id)
+            faction_b_str = faction_id_map.get(alliance.faction_b_id)
+            if faction_a_str and faction_b_str:
+                alliance_dict = {
+                    'factions': [faction_a_str, faction_b_str],
+                    'status': alliance.status
+                }
+                config_dict['alliances'].append(alliance_dict)
+
         return yaml.dump(config_dict, default_flow_style=False, sort_keys=False)
 
     @staticmethod
@@ -677,6 +693,47 @@ class ConfigManager:
                     guild_id=guild_id
                 )
                 await nexus.upsert(conn)
+
+        # Import Alliances
+        if 'alliances' in config_dict:
+            for alliance_data in config_dict['alliances']:
+                # Support both formats: 'factions' list or 'faction_a'/'faction_b' keys
+                if 'factions' in alliance_data:
+                    faction_ids = alliance_data['factions']
+                    if len(faction_ids) >= 2:
+                        faction_a_internal = faction_map.get(faction_ids[0])
+                        faction_b_internal = faction_map.get(faction_ids[1])
+                    else:
+                        logger.warning(f"Skipping alliance - need 2 factions: {alliance_data}")
+                        continue
+                else:
+                    faction_a_internal = faction_map.get(alliance_data.get('faction_a'))
+                    faction_b_internal = faction_map.get(alliance_data.get('faction_b'))
+
+                if faction_a_internal and faction_b_internal:
+                    # Ensure canonical ordering (a < b)
+                    if faction_a_internal > faction_b_internal:
+                        faction_a_internal, faction_b_internal = faction_b_internal, faction_a_internal
+
+                    status = alliance_data.get('status', 'ACTIVE')
+                    # Determine initiated_by based on status
+                    if status == 'PENDING_FACTION_A':
+                        initiated_by = faction_a_internal
+                    elif status == 'PENDING_FACTION_B':
+                        initiated_by = faction_b_internal
+                    else:
+                        initiated_by = faction_a_internal  # Default for ACTIVE
+
+                    alliance = Alliance(
+                        faction_a_id=faction_a_internal,
+                        faction_b_id=faction_b_internal,
+                        status=status,
+                        initiated_by_faction_id=initiated_by,
+                        guild_id=guild_id
+                    )
+                    await alliance.upsert(conn)
+                else:
+                    logger.warning(f"Skipping alliance - faction not found: {alliance_data}")
 
         # Import Unit Types
         if 'unit_types' in config_dict:

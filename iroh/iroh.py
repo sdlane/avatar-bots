@@ -509,7 +509,7 @@ async def my_territories_cmd(interaction: discord.Interaction):
                 adjacent_ids = data['adjacencies'].get(territory.territory_id, [])
                 total_prod = (territory.ore_production + territory.lumber_production +
                              territory.coal_production + territory.rations_production +
-                             territory.cloth_production)
+                             territory.cloth_production + territory.platinum_production)
                 terr_str = f"**{territory.territory_id}**: {territory.name or 'Unnamed'} ({territory.terrain_type})\n"
                 terr_str += f"  Production: {total_prod}/turn | Adjacent: {', '.join(str(t) for t in sorted(adjacent_ids)) if adjacent_ids else 'None'}"
                 territory_list.append(terr_str)
@@ -522,7 +522,7 @@ async def my_territories_cmd(interaction: discord.Interaction):
                 adjacent_ids = data['adjacencies'].get(territory.territory_id, [])
                 total_prod = (territory.ore_production + territory.lumber_production +
                              territory.coal_production + territory.rations_production +
-                             territory.cloth_production)
+                             territory.cloth_production + territory.platinum_production)
                 terr_str = f"**{territory.territory_id}**: {territory.name or 'Unnamed'} ({territory.terrain_type})\n"
                 terr_str += f"  Production: {total_prod}/turn | Adjacent: {', '.join(str(t) for t in sorted(adjacent_ids)) if adjacent_ids else 'None'}"
                 faction_terr_list.append(terr_str)

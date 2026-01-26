@@ -8627,8 +8627,7 @@ building_types:
     platinum: 1
 - type_id: shrine
   name: Shrine
-  description: Honors the spirits. Repairs nearest nexus by 1 when built; damages
-    by 2 if destroyed.
+  description: Honors the spirits.
   keywords:
   - spiritual
   cost:
@@ -8639,8 +8638,7 @@ building_types:
     ore: 1
 - type_id: temple
   name: Temple
-  description: Honors the spirits. Repairs nearest nexus by 1 when built; damages
-    by 2 if destroyed.
+  description: Honors the spirits.
   keywords:
   - spiritual
   cost:
