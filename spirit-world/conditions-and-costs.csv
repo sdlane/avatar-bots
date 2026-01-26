@@ -1,0 +1,332 @@
+Difficulty,Can be Trap?,Condition or Cost,Minimum Danger,Thing
+Easy,No,Condition,,Wuneng is the Earth King
+Easy,No,Condition,,Wuneng is not the Earth King
+Easy,No,Condition,,Jialun is the Earth King
+Easy,No,Condition,,Jialun is not the Earth King
+Hard,No,Condition,,There is no crowned Earth King
+Hard,No,Condition,,There is a crowned Earth King
+Easy,No,Condition,,Taiso is the Fire Lord
+Hard,No,Condition,,Taiso is not the Fire Lord
+Hard,No,Condition,,Zaisa is the Fire Lord
+Easy,No,Condition,,Zaisa is not the Fire Lord
+Easy,No,Condition,,Karliq is the Chief of the Northern Water Tribe
+Medium,No,Condition,,Karliq is not the Chief of the Northern Water Tribe
+Easy,No,Condition,,There is an active war
+Medium,No,Condition,,There is not an active war
+Medium,No,Condition,,There is an active war between the Northern Water Tribe and the Southern Water Tribe
+Medium,No,Condition,,There is an active war betwen the Fifth Nation and the Earth Kingdom
+Medium,No,Condition,,There is an active war between the Fire Nation and the Earth Kingdom
+Easy,No,Condition,,The Earth Kingdom controls all of Natsuo Island
+Medium,No,Condition,,The Earth Kingdom does not control all of Natsuo Island
+Hard,No,Condition,,The FIre Nation controls all of Natsuo Island
+Medium,No,Condition,,The Fire Nation does not control all of Natsuo Island
+Medium,No,Condition,,There is not an active war between the Northern Water Tribe and Southern Water Tribe
+Medium,No,Condition,,There is not an active war
+Medium,No,Condition,,At least 2 people in your party own or can command at least one wargame unit
+Easy,No,Condition,,No more than 3 people in your party own or can command at least one wargame unit 
+Hard,No,Condition,,The Fifth Nation controls more territory than they did at the start of the game.
+Hard,No,Condition,,The Fire Nation controls more territory than they did at the start of the game.
+Hard,No,Condition,,The Air Nomads control more territory than they did at the start of the game.
+Hard,No,Condition,,The Earth Kingdom controls more territory than they did at the start of game.
+Hard,No,Condition,,The Southern Water Tribe controls more territory than they did at the start of game.
+Hard,No,Condition,,The Northern Water Tribe controls more territory than they did at the start of game.
+Hard,No,Condition,,The Fifth Nation controls less territory than they did at the start of the game.
+Hard,No,Condition,,The Fire Nation controls less territory than they did at the start of the game.
+Hard,No,Condition,,The Air Nomads control less territory than they did at the start of the game.
+Hard,No,Condition,,The Earth Kingdom controls less territory than they did at the start of game.
+Hard,No,Condition,,The Southern Water Tribe controls less territory than they did at the start of game.
+Hard,No,Condition,,The Northern Water Tribe controls less territory than they did at the start of game.
+Easy,No,Condition,,At least 2 members of your party are benders.
+Easy,No,Condition,,No more than 3 members of your party are benders.
+Medium,No,Condition,,At least 2 members of your party are non-benders
+Medium,No,Condition,,At least 2 members of your party are Earth Sages
+Easy,No,Condition,,No more that 2 members of your party are Earth Sages
+Hard,No,Condition,,At least 1 member of your party is a Fire Sage
+Hard,No,Condition,,No more than 1 member of your party is a Fire Sage
+Hard,No,Condition,,"At least 1 member of your party is a member of the Fire Nation Royal Family, by blood or by marriage"
+Hard,No,Condition,,"No more than 1 member of your party is a member of the Fire Nation Royal Family, by blood or by marriage."
+Hard,No,Condition,,At least 1 member of your party is a member of the Saowon Clan
+Hard,No,Condition,,No more than 1 member of your party is a member of the Saowon Clan
+Hard,No,Condition,,At least 1 member of your party is a member of the Keosho Clan
+Hard,No,Condition,,No more than 1 member of your party is a member of the Keosho Clan
+Medium,No,Condition,,The Northern Water Tribe is in an alliance with the Southern Water Tribe
+Easy,No,Condition,,Omashu is in an alliance with the Earth Kingdom
+Easy,No,Condition,,Hu Xin is in an alliance with the Earth Kingdom
+Medium,No,Condition,,The Southern Water Tribe is in an alliance with the Fifth Nation
+Hard,No,Condition,,The Northern Water Tribe is in an alliance with the Fifth Nation
+Hard,No,Condition,,The Air Nomads are in an alliance
+Medium,No,Condition,,The Fifth Nation is in an alliance with the Earth Kingdom
+Medium,No,Condition,,The Fifth Nation is in an alliance with the Fire Nation
+Easy,No,Condition,,The Northern Water Tribe is not in an alliance with the Southern Water Tribe
+Hard,No,Condition,,Omashu is not in an alliance with the Earth Kingdom
+Hard,No,Condition,,Hu Xin is not in an alliance with the Earth Kingdom
+Easy,No,Condition,,The Southern Water Tribe is not in an alliance with the Fifth Nation
+Easy,No,Condition,,The Northern Water Tribe is not in an alliance with the Fifth Nation
+Easy,No,Condition,,The Air Nomads are not an alliance
+Easy,No,Condition,,The Fifth Nation is not in an alliance with the Earth Kingdom
+Easy,No,Condition,,The Fifth Nation is not in an alliance with the Fire Nation
+Easy,No,Condition,,At least 1 member of your party is proficient with a Saber
+Medium,No,Condition,,At least 1 member of your party is proficient with a Straight Sword
+Medium,No,Condition,,At least 1 member of your party is proficient with a Staff
+Medium,No,Condition,,At least 1 member of your party is proficient with a Polearm
+Medium,No,Condition,,At least 2 members of your party are proficient with a Saber
+Hard,No,Condition,,At least 2 members of your party are proficient with a Straight Sword
+Hard,No,Condition,,At least 2 members of your party are proficient with a Staff
+Hard,No,Condition,,At least 2 members of your party are proficient with a Polearm
+Easy,No,Condition,,No more than 3 members of your party are proficient with a Saber
+Easy,No,Condition,,No more than 3 members of your party are proficient with a Straight Sword
+Easy,No,Condition,,No more than 3 members of your party are proficient with a Staff
+Easy,No,Condition,,No more than 3 members of your party are proficient with a Polearm
+Medium,No,Condition,,At least 1 member of your party published an article in the most recent issue of the newspaper
+Hard,No,Condition,,At least 1 member of your party is a member of the Dai Li
+Hard,No,Condition,,At least 1 member of your party is a member of the White Lotus
+Hard,No,Condition,,At least 1 member of your party is a member of the Red Lotus
+Hard,No,Condition,,At least 1 member of your party is a member of the Dragon's Breath
+Hard,No,Condition,,At least 1 member of your party is a member of the Water's Fist
+Easy,No,Cost,,Pay 3 Copper
+Medium,No,Cost,,Pay 2 Silver
+Hard,No,Cost,,Pay 7 Silver
+Easy,No,Cost,,One member of your party reduces their income by 4 copper for the next day. You cannot pay this cost if it would cause your income to go below 0.
+Medium,No,Cost,,One member of your party reduces their income by 2 Silver and 2 copper for the next day.  You cannot pay this cost if it would cause your income to go below 0.
+Hard,No,Cost,,One member of your party reduces their income by 7 Silver and 7 Copper for the next day. You cannot pay this cost if it would cause your income to go below 0.
+Medium,No,Cost,,Each member of your party pays 2 copper
+Hard,No,Cost,,Each member of your party pays 1 silver.
+Medium,Yes,Cost,,All members of your party take 1 damage
+Medium,Yes,Cost,3,All members of your party take 3 damage
+Hard,Yes,Cost,6,All members of your party take 5 damage.
+Easy,Yes,Cost,,One member of your party takes 2 damage
+Medium,Yes,Cost,,One member of your party take 4 damage
+Hard,Yes,Cost,,One member of your party takes 6 damage
+Medium,Yes,Cost,4,One member of your party becomes wounded
+Hard,Yes,Cost,5,All but one of the members of your party becomes knocked out.
+Hard,Yes,Cost,5,One member of your party becomes wounded
+Hard,Yes,Cost,8,All members of your party become wounded.
+Easy,Yes,Cost,,One member of your party reduces their Max HP by 1 for 1 hour.
+Easy,Yes,Cost,,One member of your party reduces their Max HP by 3 for 1 hour.
+Medium,Yes,Cost,,One member of your praty reduces their Max HP by 5 for 1 hour
+Easy,Yes,Cost,,One member of your party reduces their Max HP by 1 for 3 hours
+Medium,Yes,Cost,,One member of your party reduces their Max HP by 3 for 3 hours. 
+Hard,Yes,Cost,4,One member of your party reduces their Max HP by 5 for 3 hours.
+Easy,Yes,Cost,,One member of your party reduces their Max HP by 1 until the end of the night.
+Hard,Yes,Cost,,One member of your party reduces their Max HP by 3 until the end of the night.
+Hard,Yes,Cost,6,One member of your party reduces their Max HP by 5 until the end of the night.
+Medium,Yes,Cost,,All members of your party reduce their Max HP by 1 for 1 hour.
+Medium,Yes,Cost,,All members of your party reduce their Max HP by 3 for 1 hour.
+Hard,Yes,Cost,4,All members of your party reduce their Max HP by 5 for 1 hour.
+Medium,Yes,Cost,,All members of your party reduce their Max HP by 1 for 3 hours.
+Hard,Yes,Cost,4,All members of your party reduce their Max HP by 3 for 3 hours. 
+Hard,Yes,Cost,5,All members of your party reduce their Max HP by 5 for 3 hours.
+Medium,Yes,Cost,,All members of your party reduce their Max HP by 1 until the end of the night.
+Hard,Yes,Cost,4,All members of your party reduce their Max HP by 3 until the end of the night.
+Hard,Yes,Cost,7,All members of your party reduce their Max HP by 5 until the end of the night.
+Easy,No,Cost,,One member of your party pays 2 Chi points.
+Medium,No,Cost,,One member of your party pays 3 Chi points.
+Medium,No,Cost,,One member of your party pays 4 Chi points.
+Medium,No,Cost,,All members of your party spend 1 Chi point. You cannot meet this condition unless all members of the party are willing to pay it.
+Medium,No,Cost,,All members of your party spend 2 Chi points. You cannot meet this condition unless all members of the party are willing to pay it.
+Hard,No,Cost,,All members of your party spend 3 Chi points. You cannot meet this condition unless all members of the party are willing to pay it.
+Easy,Yes,Cost,,One member of your party reduces their Chi stat by 2 for 1 hour.
+Hard,Yes,Cost,,One member of your party reduces their Chi stat by 6 for 1 hour.
+Hard,Yes,Cost,4,One member of your party reduces their Chi stat by 10 for 1 hour.
+Medium,Yes,Cost,,One member of your party reduces their Chi stat by 2 for 3 hours.
+Medium,Yes,Cost,4,One member of your party reduces their Chi stat by 6 for 3 hours.
+Hard,Yes,Cost,6,One member of your party reduces their Chi stat by 10 for 3 hours.
+Medium,Yes,Cost,,One member of your party reduces their Chi stat by 2 until the end of the day.
+Hard,Yes,Cost,5,One member of your party reduces their Chi stat by 6 until the end of the day.
+Hard,Yes,Cost,7,One member of your party reduces their Chi stat by 10 until the end of the day.
+Easy,Yes,Cost,,All members of your party reduce their Chi stat by 2 for 1 hour.
+Medium,Yes,Cost,4,All members of your party reduce their Chi stat by 4 for 1 hour.
+Hard,Yes,Cost,5,All members of your party reduce their Chi stat by 6 for 1 hour.
+Medium,Yes,Cost,,All members of your party reduce their Chi stat by 2 for 3 hours.
+Hard,Yes,Cost,5,All members of your party reduce their Chi stat by 4 for 3 hours.
+Hard,Yes,Cost,6,All members of your party reduce their Chi stat by 6 for 3 hours.
+Medium,Yes,Cost,,All members of your party reduce their Chi stat by 2 until the end of the night.
+Hard,Yes,Cost,6,All members of your party reduce their Chi stat by 4 until the end of the night.
+Hard,Yes,Cost,7,All members of your party reduce their Chi stat by 6 until the end of the night.
+Easy,No,Cost,,One member of your party pays 1 Stamina point.
+Medium,No,Cost,,One member of your party pays 2 Stamina points.
+Medium,No,Cost,,One member of your party pays 3 Stamina points.
+Medium,No,Cost,,All members of your party spend 1 Stamina point. You cannot meet this condition unless all members of the party are willing to pay it.
+Medium,No,Cost,,All members of your party spend 2 Stamina points. You cannot meet this condition unless all members of the party are willing to pay it.
+Hard,No,Cost,,All members of your party spend 3 Stamina points. You cannot meet this condition unless all members of the party are willing to pay it.
+Easy,Yes,Cost,,One member of your party reduces their Stamina stat by 2 for 1 hour.
+Hard,Yes,Cost,,One member of your party reduces their Stamina stat by 4 for 1 hour.
+Hard,Yes,Cost,4,One member of your party reduces their Stamina stat by 6 for 1 hour.
+Medium,Yes,Cost,,One member of your party reduces their Stamina stat by 2 for 3 hours.
+Medium,Yes,Cost,4,One member of your party reduces their Stamiba stat by 4 for 3 hours.
+Hard,Yes,Cost,6,One member of your party reduces their Stamina stat by 6 for 3 hours.
+Medium,Yes,Cost,,One member of your party reduces their Stamina stat by 2 until the end of the day.
+Hard,Yes,Cost,5,One member of your party reduces their Stamina stat by 4 until the end of the day.
+Hard,Yes,Cost,7,One member of your party reduces their Stamina stat by 6 until the end of the day.
+Easy,Yes,Cost,,All members of your party reduce their Stamina stat by 2 for 1 hour.
+Medium,Yes,Cost,4,All members of your party reduce their Stamina stat by 4 for 1 hour.
+Hard,Yes,Cost,5,All members of your party reduce their Stamina stat by 6 for 1 hour.
+Medium,Yes,Cost,,All members of your party reduce their Stamina stat by 2 for 3 hours.
+Hard,Yes,Cost,5,All members of your party reduce their Stamina stat by 4 for 3 hours.
+Hard,Yes,Cost,6,All members of your party reduce their Stamina stat by 6 for 3 hours.
+Medium,Yes,Cost,,All members of your party reduce their Stamina stat by 2 until the end of the night.
+Hard,Yes,Cost,6,All members of your party reduce their Stamina stat by 4 until the end of the night.
+Hard,Yes,Cost,7,All members of your party reduce their Stamina stat by 6 until the end of the night.
+Easy,No,Cost,,One member of your party spends 1 Inspiration
+Medium,No,Cost,,One member of your party spends 2 Inspiration
+Medium,No,Cost,,One member of your party spends 3 Inspiration
+Medium,No,Cost,,All members of your party spend 1 Inspiration. You cannot meet this condition unless all members of the party are willing to pay it.
+Medium,No,Cost,,All members of your party spend 2 Inspiration. You cannot meet this condition unless all members of the party are willing to pay it.
+Hard,No,Cost,,All members of your party spend 3 Inspiration. You cannot meet this condition unless all members of the party are willing to pay it.
+Easy,No,Cost,,One member of your party reduces their Inspiration stat by 2 until the end of the next day. You cannot pay this cost if it would cause your Inspiration stat to go below 0.
+Easy,No,Cost,,One member of your party reduces their Inspiration stat by 4 until the end of the next day. You cannot pay this cost if it would cause your Inspiration stat to go below 0.
+Medium,No,Cost,,One member of your party reduces their Inspiration stat by 6 until the end of the next day. You cannot pay this cost if it would cause your Inspiration stat to go below 0.
+Medium,No,Cost,,All members of your party reduce their Inspiration stat by 2 until the end of the next day. You cannot meet this condition unless all members of the party are willing to pay it. You cannot pay this cost if it would cause your income to go below 0.
+Medium,No,Cost,,All members of your party reduce their Inspiration stat by 4 until the end of the next day. You cannot meet this condition unless all members of the party are willing to pay it. You cannot pay this cost if it would cause your income to go below 0.
+Hard,No,Cost,4,All members of your party reduce their Inspiration stat by 6 until the end of the next day. You cannot meet this condition unless all members of the party are willing to pay it. You cannot pay this cost if it would cause your income to go below 0.
+Easy,No,Cost,,One member of your party reduces their Bending Skill by 1 for 1 hour. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Medium,No,Cost,,One member of your party reduces their Bending Skill by 2 for 1 hour. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Medium,No,Cost,,One member of your party reduces their Bending Skill by 3 for 1 hour. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Easy,No,Cost,,One member of your party reduces their Bending Skill by 1 for 3 hours. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Medium,No,Cost,,One member of your party reduces their Bending Skill by 2 for 3 hours. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Medium,No,Cost,,One member of your party reduces their Bending Skill by 3 for 3 hours. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Easy,No,Cost,,One member of your party reduces their Bending Skill by 1 until the end of the night. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Medium,No,Cost,,One member of your party reduces their Bending Skill by 2 until the end of the night. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Hard,No,Cost,,One member of your party reduces their Bending Skill by 3 until the end of the night. You cannot pay this cost if it would cause your Bending Skill to go below 0.
+Hard,No,Cost,,One member of your party reduces their Reputation by 1.
+Hard,No,Cost,,One member of your party reduces their Honor by 1.
+Easy,No,Cost,,Destroy an item with a 5 as the first digit.
+Easy,No,Cost,,Destroy an item with 51 as the first two digits.
+Easy,No,Cost,,Destroy an item with 52 as the first two digits.
+Easy,No,Cost,,Destroy an item with 53 as the first two digits.
+Easy,No,Cost,,Destroy an item with 54 as the first two digits.
+Easy,No,Cost,,Destroy an item with 55 as the first two digits.
+Easy,No,Cost,,Destroy an item with 56 as the first two digits.
+Easy,No,Cost,,Destroy an item with 57 as the first two digits.
+Easy,No,Cost,,Destroy an item with a first digit of 5 and a second and/or third digit of 1.
+Easy,No,Cost,,Destroy an item with a first digit of 5 and a second and/or third digit of 2.
+Easy,No,Cost,,Destroy an item with a first digit of 5 and a second and/or third digit of 3.
+Easy,No,Cost,,Destroy an item with a first digit of 5 and a second and/or third digit of 4.
+Easy,No,Cost,,Destroy an item with a first digit of 5 and a second and/or third digit of 5.
+Easy,No,Cost,,Destroy an item with a first digit of 5 and a second and/or third digit of 6.
+Easy,No,Cost,,Destroy an item with a first digit of 5 and a second and/or third digit of 7.
+Easy,No,Cost,,Destroy an item with a first digit of 5 and a second and/or third digit of 8.
+Medium,No,Cost,,Destroy an item with a 6 as the first digit.
+Medium,No,Cost,,Destroy an item with 61 as the first two digits.
+Medium,No,Cost,,Destroy an item with 62 as the first two digits.
+Medium,No,Cost,,Destroy an item with 63 as the first two digits.
+Medium,No,Cost,,Destroy an item with 64 as the first two digits.
+Medium,No,Cost,,Destroy an item with 65 as the first two digits.
+Medium,No,Cost,,Destroy an item with 66 as the first two digits.
+Medium,No,Cost,,Destroy an item with 67 as the first two digits.
+Medium,No,Cost,,Destroy an item with a first digit of 6 and a second and/or third digit of 1.
+Medium,No,Cost,,Destroy an item with a first digit of 6 and a second and/or third digit of 2.
+Medium,No,Cost,,Destroy an item with a first digit of 6 and a second and/or third digit of 3.
+Medium,No,Cost,,Destroy an item with a first digit of 6 and a second and/or third digit of 4.
+Medium,No,Cost,,Destroy an item with a first digit of 6 and a second and/or third digit of 5.
+Medium,No,Cost,,Destroy an item with a first digit of 6 and a second and/or third digit of 6.
+Medium,No,Cost,,Destroy an item with a first digit of 6 and a second and/or third digit of 7.
+Hard,No,Cost,,Destroy an item with a first digit of 6 and a second and/or third digit of 8.
+Easy,No,Cost,,Destory an item with a first digit of 5 and a 4th digit of 1 or 2.
+Easy,No,Cost,,Destory an item with a first digit of 5 and a 4th digit of 3 or 4.
+Medium,No,Cost,,Destory an item with a first digit of 5 and a 4th digit of 5 or 6.
+Medium,No,Cost,,Destory an item with a first digit of 6 and a 4th digit of 1 or 2.
+Medium,No,Cost,,Destory an item with a first digit of 6 and a 4th digit of 3 or 4.
+Hard,No,Cost,,Destory an item with a first digit of 6 and a 4th digit of 5 or 6.
+Hard,No,Cost,,Destory an item with a first digit of 6 and a 4th digit of 7 or 8.
+Hard,No,Cost,7,Destroy a Spirit Pet
+Easy,No,Condition,,At least 1 member of your party has the Positive Jing
+Easy,No,Condition,,At least 1 member of your party has the Negative Jing
+Easy,No,Condition,,At least 1 member of your party has the Neutral Jing
+Easy,No,Condition,,At least 1 member of your party has the Restrained Jing.
+Easy,No,Condition,,At least 1 member of your party has the Reckless Jing.
+Easy,No,Condition,,At least 1 member of your party has the Responsive Jing.
+Easy,No,Condition,,At least 1 member of your party has the Dazzling Jing.
+Easy,No,Condition,,At least 1 member of your party has the Forthright Jing.
+Easy,No,Condition,,At least 1 member of your party has the Veiled Jing.
+Easy,No,Condition,,At least 1 member of your party has the Soaring Jing.
+Easy,No,Condition,,At least 1 member of your party has the Immobile Jing.
+Easy,No,Condition,,At least 1 member of your party has the Fluid Jing.
+Easy,No,Condition,,At least 1 member of your party has the Serene Jing.
+Easy,No,Condition,,At least 1 member of your party has the Blind Jing.
+Easy,No,Condition,,At least 1 member of your party has the Unbidden Jing.
+Easy,No,Condition,,At least 1 member of your party has the Deceitful Jing.
+Easy,No,Condition,,At least 1 member of your party has the Noble Jing.
+Medium,No,Condition,,At least 1 member of your party has the Dutiful Jing.
+Medium,No,Condition,,At least 1 member of your party has the Ordered Jing.
+Medium,No,Condition,,At least 1 member of your party has the Burdened Jing.
+Medium,No,Condition,,At least 1 member of your party has the Militant Jing.
+Medium,No,Condition,,At least 1 member of your party has the Harrowing Jing.
+Hard,No,Condition,,At least 1 member of your party has the Soulless Jing.
+Hard,No,Condition,,At least 1 member of your party has the Blissful Jing.
+Hard,No,Condition,,At least 1 member of your party has the Untethered Jing.
+Easy,No,Condition,,At least 3 members of your party has the Positive Jing
+Easy,No,Condition,,At least 3 members of your party has the Negative Jing
+Easy,No,Condition,,At least 3 members of your party has the Neutral Jing
+Medium,No,Condition,,At least 3 members of your party has the Restrained Jing.
+Medium,No,Condition,,At least3 members of your party has the Reckless Jing.
+Medium,No,Condition,,At least 3 members of your party has the Responsive Jing.
+Medium,No,Condition,,At least 3 members of your party has the Dazzling Jing.
+Medium,No,Condition,,At least 3 members of your party has the Forthright Jing.
+Medium,No,Condition,,At least 3 members of your party has the Veiled Jing.
+Medium,No,Condition,,At least 3 members of your party has the Soaring Jing.
+Medium,No,Condition,,At least 3 members of your party has the Immobile Jing.
+Medium,No,Condition,,At least 3 members of your party has the Fluid Jing.
+Medium,No,Condition,,At least 3 members of your party has the Serene Jing.
+Medium,No,Condition,,At least 3 members of your party has the Blind Jing.
+Medium,No,Condition,,At least 3 members of your party has the Unbidden Jing.
+Medium,No,Condition,,At least 3 members of your party has the Deceitful Jing.
+Medium,No,Condition,,At least 3 members of your party has the Noble Jing.
+Hard,No,Condition,,At least 2 members of your party has the Dutiful Jing.
+Hard,No,Condition,,At least 2 members of your party has the Ordered Jing.
+Hard,No,Condition,,At least 2 members of your party has the Burdened Jing.
+Hard,No,Condition,,At least 2 members of your party has the Militant Jing.
+Hard,No,Condition,,At least 2 members of your party has the Harrowing Jing.
+Easy,No,Cost,,Destroy 1 copy of the Positive Jing
+Easy,No,Cost,,Destroy 1 copy of the Negative Jing
+Easy,No,Cost,,Destroy 1 copy of the Neutral Jing
+Easy,No,Cost,,Destroy 1 copy of the Restrained Jing.
+Easy,No,Cost,,Destroy 1 copy of the  Reckless Jing.
+Easy,No,Cost,,Destroy 1 copy of the Responsive Jing.
+Easy,No,Cost,,Destroy 1 copy of the Dazzling Jing.
+Easy,No,Cost,,Destroy 1 copy of the Forthright Jing.
+Easy,No,Cost,,Destroy 1 copy of the Veiled Jing.
+Medium,No,Cost,,Destroy 1 copy of the Soaring Jing.
+Medium,No,Cost,,Destroy 1 copy of the Immobile Jing.
+Medium,No,Cost,,Destroy 1 copy of the Fluid Jing.
+Medium,No,Cost,,Destroy 1 copy of the Serene Jing.
+Medium,No,Cost,,Destroy 1 copy of the Blind Jing.
+Medium,No,Cost,,Destroy 1 copy of the Unbidden Jing.
+Medium,No,Cost,,Destroy 1 copy of the Deceitful Jing.
+Medium,No,Cost,,Destroy 1 copy of the Noble Jing.
+Hard,No,Cost,,Destroy 1 copy of the Dutiful Jing.
+Hard,No,Cost,,Destroy 1 copy of the Ordered Jing.
+Hard,No,Cost,,Destroy 1 copy of the Burdened Jing.
+Hard,No,Cost,,Destroy 1 copy of the Militant Jing.
+Hard,Yes,Cost,,Destroy 1 copy of the Harrowing Jing.
+Medium,Yes,Cost,,Destroy all copies of the Positive Jing possesed by your party
+Medium,Yes,Cost,,Destroy all copies of the Negative Jing possesed by your party
+Medium,Yes,Cost,,Destroy all copies of the Neutral Jing possesed by your party
+Medium,Yes,Cost,,Destroy all copies of the Restrained Jing possesed by your party.
+Medium,Yes,Cost,,Destroy all copies of the  Reckless Jing possesed by your party.
+Medium,Yes,Cost,,Destroy all copies of the Responsive Jing possesed by your party.
+Medium,Yes,Cost,,Destroy all copies of the Dazzling Jing possesed by your party.
+Medium,Yes,Cost,,Destroy all copies of the Forthright Jing possesed by your party.
+Medium,Yes,Cost,,Destroy all copies of the Veiled Jing possesed by your party.
+Hard,Yes,Cost,,Destroy all copies of the Soaring Jing possesed by your party.
+Hard,Yes,Cost,,Destroy all copies of the Immobile Jing possesed by your party.
+Hard,Yes,Cost,,Destroy all copies of the Fluid Jing possesed by your party.
+Hard,Yes,Cost,,Destroy all copies of the Serene Jing possesed by your party.
+Hard,Yes,Cost,,Destroy all copies of the Blind Jing possesed by your party.
+Hard,Yes,Cost,,Destroy all copies of the Unbidden Jing possesed by your party.
+Hard,Yes,Cost,,Destroy all copies of the Deceitful Jing possesed by your party.
+Easy,No,Cost,,Destroy 1 copy of any jing.
+Medium,No,Cost,,Destroy 3 copies of any one jing.
+Easy,No,Cost,,Destroy 3 jing. They can be different types.
+Easy,No,Cost,,Destroy 2 copies of the Positive Jing
+Easy,No,Cost,,Destroy 2 copies of the Negative Jing
+Easy,No,Cost,,Destroy 2 copies of the Neutral Jing
+Medium,No,Cost,,Destroy 2 copies of the Restrained Jing.
+Medium,No,Cost,,Destroy 2 copies of the  Reckless Jing.
+Medium,No,Cost,,Destroy 2 copies of the Responsive Jing.
+Medium,No,Cost,,Destroy 2 copies of the Dazzling Jing.
+Medium,No,Cost,,Destroy 2 copies of the Forthright Jing.
+Medium,No,Cost,,Destroy 2 copies of the Veiled Jing.
+Medium,No,Cost,,Destroy 3 copies of the Positive Jing.
+Medium,No,Cost,,Destroy 3 copies of the Negative Jing.
+Medium,No,Cost,,Destroy 3 copies of the Neutral Jing.
