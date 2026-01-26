@@ -241,38 +241,38 @@ async def calc_product_type(
     if alcohol_count > 2:
         # Too much alcohol - ruined tincture
         logger.debug("calc_product_type: >2 alcohol -> ruined tincture")
-        return await fetch_ruined_product(conn, "tincture")
+        return await fetch_ruined_product(conn, "Tincture")
 
     if alcohol_count == 2:
         if is_ingestible:
             logger.debug("calc_product_type: 2 alcohol + ingestible -> tincture")
-            return "tincture"
+            return "Tincture"
         else:
             # Not ingestible with 2 alcohol - ruined tincture
             logger.debug("calc_product_type: 2 alcohol + not ingestible -> ruined tincture")
-            return await fetch_ruined_product(conn, "tincture")
+            return await fetch_ruined_product(conn, "Tincture")
 
     if alcohol_count == 1:
         if is_ingestible:
             logger.debug("calc_product_type: 1 alcohol + ingestible -> tincture")
-            return "tincture"
+            return "Tincture"
         elif has_aromatic:
             logger.debug("calc_product_type: 1 alcohol + aromatic -> incense")
-            return "incense"
+            return "Incense"
         else:
             logger.debug("calc_product_type: 1 alcohol -> decoction")
-            return "decoction"
+            return "Decoction"
 
     # No alcohol
     if is_ingestible:
         logger.debug("calc_product_type: ingestible -> tea")
-        return "tea"
+        return "Tea"
     elif has_salt:
         logger.debug("calc_product_type: salt -> bath")
-        return "bath"
+        return "Bath"
     else:
         logger.debug("calc_product_type: default -> salve")
-        return "salve"
+        return "Salve"
 
 
 async def calc_product(
