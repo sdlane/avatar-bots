@@ -497,6 +497,26 @@ async def resolve_naval_combat_in_territory(
                 if is_hostile:
                     break
 
+            # Check hostile keyword - units with 'hostile' keyword engage all non-allied units
+            if not is_hostile:
+                side_a_has_hostile = any(unit_has_keyword(u, 'hostile') for u in side_a.units if u.status == 'ACTIVE')
+                side_b_has_hostile = any(unit_has_keyword(u, 'hostile') for u in side_b.units if u.status == 'ACTIVE')
+
+                if side_a_has_hostile or side_b_has_hostile:
+                    # Check if sides are allied - hostile keyword doesn't trigger combat with allies
+                    are_allied = False
+                    for faction_a in side_a.faction_ids:
+                        for faction_b in side_b.faction_ids:
+                            if faction_a and faction_b and await are_factions_allied(conn, faction_a, faction_b, guild_id):
+                                are_allied = True
+                                break
+                        if are_allied:
+                            break
+
+                    if not are_allied:
+                        is_hostile = True
+                        logger.info(f"Naval combat: hostile keyword triggered between sides {i} and {j}")
+
             if is_hostile:
                 hostile_pairs.append((i, j))
 

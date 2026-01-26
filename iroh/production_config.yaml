@@ -203,6 +203,7 @@ territories:
     platinum: 1
     cloth: 1
   controller: air-nomads
+  victory_points: 2
 - territory_id: A017
   terrain_type: mountain
   adjacent_to:
@@ -415,6 +416,7 @@ territories:
     cloth: 1
     rations: 1
   controller: air-nomads
+  victory_points: 2
 - territory_id: A034
   terrain_type: mountain
   adjacent_to:
@@ -432,6 +434,7 @@ territories:
     coal: 1
     rations: 1
   controller: air-nomads
+  victory_points: 2
 - territory_id: A035
   terrain_type: mountain
   adjacent_to:
@@ -449,6 +452,7 @@ territories:
     ore: 1
     coal: 1
   controller: air-nomads
+  victory_points: 2
 - territory_id: A036
   terrain_type: mountain
   adjacent_to:
@@ -785,6 +789,7 @@ territories:
     cloth: 1
     platinum: 1
   controller: air-nomads
+  victory_points: 2
 - territory_id: A065
   terrain_type: mountain
   adjacent_to:
@@ -867,6 +872,7 @@ territories:
   production:
     lumber: 3
   controller: earth-kingdom
+  victory_points: 2
 - territory_id: E006
   terrain_type: forest
   adjacent_to:
@@ -883,6 +889,7 @@ territories:
   production:
     lumber: 3
   controller: earth-kingdom
+  victory_points: 2
 - territory_id: E007
   terrain_type: forest
   adjacent_to:
@@ -995,6 +1002,7 @@ territories:
   controller: earth-kingdom
   production:
     platinum: 2
+  victory_points: 2
 - territory_id: E020
   terrain_type: plains
   adjacent_to:
@@ -1068,6 +1076,7 @@ territories:
     coal: 1
     rations: 1
     cloth: 1
+  victory_points: 2
 - territory_id: E025
   terrain_type: plains
   adjacent_to:
@@ -1126,6 +1135,7 @@ territories:
     coal: 1
     rations: 2
   controller: gaoling
+  victory_points: 2
 - territory_id: E034
   terrain_type: plains
   adjacent_to:
@@ -1164,6 +1174,7 @@ territories:
     rations: 3
     cloth: 2
     lumber: 1
+  victory_points: 2
 - territory_id: E038
   terrain_type: plains
   adjacent_to:
@@ -1184,6 +1195,7 @@ territories:
     platinum: 3
     cloth: 2
     lumber: 1
+  victory_points: 2
 - territory_id: E041
   terrain_type: mountain
   adjacent_to:
@@ -1243,6 +1255,7 @@ territories:
     rations: 1
     lumber: 2
     cloth: 2
+  victory_points: 2
 - territory_id: E045
   terrain_type: plains
   adjacent_to:
@@ -1263,6 +1276,7 @@ territories:
     rations: 2
     lumber: 1
     cloth: 2
+  victory_points: 2
 - territory_id: E046
   terrain_type: plains
   adjacent_to:
@@ -1281,6 +1295,7 @@ territories:
     lumber: 3
     cloth: 2
     rations: 2
+  victory_points: 2
 - territory_id: E047
   terrain_type: plains
   adjacent_to:
@@ -1299,6 +1314,7 @@ territories:
     ore: 1
     coal: 1
     platinum: 1
+  victory_points: 2
 - territory_id: E048
   terrain_type: plains
   adjacent_to:
@@ -1399,6 +1415,7 @@ territories:
     coal: 1
     lumber: 3
     cloth: 1
+  victory_points: 2
 - territory_id: E055
   terrain_type: mountain
   adjacent_to:
@@ -1419,6 +1436,7 @@ territories:
     rations: 1
     lumber: 1
   controller: fifth-nation
+  victory_points: 2
 - territory_id: E057
   terrain_type: mountain
   adjacent_to:
@@ -1437,6 +1455,7 @@ territories:
     ore: 1
     coal: 1
   controller: fifth-nation
+  victory_points: 2
 - territory_id: E062
   terrain_type: mountain
   adjacent_to:
@@ -1454,6 +1473,7 @@ territories:
     ore: 1
     coal: 1
   controller: fifth-nation
+  victory_points: 2
 - territory_id: E063
   terrain_type: mountain
   adjacent_to:
@@ -1605,7 +1625,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    coal: 1
 - territory_id: E080
   terrain_type: mountain
   adjacent_to:
@@ -1620,8 +1640,8 @@ territories:
   - S146
   original_nation: earth-kingdom
   production:
-    ore: 1
     coal: 1
+    cloth: 1
   controller: earth-kingdom
 - territory_id: E082
   terrain_type: mountain
@@ -1657,6 +1677,7 @@ territories:
     ore: 1
     coal: 1
   controller: omashu
+  victory_points: 2
 - territory_id: E086
   terrain_type: plains
   adjacent_to:
@@ -1746,6 +1767,7 @@ territories:
     lumber: 2
     rations: 2
     cloth: 2
+  victory_points: 2
 - territory_id: E108
   terrain_type: plains
   adjacent_to:
@@ -1764,6 +1786,7 @@ territories:
     lumber: 2
     rations: 2
     cloth: 1
+  victory_points: 2
 - territory_id: E109
   terrain_type: plains
   adjacent_to:
@@ -1818,6 +1841,7 @@ territories:
     lumber: 2
     platinum: 1
     rations: 2
+  victory_points: 2
 - territory_id: E120
   terrain_type: mountain
   adjacent_to:
@@ -1834,6 +1858,7 @@ territories:
     ore: 1
     coal: 1
   controller: omashu
+  victory_points: 2
 - territory_id: E121
   terrain_type: mountain
   adjacent_to:
@@ -1853,6 +1878,7 @@ territories:
     ore: 1
     coal: 1
   controller: omashu
+  victory_points: 2
 - territory_id: E126
   terrain_type: mountain
   adjacent_to:
@@ -1890,6 +1916,7 @@ territories:
     ore: 1
     coal: 1
   controller: omashu
+  victory_points: 2
 - territory_id: E128
   terrain_type: plains
   adjacent_to:
@@ -1908,6 +1935,7 @@ territories:
     lumber: 1
     rations: 1
     platinum: 2
+  victory_points: 2
 - territory_id: E129
   terrain_type: mountain
   adjacent_to:
@@ -1983,6 +2011,7 @@ territories:
     coal: 1
     platinum: 1
     rations: 1
+  victory_points: 2
 - territory_id: E134
   terrain_type: mountain
   adjacent_to:
@@ -2010,8 +2039,8 @@ territories:
   - S146
   original_nation: earth-kingdom
   production:
-    ore: 1
     coal: 1
+    cloth: 1
   controller: earth-kingdom
 - territory_id: E141
   terrain_type: plains
@@ -2046,7 +2075,8 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
+  victory_points: 2
 - territory_id: E145
   terrain_type: plains
   adjacent_to:
@@ -2080,6 +2110,7 @@ territories:
     ore: 1
     coal: 1
   controller: earth-kingdom
+  victory_points: 2
 - territory_id: E148
   terrain_type: mountain
   adjacent_to:
@@ -2095,8 +2126,8 @@ territories:
   - S146
   original_nation: earth-kingdom
   production:
-    ore: 1
     coal: 1
+    rations: 1
   controller: earth-kingdom
 - territory_id: E149
   terrain_type: mountain
@@ -2116,6 +2147,7 @@ territories:
     ore: 1
     coal: 1
   controller: earth-kingdom
+  victory_points: 2
 - territory_id: E150
   terrain_type: plains
   adjacent_to:
@@ -2132,7 +2164,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    rations: 1
 - territory_id: E151
   terrain_type: plains
   adjacent_to:
@@ -2147,7 +2179,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E152
   terrain_type: plains
   adjacent_to:
@@ -2175,7 +2207,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E154
   terrain_type: plains
   adjacent_to:
@@ -2187,7 +2219,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    rations: 1
 - territory_id: E158
   terrain_type: plains
   adjacent_to:
@@ -2217,7 +2249,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E163
   terrain_type: plains
   adjacent_to:
@@ -2311,7 +2343,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    lumber: 1
 - territory_id: E177
   terrain_type: plains
   adjacent_to:
@@ -2343,7 +2375,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    lumber: 1
 - territory_id: E183
   terrain_type: plains
   adjacent_to:
@@ -2359,7 +2391,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    lumber: 1
 - territory_id: E184
   terrain_type: plains
   adjacent_to:
@@ -2374,7 +2406,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E189
   terrain_type: plains
   adjacent_to:
@@ -2408,7 +2440,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E192
   terrain_type: plains
   adjacent_to:
@@ -2472,7 +2504,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    lumber: 1
 - territory_id: E202
   terrain_type: plains
   adjacent_to:
@@ -2508,6 +2540,7 @@ territories:
   controller: earth-kingdom
   production:
     ore: 1
+  victory_points: 2
 - territory_id: E210
   terrain_type: plains
   adjacent_to:
@@ -2656,7 +2689,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E240
   terrain_type: mountain
   adjacent_to:
@@ -2671,9 +2704,10 @@ territories:
   - E261
   original_nation: earth-kingdom
   production:
-    ore: 1
     coal: 1
+    cloth: 1
   controller: earth-kingdom
+  victory_points: 2
 - territory_id: E241
   terrain_type: mountain
   adjacent_to:
@@ -2764,6 +2798,7 @@ territories:
   controller: earth-kingdom
   production:
     ore: 1
+  victory_points: 2
 - territory_id: E252
   terrain_type: plains
   adjacent_to:
@@ -2780,7 +2815,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E253
   terrain_type: plains
   adjacent_to:
@@ -2798,7 +2833,8 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    lumber: 1
+  victory_points: 2
 - territory_id: E257
   terrain_type: mountain
   adjacent_to:
@@ -2891,6 +2927,7 @@ territories:
     ore: 1
     coal: 1
   controller: earth-kingdom
+  victory_points: 2
 - territory_id: E268
   terrain_type: mountain
   adjacent_to:
@@ -2925,6 +2962,7 @@ territories:
     ore: 1
     coal: 1
   controller: earth-kingdom
+  victory_points: 2
 - territory_id: E272
   terrain_type: mountain
   adjacent_to:
@@ -2942,8 +2980,8 @@ territories:
   - S031
   original_nation: earth-kingdom
   production:
-    ore: 1
     coal: 1
+    cloth: 1
   controller: earth-kingdom
 - territory_id: E303
   terrain_type: plains
@@ -2978,7 +3016,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    coal: 1
 - territory_id: E307
   terrain_type: plains
   adjacent_to:
@@ -3024,7 +3062,8 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
+  victory_points: 2
 - territory_id: E312
   terrain_type: plains
   adjacent_to:
@@ -3057,7 +3096,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    coal: 1
 - territory_id: E321
   terrain_type: plains
   adjacent_to:
@@ -3169,6 +3208,7 @@ territories:
     lumber: 1
     coal: 1
     rations: 2
+  victory_points: 2
 - territory_id: E340
   terrain_type: forest
   adjacent_to:
@@ -3189,6 +3229,7 @@ territories:
     coal: 1
     rations: 2
     cloth: 1
+  victory_points: 2
 - territory_id: E342
   terrain_type: forest
   adjacent_to:
@@ -3207,6 +3248,7 @@ territories:
     ore: 1
     rations: 1
     cloth: 1
+  victory_points: 2
 - territory_id: E345
   terrain_type: forest
   adjacent_to:
@@ -3242,6 +3284,7 @@ territories:
   controller: hu-xin
   production:
     ore: 1
+  victory_points: 2
 - territory_id: E347
   terrain_type: forest
   adjacent_to:
@@ -3279,6 +3322,7 @@ territories:
   production:
     lumber: 2
     cloth: 1
+  victory_points: 2
 - territory_id: E350
   terrain_type: forest
   adjacent_to:
@@ -3316,6 +3360,7 @@ territories:
   production:
     lumber: 2
     ore: 1
+  victory_points: 2
 - territory_id: E353
   terrain_type: forest
   adjacent_to:
@@ -3349,6 +3394,7 @@ territories:
   production:
     lumber: 2
     coal: 1
+  victory_points: 2
 - territory_id: E358
   terrain_type: forest
   adjacent_to:
@@ -3561,6 +3607,7 @@ territories:
     coal: 1
     platinum: 1
   controller: hu-xin
+  victory_points: 2
 - territory_id: E382
   terrain_type: mountain
   adjacent_to:
@@ -3631,6 +3678,7 @@ territories:
     coal: 1
     platinum: 1
   controller: hu-xin
+  victory_points: 2
 - territory_id: E400
   terrain_type: mountain
   adjacent_to:
@@ -3647,8 +3695,8 @@ territories:
   - S136
   original_nation: earth-kingdom
   production:
-    ore: 1
     coal: 1
+    lumber: 1
   controller: earth-kingdom
 - territory_id: E401
   terrain_type: mountain
@@ -3685,6 +3733,7 @@ territories:
   controller: earth-kingdom
   production:
     ore: 1
+  victory_points: 2
 - territory_id: E405
   terrain_type: plains
   adjacent_to:
@@ -3716,9 +3765,10 @@ territories:
   - S137
   original_nation: earth-kingdom
   production:
-    ore: 1
     coal: 1
+    cloth: 1
   controller: earth-kingdom
+  victory_points: 2
 - territory_id: E407
   terrain_type: plains
   adjacent_to:
@@ -3800,7 +3850,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    rations: 1
 - territory_id: E416
   terrain_type: plains
   adjacent_to:
@@ -3816,7 +3866,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    coal: 1
 - territory_id: E417
   terrain_type: plains
   adjacent_to:
@@ -3863,7 +3913,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    coal: 1
 - territory_id: E422
   terrain_type: plains
   adjacent_to:
@@ -3878,7 +3928,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    coal: 1
 - territory_id: E423
   terrain_type: plains
   adjacent_to:
@@ -3891,7 +3941,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E424
   terrain_type: plains
   adjacent_to:
@@ -3930,7 +3980,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    rations: 1
 - territory_id: E428
   terrain_type: plains
   adjacent_to:
@@ -3944,7 +3994,7 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 1
+    cloth: 1
 - territory_id: E500
   terrain_type: farm
   adjacent_to:
@@ -4154,10 +4204,10 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 3
+    ore: 2
     lumber: 3
     coal: 3
-    rations: 3
+    rations: 4
     cloth: 3
     platinum: 3
   keywords:
@@ -4172,11 +4222,11 @@ territories:
   original_nation: earth-kingdom
   controller: earth-kingdom
   production:
-    ore: 3
+    ore: 2
     lumber: 3
     coal: 3
     rations: 3
-    cloth: 3
+    cloth: 4
     platinum: 3
   keywords:
   - sacred-land
@@ -4283,6 +4333,7 @@ territories:
     lumber: 1
     platinum: 1
     cloth: 1
+  victory_points: 2
 - territory_id: F003
   terrain_type: plains
   adjacent_to:
@@ -4362,6 +4413,7 @@ territories:
     rations: 3
     cloth: 3
     platinum: 3
+  victory_points: 2
 - territory_id: F010
   terrain_type: plains
   adjacent_to:
@@ -4382,6 +4434,7 @@ territories:
     rations: 3
     cloth: 3
     platinum: 3
+  victory_points: 2
 - territory_id: F011
   terrain_type: plains
   adjacent_to:
@@ -4400,6 +4453,7 @@ territories:
     rations: 3
     cloth: 3
     platinum: 3
+  victory_points: 2
 - territory_id: F013
   terrain_type: plains
   adjacent_to:
@@ -4420,6 +4474,7 @@ territories:
     coal: 2
     rations: 1
     platinum: 2
+  victory_points: 2
 - territory_id: F014
   terrain_type: plains
   adjacent_to:
@@ -4440,6 +4495,7 @@ territories:
     coal: 2
     platinum: 1
     cloth: 2
+  victory_points: 2
 - territory_id: F015
   terrain_type: plains
   adjacent_to:
@@ -4459,6 +4515,7 @@ territories:
     coal: 4
     cloth: 2
     lumber: 1
+  victory_points: 2
 - territory_id: F017
   terrain_type: mountain
   adjacent_to:
@@ -4477,6 +4534,7 @@ territories:
   production:
     rations: 2
   controller: fire-nation
+  victory_points: 2
 - territory_id: F018
   terrain_type: mountain
   adjacent_to:
@@ -4610,6 +4668,7 @@ territories:
   - S075
   original_nation: fire-nation
   controller: fire-nation
+  victory_points: 2
 - territory_id: F037
   terrain_type: plains
   adjacent_to:
@@ -4632,6 +4691,7 @@ territories:
     rations: 2
     cloth: 2
     platinum: 2
+  victory_points: 2
 - territory_id: F038
   terrain_type: plains
   adjacent_to:
@@ -4652,6 +4712,7 @@ territories:
     rations: 2
     cloth: 2
     platinum: 2
+  victory_points: 2
 - territory_id: F039
   terrain_type: plains
   adjacent_to:
@@ -4671,6 +4732,7 @@ territories:
     rations: 2
     cloth: 2
     platinum: 2
+  victory_points: 2
 - territory_id: F040
   terrain_type: plains
   adjacent_to:
@@ -4690,6 +4752,7 @@ territories:
     rations: 2
     cloth: 2
     platinum: 2
+  victory_points: 2
 - territory_id: F043
   terrain_type: farm
   adjacent_to:
@@ -4709,6 +4772,7 @@ territories:
   production:
     rations: 2
   controller: fire-nation
+  victory_points: 2
 - territory_id: F044
   terrain_type: farm
   adjacent_to:
@@ -4740,6 +4804,7 @@ territories:
   - S075
   original_nation: fire-nation
   controller: fire-nation
+  victory_points: 2
 - territory_id: F048
   terrain_type: forest
   adjacent_to:
@@ -4955,7 +5020,6 @@ territories:
     ore: 2
     lumber: 1
     cloth: 2
-    cloth: 2
 - territory_id: F068
   terrain_type: plains
   adjacent_to:
@@ -4973,7 +5037,6 @@ territories:
   production:
     ore: 2
     cloth: 2
-    rations: 1
     rations: 1
     lumber: 1
 - territory_id: F069
@@ -5030,6 +5093,7 @@ territories:
     coal: 2
     platinum: 1
     cloth: 1
+  victory_points: 2
 - territory_id: F080
   terrain_type: plains
   adjacent_to:
@@ -5139,6 +5203,7 @@ territories:
     coal: 2
     cloth: 2
     lumber: 1
+  victory_points: 2
 - territory_id: F086
   terrain_type: plains
   adjacent_to:
@@ -6868,6 +6933,7 @@ territories:
   production:
     ore: 1
     coal: 1
+  victory_points: 2
 - territory_id: W005
   terrain_type: mountain
   adjacent_to:
@@ -6888,6 +6954,7 @@ territories:
     coal: 1
     lumber: 1
   controller: north-water
+  victory_points: 2
 - territory_id: W006
   terrain_type: mountain
   adjacent_to:
@@ -7002,6 +7069,7 @@ territories:
     coal: 1
     rations: 2
     cloth: 2
+  victory_points: 2
 - territory_id: W017
   terrain_type: tundra
   adjacent_to:
@@ -7022,6 +7090,7 @@ territories:
     coal: 1
     rations: 2
     cloth: 2
+  victory_points: 2
 - territory_id: W018
   terrain_type: tundra
   adjacent_to:
@@ -7096,6 +7165,7 @@ territories:
     ore: 1
     coal: 1
     cloth: 2
+  victory_points: 2
 - territory_id: W023
   terrain_type: tundra
   adjacent_to:
@@ -7135,6 +7205,7 @@ territories:
     platinum: 2
     lumber: 1
   controller: north-water
+  victory_points: 2
 - territory_id: W025
   terrain_type: mountain
   adjacent_to:
@@ -7476,6 +7547,7 @@ territories:
     ore: 3
     coal: 2
     platinum: 1
+  victory_points: 2
 - territory_id: W054
   terrain_type: tundra
   adjacent_to:
@@ -7493,6 +7565,7 @@ territories:
     ore: 2
     coal: 3
     cloth: 1
+  victory_points: 2
 - territory_id: W055
   terrain_type: tundra
   adjacent_to:
@@ -7581,6 +7654,7 @@ territories:
     platinum: 1
     cloth: 1
     rations: 1
+  victory_points: 2
 - territory_id: W060
   terrain_type: mountain
   adjacent_to:
@@ -7742,6 +7816,7 @@ territories:
     coal: 2
     rations: 1
     platinum: 1
+  victory_points: 2
 - territory_id: W069
   terrain_type: tundra
   adjacent_to:
@@ -7759,6 +7834,7 @@ territories:
     ore: 2
     coal: 2
     cloth: 2
+  victory_points: 2
 - territory_id: W070
   terrain_type: mountain
   adjacent_to:
@@ -7791,6 +7867,7 @@ territories:
     coal: 1
     cloth: 2
     rations: 1
+  victory_points: 2
 - territory_id: W074
   terrain_type: tundra
   adjacent_to:
@@ -7860,7 +7937,6 @@ territories:
   controller: north-water
   keywords:
   - sacred-land
-# City Territories
 - territory_id: northern-air-temple
   name: Northern Air Temple
   terrain_type: city
@@ -7877,7 +7953,6 @@ territories:
   adjacent_to:
   - A045
   original_nation: air-nomads
-  controller: air-nomads
   production:
     platinum: 3
   victory_points: 5
@@ -8015,33 +8090,83 @@ factions:
 - faction_id: fire-nation
   name: Fire Nation
   nation: fire-nation
+  leader: taiso
+  members:
+  - taiso
+  - hazei
+  spending:
+    ore: 7
+    lumber: 5
+    coal: 17
+    rations: 4
+    cloth: 10
+    platinum: 7
 - faction_id: saowon
   name: Saowon
   nation: fire-nation
+  members:
+  - zairah
 - faction_id: fire-sages
   name: Fire Sages
   nation: fire-nation
+  leader: ashru
+  members:
+  - ashru
+  - sizah
 - faction_id: loyalists
   name: Loyalists
   nation: fire-nation
+  members:
+  - ilah
 - faction_id: earth-kingdom
   name: Earth Kingdom
   nation: earth-kingdom
+  leader: wuneng
+  members:
+  - wuneng
+  - jialun
+  - gomong
+  - chenmo
+  spending:
+    ore: 37
+    lumber: 20
+    coal: 33
+    rations: 30
+    cloth: 35
+    platinum: 20
 - faction_id: omashu
   name: Omashu
   nation: earth-kingdom
+  leader: guo-xun
+  members:
+  - guo-xun
 - faction_id: gaoling
   name: Gaoling
   nation: earth-kingdom
+  leader: lomaang
+  members:
+  - lomaang
 - faction_id: hu-xin
   name: Hu Xin
   nation: earth-kingdom
+  leader: chenmo
+  members:
+  - chenmo
 - faction_id: kyoshi-island
   name: Kyoshi Island
   nation: earth-kingdom
+  leader: koko
+  members:
+  - koko
+  - kiyo
+  - saku
 - faction_id: air-nomads
   name: Air Nomads
   nation: air-nomads
+  members:
+  - disha
+  - rinzen
+  - rabta
   spending:
     ore: 11
     lumber: 17
@@ -8052,20 +8177,47 @@ factions:
 - faction_id: north-water
   name: Northern Water Tribe
   nation: water-tribe
+  leader: karliq
+  members:
+  - karliq
+  spending:
+    ore: 5
+    coal: 5
 - faction_id: south-water
   name: Southern Water Tribe
   nation: water-tribe
+  leader: noarro
+  members:
+  - noarro
+  spending:
+    ore: 20
+    coal: 20
 - faction_id: fifth-nation
   name: Fifth Nation
   nation: water-tribe
+  leader: nerrivik
+  members:
+  - nerrivik
+  - kaujuk
 - faction_id: dai-li
   name: Dai Li
   nation: earth-kingdom
+  members:
+  - seshoph
+  spending:
+    ore: -2
+    lumber: -2
+    coal: -2
+    rations: -2
+    cloth: -2
+    platinum: -2
 - faction_id: red-sun
   name: The Guild of the Red Sun
   nation: null
+- faction_id: dark-spirits
+  name: Dark Spirits
+  nation: null
 unit_types:
-# Generic Units (no nation restriction)
 - type_id: infantry
   name: Infantry
   movement: 5
@@ -8144,7 +8296,6 @@ unit_types:
   upkeep:
     rations: 1
     ore: 1
-# Generic Naval Units (no nation restriction)
 - type_id: transport
   name: Transport
   movement: 4
@@ -8201,7 +8352,6 @@ unit_types:
     lumber: 1
     ore: 1
     cloth: 1
-# Water Tribe Units
 - type_id: water-bender-brigade
   name: Water Bender Brigade
   nation: water-tribe
@@ -8257,7 +8407,6 @@ unit_types:
   upkeep:
     rations: 1
     ore: 1
-# Fire Nation Units
 - type_id: fire-bender-brigade
   name: Fire Bender Brigade
   nation: fire-nation
@@ -8323,7 +8472,6 @@ unit_types:
     platinum: 4
     cloth: 2
     rations: 2
-# Earth Kingdom Units
 - type_id: earth-bender-brigade
   name: Earth Bender Brigade
   nation: earth-kingdom
@@ -8391,7 +8539,6 @@ unit_types:
   upkeep:
     rations: 1
     cloth: 1
-# Fifth Nation Units
 - type_id: mixed-bender-brigade
   name: Mixed Bender Brigade
   nation: fifth-nation
@@ -8430,8 +8577,18 @@ unit_types:
     lumber: 1
     ore: 1
     cloth: 1
+- type_id: dark-spirit
+  name: Dark Spirit
+  movement: 6
+  organization: 6
+  attack: 6
+  defense: 6
+  siege_attack: 6
+  siege_defense: 6
+  keywords:
+  - hostile
+  - spirit
 building_types:
-# Social/Infrastructure Buildings
 - type_id: university
   name: University
   description: Educates adults. Requires a law be passed authorizing construction.
@@ -8452,7 +8609,8 @@ building_types:
     platinum: 1
 - type_id: hospital
   name: Hospital
-  description: Units ending turn here gain +2 organization recovery during organization phase. Requires law.
+  description: Units ending turn here gain +2 organization recovery during organization
+    phase. Requires law.
   keywords:
   - hospital
   cost:
@@ -8464,7 +8622,8 @@ building_types:
     platinum: 1
 - type_id: shrine
   name: Shrine
-  description: Honors the spirits. Repairs nearest nexus by 1 when built; damages by 2 if destroyed.
+  description: Honors the spirits. Repairs nearest nexus by 1 when built; damages
+    by 2 if destroyed.
   keywords:
   - spiritual
   cost:
@@ -8475,7 +8634,8 @@ building_types:
     ore: 1
 - type_id: temple
   name: Temple
-  description: Honors the spirits. Repairs nearest nexus by 1 when built; damages by 2 if destroyed.
+  description: Honors the spirits. Repairs nearest nexus by 1 when built; damages
+    by 2 if destroyed.
   keywords:
   - spiritual
   cost:
@@ -8484,7 +8644,6 @@ building_types:
     platinum: 2
   upkeep:
     ore: 1
-# Non-Industrial Resource Buildings (+2 production in territories that already produce)
 - type_id: quarry
   name: Quarry
   description: +2 ore production (natural only)
@@ -8551,7 +8710,6 @@ building_types:
     platinum: 2
   upkeep:
     lumber: 1
-# Industrial Resource Buildings (+2 production in any territory)
 - type_id: foundry
   name: Foundry
   description: +2 ore production (any territory)
@@ -8615,7 +8773,6 @@ building_types:
     platinum: 2
   upkeep:
     coal: 1
-# Fortification Buildings (city-only, +2 siege defense each)
 - type_id: reinforced-walls
   name: Reinforced Walls
   description: +2 Siege Defense in cities
@@ -8717,9 +8874,7 @@ alliances:
   - north-water
   - south-water
   status: ACTIVE
-
 faction_resources:
-# 10 of each resource
 - faction_id: saowon
   resources:
     ore: 10
@@ -8768,7 +8923,6 @@ faction_resources:
     rations: 10
     cloth: 10
     platinum: 10
-# 3 of each resource
 - faction_id: kyoshi-island
   resources:
     ore: 3
@@ -8777,7 +8931,6 @@ faction_resources:
     rations: 3
     cloth: 3
     platinum: 3
-# 20 of each resource
 - faction_id: fire-nation
   resources:
     ore: 20
@@ -8810,40 +8963,46 @@ faction_resources:
     rations: 20
     cloth: 20
     platinum: 20
-
+- faction_id: earth-kingdom
+  resources:
+    ore: 35
+    lumber: 35
+    coal: 35
+    rations: 35
+    cloth: 35
+    platinum: 35
 spirit_nexuses:
-  - identifier: south-pole
-    territory_id: W060
-    health: 10
-  - identifier: north-pole
-    territory_id: S026
-    health: 0
-  - identifier: western-air
-    territory_id: S046
-    health: -2
-  - identifier: oasis
-    territory_id: E055
-    health: 10
-  - identifier: city-nexus
-    territory_id: E505
-    health: 10
-  - identifier: fire-temple
-    territory_id: F038
-    health: 10
-  - identifier: east-air
-    territory_id: A008
-    health: 10
-  - identifier: natsuo-island
-    territory_id: E602
-    health: 10
-  - identifier: kintuk-island
-    territory_id: W202
-    health: 10
-  - identifier: hu-xin-nexus
-    territory_id: E342
-    health: 10
+- identifier: south-pole
+  territory_id: W060
+  health: 10
+- identifier: north-pole
+  territory_id: S026
+  health: 0
+- identifier: western-air
+  territory_id: S046
+  health: -2
+- identifier: oasis
+  territory_id: E055
+  health: 10
+- identifier: city-nexus
+  territory_id: E505
+  health: 10
+- identifier: fire-temple
+  territory_id: F038
+  health: 10
+- identifier: east-air
+  territory_id: A008
+  health: 10
+- identifier: natsuo-island
+  territory_id: E602
+  health: 10
+- identifier: kintuk-island
+  territory_id: W202
+  health: 10
+- identifier: hu-xin-nexus
+  territory_id: E342
+  health: 10
 buildings:
-# Air Temple city shrines and temples (8)
 - building_id: temple-northern-air-temple
   type: temple
   territory_id: northern-air-temple
@@ -8868,7 +9027,6 @@ buildings:
 - building_id: shrine-eastern-air-temple
   type: shrine
   territory_id: eastern-air-temple
-# Earth Kingdom shrines and temples (10)
 - building_id: shrine-E001
   type: shrine
   territory_id: E001
@@ -8899,7 +9057,6 @@ buildings:
 - building_id: temple-E016
   type: temple
   territory_id: E016
-# Fire Nation shrines and temples (11)
 - building_id: shrine-F001
   type: shrine
   territory_id: F001
@@ -8933,39 +9090,33 @@ buildings:
 - building_id: temple-mainka
   type: temple
   territory_id: mainka
-# Fire Sages shrines and temples (2)
 - building_id: temple-F037
   type: temple
   territory_id: F037
 - building_id: shrine-F038
   type: shrine
   territory_id: F038
-# Kyoshi Island shrine (1)
 - building_id: shrine-E605
   type: shrine
   territory_id: E605
-# Gaoling shrines and temples (2)
 - building_id: shrine-E021
   type: shrine
   territory_id: E021
 - building_id: temple-E022
   type: temple
   territory_id: E022
-# Fifth Nation shrines and temples (2)
 - building_id: shrine-E037
   type: shrine
   territory_id: E037
 - building_id: temple-E038
   type: temple
   territory_id: E038
-# Hu Xin shrines and temples (2)
 - building_id: shrine-E330
   type: shrine
   territory_id: E330
 - building_id: temple-E331
   type: temple
   territory_id: E331
-# North Water shrines and temples (4)
 - building_id: shrine-W001
   type: shrine
   territory_id: W001
@@ -8978,14 +9129,12 @@ buildings:
 - building_id: temple-W005
   type: temple
   territory_id: W005
-# South Water shrines and temples (2)
 - building_id: shrine-W040
   type: shrine
   territory_id: W040
 - building_id: temple-W041
   type: temple
   territory_id: W041
-# South Water industrial buildings (~10)
 - building_id: foundry-W043
   type: foundry
   territory_id: W043
@@ -9016,7 +9165,6 @@ buildings:
 - building_id: factory-farm-W065
   type: factory-farm
   territory_id: W065
-# F081-F088 industrial buildings (~7)
 - building_id: foundry-F081
   type: foundry
   territory_id: F081
@@ -9038,7 +9186,6 @@ buildings:
 - building_id: strip-mine-F087
   type: strip-mine
   territory_id: F087
-# Earth Kingdom non-industrial buildings (~12 for 125 territories)
 - building_id: lumber-yard-E003
   type: lumber-yard
   territory_id: E003
@@ -9069,7 +9216,6 @@ buildings:
 - building_id: mine-E065
   type: mine
   territory_id: E065
-# Fire Nation non-industrial buildings (~5 for 46 territories)
 - building_id: granary-F001
   type: granary
   territory_id: F001
@@ -9085,7 +9231,6 @@ buildings:
 - building_id: quarry-F020
   type: quarry
   territory_id: F020
-# Gaoling non-industrial buildings (~5 for 13 territories)
 - building_id: lumber-yard-E053
   type: lumber-yard
   territory_id: E053
@@ -9101,11 +9246,9 @@ buildings:
 - building_id: granary-E416
   type: granary
   territory_id: E416
-# Fifth Nation non-industrial buildings (~1 for 10 territories)
 - building_id: mint-E042
   type: mint
   territory_id: E042
-# Hu Xin non-industrial buildings (~3 for 31 territories)
 - building_id: lumber-yard-E333
   type: lumber-yard
   territory_id: E333
@@ -9115,7 +9258,6 @@ buildings:
 - building_id: quarry-E342
   type: quarry
   territory_id: E342
-# North Water non-industrial buildings (~3 for 31 territories)
 - building_id: quarry-W006
   type: quarry
   territory_id: W006
@@ -9125,7 +9267,6 @@ buildings:
 - building_id: quarry-W014
   type: quarry
   territory_id: W014
-# South Water non-industrial buildings (~3 for 27 territories)
 - building_id: weavery-W055
   type: weavery
   territory_id: W055
@@ -9135,21 +9276,18 @@ buildings:
 - building_id: mine-W057
   type: mine
   territory_id: W057
-# Fire Nation industrial coal buildings
 - building_id: strip-mine-F010
   type: strip-mine
   territory_id: F010
 - building_id: strip-mine-F011
   type: strip-mine
   territory_id: F011
-# Omashu non-industrial buildings (~2 for 20 territories)
 - building_id: mint-E086
   type: mint
   territory_id: E086
 - building_id: weavery-E107
   type: weavery
   territory_id: E107
-# Air Nomads temples and shrines (~12 for 33 territories)
 - building_id: temple-A001
   type: temple
   territory_id: A001
@@ -9187,7 +9325,6 @@ buildings:
   type: shrine
   territory_id: A065
 units:
-# Fire Nation land units - F054
 - unit_id: FN-001
   type: infantry
   owner_faction: fire-nation
@@ -9212,7 +9349,6 @@ units:
   type: proto-tank
   owner_faction: fire-nation
   current_territory_id: F054
-# Fire Nation land units - F019
 - unit_id: FN-007
   type: infantry
   owner_faction: fire-nation
@@ -9237,7 +9373,6 @@ units:
   type: proto-tank
   owner_faction: fire-nation
   current_territory_id: F019
-# Fire Nation land units - F081
 - unit_id: FN-013
   type: infantry
   owner_faction: fire-nation
@@ -9262,7 +9397,6 @@ units:
   type: proto-tank
   owner_faction: fire-nation
   current_territory_id: F081
-# Fire Nation land units - F001-F011 (smaller deployment)
 - unit_id: FN-019
   type: infantry
   owner_faction: fire-nation
@@ -9287,7 +9421,6 @@ units:
   type: proto-tank
   owner_faction: fire-nation
   current_territory_id: F010
-# Fire Nation spies - E073 and E134
 - unit_id: FN-025
   type: spy
   owner_faction: fire-nation
@@ -9296,7 +9429,6 @@ units:
   type: spy
   owner_faction: fire-nation
   current_territory_id: E134
-# Fire Nation naval units - S076
 - unit_id: FN-027
   type: transport
   owner_faction: fire-nation
@@ -9313,7 +9445,6 @@ units:
   type: ironclad
   owner_faction: fire-nation
   current_territory_id: S076
-# Fire Nation naval units - S074
 - unit_id: FN-031
   type: transport
   owner_faction: fire-nation
@@ -9330,7 +9461,6 @@ units:
   type: ironclad
   owner_faction: fire-nation
   current_territory_id: S074
-# Fire Nation naval units - S085
 - unit_id: FN-035
   type: transport
   owner_faction: fire-nation
@@ -9347,7 +9477,6 @@ units:
   type: ironclad
   owner_faction: fire-nation
   current_territory_id: S085
-# Fire Nation naval units - S089
 - unit_id: FN-039
   type: transport
   owner_faction: fire-nation
@@ -9364,7 +9493,6 @@ units:
   type: ironclad
   owner_faction: fire-nation
   current_territory_id: S089
-# Earth Kingdom land units - E149
 - unit_id: EK-001
   type: infantry
   owner_faction: earth-kingdom
@@ -9389,7 +9517,6 @@ units:
   type: earth-combat-engineers
   owner_faction: earth-kingdom
   current_territory_id: E149
-# Earth Kingdom land units - E245
 - unit_id: EK-007
   type: infantry
   owner_faction: earth-kingdom
@@ -9414,7 +9541,6 @@ units:
   type: earth-combat-engineers
   owner_faction: earth-kingdom
   current_territory_id: E245
-# Earth Kingdom land units - E509
 - unit_id: EK-013
   type: infantry
   owner_faction: earth-kingdom
@@ -9439,7 +9565,6 @@ units:
   type: earth-combat-engineers
   owner_faction: earth-kingdom
   current_territory_id: E509
-# Earth Kingdom land units - E078
 - unit_id: EK-019
   type: infantry
   owner_faction: earth-kingdom
@@ -9456,7 +9581,6 @@ units:
   type: siege-engine
   owner_faction: earth-kingdom
   current_territory_id: E078
-# Earth Kingdom land units - E424
 - unit_id: EK-023
   type: earth-bender-brigade
   owner_faction: earth-kingdom
@@ -9465,7 +9589,6 @@ units:
   type: earth-combat-engineers
   owner_faction: earth-kingdom
   current_territory_id: E424
-# Earth Kingdom spies - E052 and F081
 - unit_id: EK-025
   type: spy
   owner_faction: earth-kingdom
@@ -9474,7 +9597,6 @@ units:
   type: spy
   owner_faction: earth-kingdom
   current_territory_id: F081
-# Earth Kingdom naval units - S096
 - unit_id: EK-027
   type: transport
   owner_faction: earth-kingdom
@@ -9487,7 +9609,6 @@ units:
   type: frigate
   owner_faction: earth-kingdom
   current_territory_id: S096
-# Earth Kingdom naval units - S129
 - unit_id: EK-030
   type: transport
   owner_faction: earth-kingdom
@@ -9500,7 +9621,6 @@ units:
   type: frigate
   owner_faction: earth-kingdom
   current_territory_id: S129
-# Earth Kingdom naval units - S144
 - unit_id: EK-033
   type: transport
   owner_faction: earth-kingdom
@@ -9513,7 +9633,6 @@ units:
   type: frigate
   owner_faction: earth-kingdom
   current_territory_id: S144
-# Earth Kingdom naval units - S245
 - unit_id: EK-036
   type: transport
   owner_faction: earth-kingdom
@@ -9526,7 +9645,6 @@ units:
   type: frigate
   owner_faction: earth-kingdom
   current_territory_id: S245
-# North Water land units - W030
 - unit_id: WT-001
   type: water-bender-brigade
   owner_faction: north-water
@@ -9547,7 +9665,6 @@ units:
   type: scout
   owner_faction: north-water
   current_territory_id: W030
-# North Water land units - W023
 - unit_id: WT-006
   type: water-bender-brigade
   owner_faction: north-water
@@ -9568,7 +9685,6 @@ units:
   type: scout
   owner_faction: north-water
   current_territory_id: W023
-# North Water spies - W052 and W202
 - unit_id: WT-011
   type: spy
   owner_faction: north-water
@@ -9577,7 +9693,6 @@ units:
   type: spy
   owner_faction: north-water
   current_territory_id: W202
-# North Water naval units - S028
 - unit_id: WT-013
   type: water-tribe-sloop
   owner_faction: north-water
@@ -9590,7 +9705,6 @@ units:
   type: frigate
   owner_faction: north-water
   current_territory_id: S028
-# North Water naval units - S029
 - unit_id: WT-016
   type: water-tribe-sloop
   owner_faction: north-water
@@ -9599,7 +9713,6 @@ units:
   type: frigate
   owner_faction: north-water
   current_territory_id: S029
-# Dai Li units - E509
 - unit_id: EK-039
   type: dai-li-squad
   owner_faction: dai-li
@@ -9616,7 +9729,6 @@ units:
   type: dai-li-squad
   owner_faction: dai-li
   current_territory_id: E509
-# Fire Sages units - F037
 - unit_id: FN-043
   type: fire-sage
   owner_faction: fire-sages
@@ -9633,7 +9745,6 @@ units:
   type: fire-sage
   owner_faction: fire-sages
   current_territory_id: F037
-# Fire Sages naval units - S072
 - unit_id: FN-047
   type: transport
   owner_faction: fire-sages
@@ -9650,7 +9761,6 @@ units:
   type: frigate
   owner_faction: fire-sages
   current_territory_id: S072
-# Kyoshi Island units - E606
 - unit_id: EK-043
   type: kyoshi-warriors
   owner_faction: kyoshi-island
@@ -9659,7 +9769,6 @@ units:
   type: kyoshi-warriors
   owner_faction: kyoshi-island
   current_territory_id: E606
-# Kyoshi Island naval units - S093
 - unit_id: EK-045
   type: transport
   owner_faction: kyoshi-island
@@ -9676,7 +9785,6 @@ units:
   type: frigate
   owner_faction: kyoshi-island
   current_territory_id: S093
-# South Water land units - W064
 - unit_id: WT-018
   type: water-bender-brigade
   owner_faction: south-water
@@ -9697,7 +9805,6 @@ units:
   type: scout
   owner_faction: south-water
   current_territory_id: W064
-# South Water land units - W043
 - unit_id: WT-023
   type: water-bender-brigade
   owner_faction: south-water
@@ -9718,7 +9825,6 @@ units:
   type: scout
   owner_faction: south-water
   current_territory_id: W043
-# South Water spies
 - unit_id: WT-028
   type: spy
   owner_faction: south-water
@@ -9727,7 +9833,6 @@ units:
   type: spy
   owner_faction: south-water
   current_territory_id: W202
-# South Water naval units - S104
 - unit_id: WT-030
   type: water-tribe-sloop
   owner_faction: south-water
@@ -9740,7 +9845,6 @@ units:
   type: frigate
   owner_faction: south-water
   current_territory_id: S104
-# South Water naval units - S099
 - unit_id: WT-033
   type: water-tribe-sloop
   owner_faction: south-water
@@ -9749,7 +9853,6 @@ units:
   type: frigate
   owner_faction: south-water
   current_territory_id: S099
-# Fifth Nation land units - E043
 - unit_id: 5N-001
   type: mixed-bender-brigade
   owner_faction: fifth-nation
@@ -9778,7 +9881,6 @@ units:
   type: scout
   owner_faction: fifth-nation
   current_territory_id: E043
-# Fifth Nation spies
 - unit_id: 5N-008
   type: spy
   owner_faction: fifth-nation
@@ -9787,7 +9889,6 @@ units:
   type: spy
   owner_faction: fifth-nation
   current_territory_id: F054
-# Fifth Nation naval units - S091
 - unit_id: 5N-010
   type: fifth-nation-sloop
   owner_faction: fifth-nation
@@ -9808,7 +9909,6 @@ units:
   type: frigate
   owner_faction: fifth-nation
   current_territory_id: S091
-# Saowon land units - F010
 - unit_id: FN-051
   type: fire-bender-brigade
   owner_faction: saowon
@@ -9825,7 +9925,6 @@ units:
   type: spy
   owner_faction: saowon
   current_territory_id: F010
-# Saowon naval units - S078
 - unit_id: FN-055
   type: ironclad
   owner_faction: saowon
@@ -9842,7 +9941,6 @@ units:
   type: ironclad
   owner_faction: saowon
   current_territory_id: S078
-# Hu-Xin land units - E345
 - unit_id: EK-049
   type: infantry
   owner_faction: hu-xin
@@ -9871,7 +9969,6 @@ units:
   type: spy
   owner_faction: hu-xin
   current_territory_id: E345
-# Hu-Xin naval units - S082
 - unit_id: EK-056
   type: transport
   owner_faction: hu-xin
@@ -9888,7 +9985,6 @@ units:
   type: frigate
   owner_faction: hu-xin
   current_territory_id: S082
-# Omashu land units - E109
 - unit_id: EK-060
   type: infantry
   owner_faction: omashu
@@ -9917,7 +10013,6 @@ units:
   type: spy
   owner_faction: omashu
   current_territory_id: E109
-# Omashu naval units - S090
 - unit_id: EK-067
   type: transport
   owner_faction: omashu
@@ -9934,7 +10029,6 @@ units:
   type: frigate
   owner_faction: omashu
   current_territory_id: S090
-# Gaoling land units - E047
 - unit_id: EK-071
   type: infantry
   owner_faction: gaoling
@@ -9963,7 +10057,6 @@ units:
   type: spy
   owner_faction: gaoling
   current_territory_id: E047
-# Gaoling naval units - S122
 - unit_id: EK-078
   type: transport
   owner_faction: gaoling
@@ -9980,3 +10073,127 @@ units:
   type: frigate
   owner_faction: gaoling
   current_territory_id: S122
+- unit_id: DS-001
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A057
+- unit_id: DS-002
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A058
+- unit_id: DS-003
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A062
+- unit_id: DS-004
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A059
+- unit_id: DS-005
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A060
+- unit_id: DS-006
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A054
+- unit_id: DS-007
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A053
+- unit_id: DS-008
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A047
+- unit_id: DS-009
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A048
+- unit_id: DS-010
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A045
+- unit_id: DS-011
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A043
+- unit_id: DS-012
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: A042
+- unit_id: DS-013
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: western-air-temple
+- unit_id: DS-014
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: S026
+- unit_id: DS-015
+  type: dark-spirit
+  owner_faction: dark-spirits
+  current_territory_id: S030
+faction_permissions:
+- faction_id: earth-kingdom
+  character: jialun
+  permission_type: COMMAND
+- faction_id: earth-kingdom
+  character: gomong
+  permission_type: FINANCIAL
+- faction_id: earth-kingdom
+  character: chenmo
+  permission_type: CONSTRUCTION
+- faction_id: fire-nation
+  character: hazei
+  permission_type: COMMAND
+- faction_id: fire-nation
+  character: hazei
+  permission_type: FINANCIAL
+- faction_id: fire-nation
+  character: hazei
+  permission_type: MEMBERSHIP
+- faction_id: fire-nation
+  character: hazei
+  permission_type: CONSTRUCTION
+- faction_id: saowon
+  character: zairah
+  permission_type: COMMAND
+- faction_id: saowon
+  character: zairah
+  permission_type: FINANCIAL
+- faction_id: saowon
+  character: zairah
+  permission_type: MEMBERSHIP
+- faction_id: saowon
+  character: zairah
+  permission_type: CONSTRUCTION
+- faction_id: dai-li
+  character: seshoph
+  permission_type: COMMAND
+- faction_id: dai-li
+  character: seshoph
+  permission_type: FINANCIAL
+- faction_id: dai-li
+  character: seshoph
+  permission_type: MEMBERSHIP
+- faction_id: dai-li
+  character: seshoph
+  permission_type: CONSTRUCTION
+- faction_id: loyalists
+  character: ilah
+  permission_type: COMMAND
+- faction_id: loyalists
+  character: ilah
+  permission_type: FINANCIAL
+- faction_id: loyalists
+  character: ilah
+  permission_type: MEMBERSHIP
+- faction_id: loyalists
+  character: ilah
+  permission_type: CONSTRUCTION
+- faction_id: kyoshi-island
+  character: kiyo
+  permission_type: COMMAND
+- faction_id: kyoshi-island
+  character: kiyo
+  permission_type: CONSTRUCTION
