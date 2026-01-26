@@ -268,9 +268,9 @@ def load_constraint_recipes(filename: str) -> List[ConstraintRecipe]:
 
             # Lowercase chakra and is_boon fields for consistent comparison
             primary_chakra_raw = row.get('Primary Chakra', '').strip()
-            primary_is_boon_raw = row.get('Primary Is Boon', '').strip()
+            primary_is_boon_raw = row.get('Primary is Boon', '').strip()
             secondary_chakra_raw = row.get('Secondary Chakra', '').strip()
-            secondary_is_boon_raw = row.get('Secondary Is Boon', '').strip()
+            secondary_is_boon_raw = row.get('Secondary is Boon', '').strip()
 
             product_type_raw = row.get('Product Type', '').strip()
             recipe = ConstraintRecipe(
