@@ -273,7 +273,7 @@ def load_constraint_recipes(filename: str) -> List[ConstraintRecipe]:
             product_type_raw = row.get('Product Type', '').strip()
             recipe = ConstraintRecipe(
                 product_item_number=row.get('Product Item Number', '').strip(),
-                product_type=product_type_raw.lower() if product_type_raw else "",
+                product_type=product_type_raw if product_type_raw else "",
                 quantity_produced=quantity,
                 ingredients=ingredients_list,
                 primary_chakra=primary_chakra_raw.lower() if primary_chakra_raw else None,
