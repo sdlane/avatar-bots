@@ -1,0 +1,9973 @@
+wargame:
+  turn: 0
+  max_movement_stat: 4
+territories:
+- territory_id: A001
+  terrain_type: mountain
+  adjacent_to:
+  - A003
+  - A004
+  - A008
+  - E003
+  - S133
+  - S134
+  - S135
+  - S139
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+  controller: air-nomads
+- territory_id: A003
+  terrain_type: mountain
+  adjacent_to:
+  - A001
+  - A004
+  - A006
+  - A008
+  - eastern-air-temple
+  - E003
+  - S133
+  - S134
+  - S135
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+  controller: air-nomads
+- territory_id: A004
+  terrain_type: mountain
+  adjacent_to:
+  - A001
+  - A003
+  - A006
+  - A008
+  - E003
+  - E021
+  - E022
+  - E400
+  - E401
+  - S125
+  - S127
+  - S134
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+    platinum: 2
+  controller: air-nomads
+- territory_id: A006
+  terrain_type: mountain
+  adjacent_to:
+  - A003
+  - A004
+  - A008
+  - A010
+  - A011
+  - E400
+  - E401
+  - S125
+  - S136
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+  controller: air-nomads
+- territory_id: A008
+  terrain_type: mountain
+  adjacent_to:
+  - A001
+  - A003
+  - A004
+  - A006
+  - A010
+  - A011
+  - S134
+  - S135
+  - S139
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+  controller: air-nomads
+- territory_id: A010
+  terrain_type: mountain
+  adjacent_to:
+  - A006
+  - A008
+  - A011
+  - A013
+  - E401
+  - S135
+  - S136
+  - S139
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+  controller: air-nomads
+  keywords:
+  - sacred-land
+- territory_id: A011
+  terrain_type: mountain
+  adjacent_to:
+  - A006
+  - A008
+  - A010
+  - A013
+  - E401
+  - S135
+  - S136
+  - S137
+  - S139
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+  controller: air-nomads
+  keywords:
+  - sacred-land
+- territory_id: A013
+  terrain_type: mountain
+  adjacent_to:
+  - A010
+  - A011
+  - E406
+  - E407
+  - S136
+  - S137
+  - S138
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    cloth: 2
+    lumber: 1
+  controller: air-nomads
+- territory_id: A014
+  terrain_type: mountain
+  adjacent_to:
+  - A015
+  - A016
+  - A018
+  - A021
+  - A022
+  - E037
+  - E038
+  - S090
+  - S092
+  - S093
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+    cloth: 1
+  controller: air-nomads
+- territory_id: A015
+  terrain_type: mountain
+  adjacent_to:
+  - A014
+  - A016
+  - A017
+  - E037
+  - S089
+  - S093
+  - S095
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: A016
+  terrain_type: mountain
+  adjacent_to:
+  - A014
+  - A015
+  - A017
+  - A021
+  - A022
+  - A024
+  - S093
+  - S095
+  - S102
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+    cloth: 1
+  controller: air-nomads
+- territory_id: A017
+  terrain_type: mountain
+  adjacent_to:
+  - A015
+  - A016
+  - A021
+  - A024
+  - A031
+  - S093
+  - S094
+  - S095
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+  controller: air-nomads
+- territory_id: A018
+  terrain_type: mountain
+  adjacent_to:
+  - A014
+  - A021
+  - A022
+  - E426
+  - E428
+  - S092
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+    platinum: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: A021
+  terrain_type: mountain
+  adjacent_to:
+  - A014
+  - A016
+  - A017
+  - A018
+  - A022
+  - A024
+  - E428
+  - S092
+  - S095
+  - S102
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: A022
+  terrain_type: mountain
+  adjacent_to:
+  - A014
+  - A016
+  - A018
+  - A021
+  - A024
+  - E426
+  - E428
+  - S095
+  - S102
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+  controller: air-nomads
+- territory_id: A023
+  terrain_type: mountain
+  adjacent_to:
+  - A027
+  - A029
+  - A030
+  - A033
+  - A034
+  - A035
+  - A037
+  - A040
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+  controller: air-nomads
+- territory_id: A024
+  terrain_type: mountain
+  adjacent_to:
+  - A016
+  - A017
+  - A021
+  - A022
+  - A031
+  - S095
+  - S101
+  - S102
+  - S103
+  - S104
+  - W065
+  - W066
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+  controller: air-nomads
+- territory_id: A026
+  terrain_type: mountain
+  adjacent_to:
+  - A035
+  - A037
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    lumber: 2
+    platinum: 1
+  controller: air-nomads
+- territory_id: A027
+  terrain_type: mountain
+  adjacent_to:
+  - A023
+  - A029
+  - A030
+  - A033
+  - A034
+  - A035
+  - A037
+  - A040
+  - southern-air-temple
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+    platinum: 1
+  controller: air-nomads
+- territory_id: A029
+  terrain_type: mountain
+  adjacent_to:
+  - A023
+  - A027
+  - A030
+  - A033
+  - A034
+  - A035
+  - A037
+  - A040
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+    cloth: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: A030
+  terrain_type: mountain
+  adjacent_to:
+  - A023
+  - A027
+  - A029
+  - A033
+  - A034
+  - A035
+  - A037
+  - A040
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: A031
+  terrain_type: mountain
+  adjacent_to:
+  - A017
+  - A024
+  - A059
+  - A062
+  - S070
+  - S095
+  - S103
+  - S104
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: A033
+  terrain_type: mountain
+  adjacent_to:
+  - A023
+  - A027
+  - A029
+  - A030
+  - A034
+  - A035
+  - A037
+  - A040
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+    rations: 1
+  controller: air-nomads
+- territory_id: A034
+  terrain_type: mountain
+  adjacent_to:
+  - A023
+  - A027
+  - A029
+  - A030
+  - A033
+  - A035
+  - A037
+  - A040
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+  controller: air-nomads
+- territory_id: A035
+  terrain_type: mountain
+  adjacent_to:
+  - A023
+  - A026
+  - A027
+  - A029
+  - A030
+  - A033
+  - A034
+  - A037
+  - A040
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+  controller: air-nomads
+- territory_id: A036
+  terrain_type: mountain
+  adjacent_to:
+  - A038
+  - A039
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    cloth: 2
+    lumber: 1
+  controller: air-nomads
+- territory_id: A037
+  terrain_type: mountain
+  adjacent_to:
+  - A023
+  - A026
+  - A027
+  - A029
+  - A030
+  - A033
+  - A034
+  - A035
+  - A040
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    lumber: 2
+    platinum: 1
+  controller: air-nomads
+- territory_id: A038
+  terrain_type: mountain
+  adjacent_to:
+  - A036
+  - A039
+  - W203
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: A039
+  terrain_type: mountain
+  adjacent_to:
+  - A036
+  - A038
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: A040
+  terrain_type: mountain
+  adjacent_to:
+  - A023
+  - A027
+  - A029
+  - A030
+  - A033
+  - A034
+  - A035
+  - A037
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+  controller: air-nomads
+- territory_id: A042
+  terrain_type: mountain
+  adjacent_to:
+  - A043
+  - A045
+  - E359
+  - E360
+  - E362
+  - S034
+  - S038
+  - S041
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A043
+  terrain_type: mountain
+  adjacent_to:
+  - A042
+  - A045
+  - E359
+  - E360
+  - E362
+  - S040
+  - S041
+  - S042
+  - S043
+  - S045
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A045
+  terrain_type: mountain
+  adjacent_to:
+  - A042
+  - A043
+  - western-air-temple
+  - E362
+  - S040
+  - S041
+  - S042
+  - S043
+  - S044
+  - S045
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A047
+  terrain_type: mountain
+  adjacent_to:
+  - A053
+  - E085
+  - E086
+  - E088
+  - E099
+  - E109
+  - E112
+  - E114
+  - E132
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A048
+  terrain_type: mountain
+  adjacent_to:
+  - E149
+  - E150
+  - E151
+  - E153
+  - E207
+  - E222
+  - E224
+  - E228
+  - E233
+  - S144
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A053
+  terrain_type: mountain
+  adjacent_to:
+  - A047
+  - E086
+  - E088
+  - E099
+  - E107
+  - E108
+  - E109
+  - E114
+  - E132
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A054
+  terrain_type: mountain
+  adjacent_to:
+  - A056
+  - A057
+  - A058
+  - A059
+  - A062
+  - S103
+  - S104
+  - S105
+  - S106
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A055
+  terrain_type: mountain
+  adjacent_to:
+  - S039
+  - S040
+  - S044
+  - S045
+  - S046
+  - S047
+  - S048
+  - S054
+  - S056
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A056
+  terrain_type: mountain
+  adjacent_to:
+  - A054
+  - A057
+  - A058
+  - A059
+  - A062
+  - S105
+  - S106
+  - S107
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A057
+  terrain_type: mountain
+  adjacent_to:
+  - A054
+  - A056
+  - A058
+  - A059
+  - A062
+  - E154
+  - S067
+  - S069
+  - S070
+  - S106
+  - S107
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A058
+  terrain_type: mountain
+  adjacent_to:
+  - A054
+  - A056
+  - A057
+  - A059
+  - A062
+  - S070
+  - S103
+  - S105
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A059
+  terrain_type: mountain
+  adjacent_to:
+  - A031
+  - A054
+  - A056
+  - A057
+  - A058
+  - A062
+  - S070
+  - S103
+  - S104
+  - S105
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A060
+  terrain_type: mountain
+  adjacent_to:
+  - E134
+  - E152
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A062
+  terrain_type: mountain
+  adjacent_to:
+  - A031
+  - A054
+  - A056
+  - A057
+  - A058
+  - A059
+  - S069
+  - S070
+  - S103
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+- territory_id: A063
+  terrain_type: mountain
+  adjacent_to:
+  - A064
+  - A065
+  - E240
+  - E241
+  - E257
+  - E261
+  - E267
+  - E268
+  - S021
+  - S022
+  - S024
+  - W001
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+    rations: 1
+  controller: air-nomads
+- territory_id: A064
+  terrain_type: mountain
+  adjacent_to:
+  - A063
+  - A065
+  - northern-air-temple
+  - E216
+  - E223
+  - E224
+  - E240
+  - E241
+  - E257
+  - E261
+  - S024
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+    cloth: 1
+    platinum: 1
+  controller: air-nomads
+- territory_id: A065
+  terrain_type: mountain
+  adjacent_to:
+  - A063
+  - A064
+  - E210
+  - E216
+  - E220
+  - E223
+  - S013
+  - S014
+  - S023
+  - S024
+  original_nation: air-nomads
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+    lumber: 1
+  controller: air-nomads
+- territory_id: E001
+  terrain_type: plains
+  adjacent_to:
+  - E004
+  - E007
+  - E008
+  - E010
+  - S005
+  - S130
+  - S131
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    cloth: 2
+- territory_id: E003
+  terrain_type: forest
+  adjacent_to:
+  - A001
+  - A003
+  - A004
+  - E004
+  - E005
+  - E006
+  - S127
+  - S130
+  - S133
+  - S134
+  original_nation: earth-kingdom
+  production:
+    lumber: 3
+  controller: earth-kingdom
+- territory_id: E004
+  terrain_type: forest
+  adjacent_to:
+  - E001
+  - E003
+  - E005
+  - E006
+  - E007
+  - S127
+  - S130
+  - S131
+  - S133
+  - S134
+  original_nation: earth-kingdom
+  production:
+    lumber: 3
+  controller: earth-kingdom
+- territory_id: E005
+  terrain_type: forest
+  adjacent_to:
+  - E003
+  - E004
+  - E006
+  - E007
+  - E020
+  - S127
+  - S130
+  original_nation: earth-kingdom
+  production:
+    lumber: 3
+  controller: earth-kingdom
+- territory_id: E006
+  terrain_type: forest
+  adjacent_to:
+  - E003
+  - E004
+  - E005
+  - E007
+  - E008
+  - E010
+  - E015
+  - E020
+  - panshi
+  original_nation: earth-kingdom
+  production:
+    lumber: 3
+  controller: earth-kingdom
+- territory_id: E007
+  terrain_type: forest
+  adjacent_to:
+  - E001
+  - E004
+  - E005
+  - E006
+  - E008
+  - E010
+  - E020
+  - S130
+  original_nation: earth-kingdom
+  production:
+    lumber: 3
+  controller: earth-kingdom
+- territory_id: E008
+  terrain_type: forest
+  adjacent_to:
+  - E001
+  - E006
+  - E007
+  - E010
+  - E015
+  - E018
+  - E167
+  - S006
+  - S130
+  original_nation: earth-kingdom
+  production:
+    lumber: 2
+  controller: earth-kingdom
+- territory_id: E010
+  terrain_type: forest
+  adjacent_to:
+  - E001
+  - E006
+  - E007
+  - E008
+  - E015
+  - E018
+  - E166
+  - E167
+  - S006
+  - S007
+  original_nation: earth-kingdom
+  production:
+    lumber: 2
+  controller: earth-kingdom
+- territory_id: E015
+  terrain_type: forest
+  adjacent_to:
+  - E006
+  - E008
+  - E010
+  - E016
+  - E018
+  - E019
+  - E166
+  - E167
+  original_nation: earth-kingdom
+  production:
+    lumber: 2
+  controller: earth-kingdom
+- territory_id: E016
+  terrain_type: plains
+  adjacent_to:
+  - E015
+  - E018
+  - E019
+  - E141
+  - E143
+  - E163
+  - E165
+  - E166
+  - E167
+  - E505
+  - S129
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    cloth: 2
+- territory_id: E018
+  terrain_type: plains
+  adjacent_to:
+  - E008
+  - E010
+  - E015
+  - E016
+  - E019
+  - E020
+  - E141
+  - E143
+  - E166
+  - S128
+  - S129
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    cloth: 2
+- territory_id: E019
+  terrain_type: plains
+  adjacent_to:
+  - E015
+  - E016
+  - E018
+  - E020
+  - S128
+  - S129
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    platinum: 2
+- territory_id: E020
+  terrain_type: plains
+  adjacent_to:
+  - E005
+  - E006
+  - E007
+  - E018
+  - E019
+  - S128
+  - S129
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+  keywords:
+  - sacred-land
+- territory_id: E021
+  terrain_type: plains
+  adjacent_to:
+  - A004
+  - E022
+  - E024
+  - E025
+  - E400
+  - S125
+  - S126
+  - S127
+  - S128
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+    lumber: 1
+- territory_id: E022
+  terrain_type: plains
+  adjacent_to:
+  - A004
+  - E021
+  - E024
+  - E025
+  - E400
+  - S125
+  - S126
+  - S127
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+  keywords:
+  - sacred-land
+- territory_id: E024
+  terrain_type: plains
+  adjacent_to:
+  - E021
+  - E022
+  - E025
+  - E049
+  - E065
+  - E068
+  - S126
+  - S127
+  - S128
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+    cloth: 1
+- territory_id: E025
+  terrain_type: plains
+  adjacent_to:
+  - E021
+  - E022
+  - E024
+  - E049
+  - E051
+  - E053
+  - E063
+  - E065
+  - E068
+  - S125
+  - S126
+  - S128
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+    lumber: 2
+- territory_id: E031
+  terrain_type: plains
+  adjacent_to:
+  - E032
+  - E034
+  - E045
+  - E046
+  - E047
+  - E413
+  - S121
+  - S122
+  - S123
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    cloth: 3
+    platinum: 1
+- territory_id: E032
+  terrain_type: mountain
+  adjacent_to:
+  - E031
+  - E034
+  - E043
+  - E045
+  - E046
+  - E417
+  - S121
+  - S122
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+  controller: gaoling
+- territory_id: E034
+  terrain_type: plains
+  adjacent_to:
+  - E031
+  - E032
+  - E042
+  - E043
+  - E045
+  - E416
+  - E417
+  - S091
+  - S121
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+- territory_id: E037
+  terrain_type: plains
+  adjacent_to:
+  - A014
+  - A015
+  - E038
+  - E041
+  - E042
+  - S090
+  - S092
+  - S093
+  original_nation: earth-kingdom
+  controller: fifth-nation
+  production:
+    ore: 2
+    coal: 2
+    platinum: 1
+    rations: 3
+    cloth: 2
+    lumber: 1
+- territory_id: E038
+  terrain_type: plains
+  adjacent_to:
+  - A014
+  - E037
+  - E041
+  - E042
+  - S090
+  - S091
+  - S092
+  - S093
+  original_nation: earth-kingdom
+  controller: fifth-nation
+  production:
+    ore: 2
+    coal: 1
+    rations: 2
+    platinum: 3
+    cloth: 2
+    lumber: 1
+- territory_id: E041
+  terrain_type: mountain
+  adjacent_to:
+  - E037
+  - E038
+  - E042
+  - E043
+  - E057
+  - E073
+  - E095
+  - E099
+  - S091
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: fifth-nation
+  keywords:
+  - sacred-land
+- territory_id: E042
+  terrain_type: plains
+  adjacent_to:
+  - E034
+  - E037
+  - E038
+  - E041
+  - E043
+  - E057
+  - S091
+  - S092
+  original_nation: earth-kingdom
+  controller: fifth-nation
+  production:
+    ore: 2
+    coal: 1
+    platinum: 3
+    cloth: 1
+    rations: 1
+  keywords:
+  - sacred-land
+- territory_id: E043
+  terrain_type: plains
+  adjacent_to:
+  - E032
+  - E034
+  - E041
+  - E042
+  - E045
+  - E057
+  - gaoling-city
+  - S091
+  original_nation: earth-kingdom
+  controller: fifth-nation
+  production:
+    ore: 2
+    coal: 1
+    rations: 1
+    lumber: 2
+    cloth: 2
+- territory_id: E045
+  terrain_type: plains
+  adjacent_to:
+  - E031
+  - E032
+  - E034
+  - E043
+  - E046
+  - E047
+  - E055
+  - E057
+  original_nation: earth-kingdom
+  controller: fifth-nation
+  production:
+    ore: 2
+    coal: 1
+    platinum: 2
+    rations: 2
+    lumber: 1
+    cloth: 2
+- territory_id: E046
+  terrain_type: plains
+  adjacent_to:
+  - E031
+  - E032
+  - E045
+  - E047
+  - E055
+  - E057
+  - S122
+  original_nation: earth-kingdom
+  controller: fifth-nation
+  production:
+    ore: 2
+    coal: 3
+    lumber: 3
+    cloth: 2
+    rations: 2
+- territory_id: E047
+  terrain_type: plains
+  adjacent_to:
+  - E031
+  - E045
+  - E046
+  - E048
+  - E052
+  - E053
+  - E055
+  - S122
+  - S123
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+- territory_id: E048
+  terrain_type: plains
+  adjacent_to:
+  - E047
+  - E049
+  - E052
+  - E053
+  - E404
+  - S122
+  - S123
+  - S124
+  - S125
+  - S126
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+    cloth: 1
+    rations: 1
+- territory_id: E049
+  terrain_type: plains
+  adjacent_to:
+  - E024
+  - E025
+  - E048
+  - E051
+  - E052
+  - E053
+  - E063
+  - E065
+  - S126
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    platinum: 2
+    lumber: 1
+    cloth: 1
+    rations: 1
+- territory_id: E051
+  terrain_type: plains
+  adjacent_to:
+  - E025
+  - E049
+  - E052
+  - E053
+  - E062
+  - E063
+  - E065
+  - E070
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+- territory_id: E052
+  terrain_type: plains
+  adjacent_to:
+  - E047
+  - E048
+  - E049
+  - E051
+  - E053
+  - E055
+  - E062
+  - E063
+  - E072
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+  keywords:
+  - sacred-land
+- territory_id: E053
+  terrain_type: plains
+  adjacent_to:
+  - E025
+  - E047
+  - E048
+  - E049
+  - E051
+  - E052
+  - E062
+  - S123
+  - S124
+  - S125
+  - S126
+  original_nation: earth-kingdom
+  controller: gaoling
+  production:
+    ore: 1
+    coal: 1
+    lumber: 3
+    cloth: 1
+- territory_id: E055
+  terrain_type: mountain
+  adjacent_to:
+  - E045
+  - E046
+  - E047
+  - E052
+  - E057
+  - E062
+  - E072
+  - E073
+  - E074
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    cloth: 2
+    rations: 1
+    lumber: 1
+  controller: fifth-nation
+- territory_id: E057
+  terrain_type: mountain
+  adjacent_to:
+  - E041
+  - E042
+  - E043
+  - E045
+  - E046
+  - E055
+  - E073
+  - E074
+  - E095
+  - E099
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: fifth-nation
+- territory_id: E062
+  terrain_type: mountain
+  adjacent_to:
+  - E051
+  - E052
+  - E053
+  - E055
+  - E063
+  - E070
+  - E072
+  - E074
+  - E076
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: fifth-nation
+- territory_id: E063
+  terrain_type: mountain
+  adjacent_to:
+  - E025
+  - E049
+  - E051
+  - E052
+  - E062
+  - E065
+  - E068
+  - E070
+  - E078
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E065
+  terrain_type: mountain
+  adjacent_to:
+  - E024
+  - E025
+  - E049
+  - E051
+  - E063
+  - E068
+  - E070
+  - E078
+  - E141
+  - S128
+  - S129
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E068
+  terrain_type: desert
+  adjacent_to:
+  - E024
+  - E025
+  - E063
+  - E065
+  - E070
+  - E076
+  - E078
+  - E141
+  - E145
+  - S128
+  - S129
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    platinum: 1
+- territory_id: E070
+  terrain_type: desert
+  adjacent_to:
+  - E051
+  - E062
+  - E063
+  - E065
+  - E068
+  - E072
+  - E074
+  - E076
+  - E078
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    cloth: 1
+- territory_id: E072
+  terrain_type: desert
+  adjacent_to:
+  - E052
+  - E055
+  - E062
+  - E070
+  - E073
+  - E074
+  - E076
+  - E086
+  - E088
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    platinum: 1
+- territory_id: E073
+  terrain_type: desert
+  adjacent_to:
+  - E041
+  - E055
+  - E057
+  - E072
+  - E074
+  - E088
+  - E099
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    cloth: 2
+- territory_id: E074
+  terrain_type: desert
+  adjacent_to:
+  - E055
+  - E057
+  - E062
+  - E070
+  - E072
+  - E073
+  - E076
+  - E086
+  - E088
+  - E099
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    cloth: 1
+- territory_id: E076
+  terrain_type: desert
+  adjacent_to:
+  - E062
+  - E068
+  - E070
+  - E072
+  - E074
+  - E078
+  - E080
+  - E082
+  - E085
+  - E086
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    platinum: 2
+- territory_id: E078
+  terrain_type: plains
+  adjacent_to:
+  - E063
+  - E065
+  - E068
+  - E070
+  - E076
+  - E080
+  - E082
+  - E141
+  - E145
+  - E146
+  - E148
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E080
+  terrain_type: mountain
+  adjacent_to:
+  - E076
+  - E078
+  - E082
+  - E135
+  - E146
+  - E148
+  - E149
+  - E150
+  - S146
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E082
+  terrain_type: mountain
+  adjacent_to:
+  - E076
+  - E078
+  - E080
+  - E085
+  - E086
+  - E112
+  - E135
+  - E148
+  - E149
+  - S146
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E085
+  terrain_type: mountain
+  adjacent_to:
+  - A047
+  - E076
+  - E082
+  - E086
+  - E112
+  - E132
+  - E135
+  - S146
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E086
+  terrain_type: plains
+  adjacent_to:
+  - A047
+  - A053
+  - E072
+  - E074
+  - E076
+  - E082
+  - E085
+  - E088
+  - E109
+  - E112
+  - E132
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    ore: 2
+    coal: 1
+    platinum: 1
+  keywords:
+  - sacred-land
+- territory_id: E088
+  terrain_type: desert
+  adjacent_to:
+  - A047
+  - A053
+  - E072
+  - E073
+  - E074
+  - E086
+  - E099
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    ore: 1
+    coal: 1
+    platinum: 2
+- territory_id: E095
+  terrain_type: mountain
+  adjacent_to:
+  - E041
+  - E057
+  - E099
+  - E107
+  - E120
+  - S090
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+  keywords:
+  - sacred-land
+- territory_id: E099
+  terrain_type: mountain
+  adjacent_to:
+  - A047
+  - A053
+  - E041
+  - E057
+  - E073
+  - E074
+  - E088
+  - E095
+  - E109
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E107
+  terrain_type: plains
+  adjacent_to:
+  - A053
+  - E095
+  - E108
+  - E109
+  - E120
+  - E121
+  - E127
+  - E128
+  - S090
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    lumber: 2
+    rations: 2
+    cloth: 2
+- territory_id: E108
+  terrain_type: plains
+  adjacent_to:
+  - A053
+  - E107
+  - E109
+  - E114
+  - E120
+  - E121
+  - E127
+  - E128
+  - E129
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    lumber: 2
+    rations: 2
+    cloth: 1
+- territory_id: E109
+  terrain_type: plains
+  adjacent_to:
+  - A047
+  - A053
+  - E086
+  - E099
+  - E107
+  - E108
+  - E114
+  - E128
+  - E132
+  - omashu-city
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    lumber: 2
+    rations: 2
+    cloth: 2
+- territory_id: E112
+  terrain_type: mountain
+  adjacent_to:
+  - A047
+  - E082
+  - E085
+  - E086
+  - E132
+  - E135
+  - S146
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E114
+  terrain_type: plains
+  adjacent_to:
+  - A047
+  - A053
+  - E108
+  - E109
+  - E127
+  - E128
+  - E129
+  - E130
+  - E131
+  - E132
+  - E303
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    lumber: 2
+    platinum: 1
+    rations: 2
+- territory_id: E120
+  terrain_type: mountain
+  adjacent_to:
+  - E095
+  - E107
+  - E108
+  - E121
+  - E127
+  - S088
+  - S089
+  - S090
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E121
+  terrain_type: mountain
+  adjacent_to:
+  - E107
+  - E108
+  - E120
+  - E126
+  - E127
+  - E128
+  - F001
+  - S085
+  - S088
+  - S089
+  - S090
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E126
+  terrain_type: mountain
+  adjacent_to:
+  - E121
+  - E127
+  - E128
+  - E129
+  - E307
+  - E309
+  - F001
+  - S086
+  - S087
+  - S088
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E127
+  terrain_type: mountain
+  adjacent_to:
+  - E107
+  - E108
+  - E114
+  - E120
+  - E121
+  - E126
+  - E128
+  - E129
+  - E309
+  - S087
+  - S088
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E128
+  terrain_type: plains
+  adjacent_to:
+  - E107
+  - E108
+  - E109
+  - E114
+  - E121
+  - E126
+  - E127
+  - E129
+  - E130
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    lumber: 1
+    rations: 1
+    platinum: 2
+- territory_id: E129
+  terrain_type: mountain
+  adjacent_to:
+  - E108
+  - E114
+  - E126
+  - E127
+  - E128
+  - E130
+  - E303
+  - E307
+  - E309
+  - E311
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E130
+  terrain_type: plains
+  adjacent_to:
+  - E114
+  - E128
+  - E129
+  - E131
+  - E132
+  - E245
+  - E247
+  - E303
+  - S143
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    lumber: 1
+    rations: 1
+    cloth: 1
+- territory_id: E131
+  terrain_type: plains
+  adjacent_to:
+  - E114
+  - E130
+  - E132
+  - E135
+  - E229
+  - E245
+  - E247
+  - E303
+  - S143
+  - S144
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    lumber: 1
+    rations: 1
+    cloth: 1
+- territory_id: E132
+  terrain_type: plains
+  adjacent_to:
+  - A047
+  - A053
+  - E085
+  - E086
+  - E109
+  - E112
+  - E114
+  - E130
+  - E131
+  - S143
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+    rations: 1
+- territory_id: E134
+  terrain_type: mountain
+  adjacent_to:
+  - A060
+  - E152
+  - W009
+  - W011
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: omashu
+- territory_id: E135
+  terrain_type: mountain
+  adjacent_to:
+  - E080
+  - E082
+  - E085
+  - E112
+  - E131
+  - E149
+  - E151
+  - S143
+  - S144
+  - S146
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E141
+  terrain_type: plains
+  adjacent_to:
+  - E016
+  - E018
+  - E065
+  - E068
+  - E078
+  - E143
+  - E145
+  - E146
+  - E159
+  - S128
+  - S129
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E143
+  terrain_type: plains
+  adjacent_to:
+  - E016
+  - E018
+  - E141
+  - E145
+  - E146
+  - E163
+  - E165
+  - E505
+  - S129
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E145
+  terrain_type: plains
+  adjacent_to:
+  - E068
+  - E078
+  - E141
+  - E143
+  - E146
+  - E159
+  - E163
+  - E505
+  - E508
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E146
+  terrain_type: mountain
+  adjacent_to:
+  - E078
+  - E080
+  - E141
+  - E143
+  - E145
+  - E148
+  - E159
+  - E508
+  - E509
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E148
+  terrain_type: mountain
+  adjacent_to:
+  - E078
+  - E080
+  - E082
+  - E146
+  - E150
+  - E158
+  - E159
+  - E508
+  - E509
+  - S146
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E149
+  terrain_type: mountain
+  adjacent_to:
+  - A048
+  - E080
+  - E082
+  - E135
+  - E150
+  - E151
+  - E158
+  - E510
+  - S144
+  - S146
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E150
+  terrain_type: plains
+  adjacent_to:
+  - A048
+  - E080
+  - E148
+  - E149
+  - E151
+  - E153
+  - E158
+  - E509
+  - E510
+  - S146
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E151
+  terrain_type: plains
+  adjacent_to:
+  - A048
+  - E135
+  - E149
+  - E150
+  - E153
+  - E228
+  - S144
+  - S146
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E152
+  terrain_type: plains
+  adjacent_to:
+  - A060
+  - E134
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E153
+  terrain_type: plains
+  adjacent_to:
+  - A048
+  - E150
+  - E151
+  - E158
+  - E202
+  - E207
+  - E222
+  - E224
+  - E228
+  - E233
+  - E510
+  - E513
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E154
+  terrain_type: plains
+  adjacent_to:
+  - A057
+  - S067
+  - S068
+  - S069
+  - S070
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E158
+  terrain_type: plains
+  adjacent_to:
+  - E148
+  - E149
+  - E150
+  - E153
+  - E509
+  - E510
+  - E513
+  - E514
+  - S146
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E159
+  terrain_type: plains
+  adjacent_to:
+  - E141
+  - E145
+  - E146
+  - E148
+  - E507
+  - E508
+  - E509
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E163
+  terrain_type: plains
+  adjacent_to:
+  - E016
+  - E143
+  - E145
+  - E165
+  - E505
+  - E506
+  - E507
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E165
+  terrain_type: plains
+  adjacent_to:
+  - E016
+  - E143
+  - E163
+  - E166
+  - E167
+  - E172
+  - E177
+  - E501
+  - E505
+  - E506
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E166
+  terrain_type: plains
+  adjacent_to:
+  - E010
+  - E015
+  - E016
+  - E018
+  - E165
+  - E167
+  - E172
+  - E177
+  - S007
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E167
+  terrain_type: plains
+  adjacent_to:
+  - E008
+  - E010
+  - E015
+  - E016
+  - E165
+  - E166
+  - E172
+  - E177
+  - S006
+  - S007
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E172
+  terrain_type: plains
+  adjacent_to:
+  - E165
+  - E166
+  - E167
+  - E176
+  - E177
+  - E183
+  - E505
+  - S007
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E176
+  terrain_type: plains
+  adjacent_to:
+  - E172
+  - E177
+  - E183
+  - S001
+  - S004
+  - S007
+  - S008
+  - S009
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E177
+  terrain_type: plains
+  adjacent_to:
+  - E165
+  - E166
+  - E167
+  - E172
+  - E176
+  - E183
+  - E501
+  - E505
+  - E506
+  - S007
+  - S008
+  - S009
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E181
+  terrain_type: plains
+  adjacent_to:
+  - E183
+  - E184
+  - E192
+  - E500
+  - E501
+  - S008
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E183
+  terrain_type: plains
+  adjacent_to:
+  - E172
+  - E176
+  - E177
+  - E181
+  - E184
+  - E500
+  - E501
+  - S008
+  - S009
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E184
+  terrain_type: plains
+  adjacent_to:
+  - E181
+  - E183
+  - E189
+  - E192
+  - E500
+  - E501
+  - S008
+  - S012
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E189
+  terrain_type: plains
+  adjacent_to:
+  - E184
+  - E190
+  - E192
+  - E195
+  - E196
+  - E500
+  - E516
+  - S011
+  - S012
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E190
+  terrain_type: plains
+  adjacent_to:
+  - E189
+  - E192
+  - E195
+  - E196
+  - E200
+  - E202
+  - E500
+  - E516
+  - S011
+  - S012
+  - S013
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E192
+  terrain_type: plains
+  adjacent_to:
+  - E181
+  - E184
+  - E189
+  - E190
+  - E195
+  - E202
+  - E500
+  - E515
+  - E516
+  - S012
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E195
+  terrain_type: plains
+  adjacent_to:
+  - E189
+  - E190
+  - E192
+  - E196
+  - E200
+  - E202
+  - E210
+  - S013
+  - S014
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E196
+  terrain_type: plains
+  adjacent_to:
+  - E189
+  - E190
+  - E195
+  - E200
+  - E210
+  - S011
+  - S013
+  - S014
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E200
+  terrain_type: plains
+  adjacent_to:
+  - E190
+  - E195
+  - E196
+  - E202
+  - E207
+  - E210
+  - E216
+  - E220
+  - E513
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E202
+  terrain_type: plains
+  adjacent_to:
+  - E153
+  - E190
+  - E192
+  - E195
+  - E200
+  - E207
+  - E220
+  - E513
+  - E514
+  - E515
+  - E516
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E207
+  terrain_type: plains
+  adjacent_to:
+  - A048
+  - E153
+  - E200
+  - E202
+  - E220
+  - E222
+  - E223
+  - E510
+  - E513
+  - E516
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E210
+  terrain_type: plains
+  adjacent_to:
+  - A065
+  - E195
+  - E196
+  - E200
+  - E216
+  - E220
+  - S013
+  - S014
+  - S015
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E216
+  terrain_type: mountain
+  adjacent_to:
+  - A064
+  - A065
+  - E200
+  - E210
+  - E220
+  - E222
+  - E223
+  - S013
+  - S023
+  - S024
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E220
+  terrain_type: plains
+  adjacent_to:
+  - A065
+  - E200
+  - E202
+  - E207
+  - E210
+  - E216
+  - E222
+  - E223
+  - E224
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E222
+  terrain_type: plains
+  adjacent_to:
+  - A048
+  - E153
+  - E207
+  - E216
+  - E220
+  - E223
+  - E224
+  - E233
+  - E513
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E223
+  terrain_type: mountain
+  adjacent_to:
+  - A064
+  - A065
+  - E207
+  - E216
+  - E220
+  - E222
+  - E224
+  - E233
+  - E240
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E224
+  terrain_type: mountain
+  adjacent_to:
+  - A048
+  - A064
+  - E153
+  - E220
+  - E222
+  - E223
+  - E228
+  - E233
+  - E240
+  - E241
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E228
+  terrain_type: plains
+  adjacent_to:
+  - A048
+  - E151
+  - E153
+  - E224
+  - E229
+  - E233
+  - E241
+  - E243
+  - E245
+  - S143
+  - S144
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E229
+  terrain_type: plains
+  adjacent_to:
+  - E131
+  - E228
+  - E243
+  - E245
+  - E248
+  - S143
+  - S144
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E233
+  terrain_type: plains
+  adjacent_to:
+  - A048
+  - E153
+  - E222
+  - E223
+  - E224
+  - E228
+  - E240
+  - E241
+  - E243
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E240
+  terrain_type: mountain
+  adjacent_to:
+  - A063
+  - A064
+  - E223
+  - E224
+  - E233
+  - E241
+  - E243
+  - E257
+  - E261
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E241
+  terrain_type: mountain
+  adjacent_to:
+  - A063
+  - A064
+  - E224
+  - E228
+  - E233
+  - E240
+  - E243
+  - E253
+  - E257
+  - E261
+  - E262
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E243
+  terrain_type: plains
+  adjacent_to:
+  - E228
+  - E229
+  - E233
+  - E240
+  - E241
+  - E245
+  - E248
+  - E252
+  - E253
+  - E257
+  - E262
+  - S143
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E245
+  terrain_type: plains
+  adjacent_to:
+  - E130
+  - E131
+  - E228
+  - E229
+  - E243
+  - E247
+  - E248
+  - E252
+  - E303
+  - E321
+  - S143
+  - S144
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E247
+  terrain_type: plains
+  adjacent_to:
+  - E130
+  - E131
+  - E245
+  - E248
+  - E252
+  - E303
+  - E306
+  - E307
+  - E321
+  - S143
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E248
+  terrain_type: plains
+  adjacent_to:
+  - E229
+  - E243
+  - E245
+  - E247
+  - E252
+  - E303
+  - E306
+  - E321
+  - S143
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E252
+  terrain_type: plains
+  adjacent_to:
+  - E243
+  - E245
+  - E247
+  - E248
+  - E253
+  - E262
+  - E264
+  - E272
+  - E316
+  - E321
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E253
+  terrain_type: plains
+  adjacent_to:
+  - E241
+  - E243
+  - E252
+  - E257
+  - E261
+  - E262
+  - E264
+  - E272
+  - E316
+  - E321
+  - E331
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E257
+  terrain_type: mountain
+  adjacent_to:
+  - A063
+  - A064
+  - E240
+  - E241
+  - E243
+  - E253
+  - E261
+  - E262
+  - E264
+  - E267
+  - E268
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E261
+  terrain_type: mountain
+  adjacent_to:
+  - A063
+  - A064
+  - E240
+  - E241
+  - E253
+  - E257
+  - E262
+  - E264
+  - E267
+  - E268
+  - S022
+  - S024
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+  keywords:
+  - sacred-land
+- territory_id: E262
+  terrain_type: mountain
+  adjacent_to:
+  - E241
+  - E243
+  - E252
+  - E253
+  - E257
+  - E261
+  - E264
+  - E272
+  - E321
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E264
+  terrain_type: mountain
+  adjacent_to:
+  - E252
+  - E253
+  - E257
+  - E261
+  - E262
+  - E268
+  - E270
+  - E272
+  - S025
+  - S031
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E267
+  terrain_type: mountain
+  adjacent_to:
+  - A063
+  - E257
+  - E261
+  - E268
+  - S021
+  - S022
+  - S025
+  - S026
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E268
+  terrain_type: mountain
+  adjacent_to:
+  - A063
+  - E257
+  - E261
+  - E264
+  - E267
+  - E270
+  - E272
+  - S025
+  - S026
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E270
+  terrain_type: mountain
+  adjacent_to:
+  - E264
+  - E268
+  - E272
+  - E330
+  - S025
+  - S026
+  - S030
+  - S031
+  - W025
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E272
+  terrain_type: mountain
+  adjacent_to:
+  - E252
+  - E253
+  - E262
+  - E264
+  - E268
+  - E270
+  - E316
+  - E321
+  - E330
+  - E331
+  - E333
+  - S031
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E303
+  terrain_type: plains
+  adjacent_to:
+  - E114
+  - E129
+  - E130
+  - E131
+  - E245
+  - E247
+  - E248
+  - E306
+  - E307
+  - E309
+  - E321
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E306
+  terrain_type: plains
+  adjacent_to:
+  - E247
+  - E248
+  - E303
+  - E307
+  - E311
+  - E312
+  - E316
+  - E321
+  - E342
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E307
+  terrain_type: plains
+  adjacent_to:
+  - E126
+  - E129
+  - E247
+  - E303
+  - E306
+  - E309
+  - E311
+  - S086
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E309
+  terrain_type: plains
+  adjacent_to:
+  - E126
+  - E127
+  - E129
+  - E303
+  - E307
+  - E311
+  - S086
+  - S087
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E311
+  terrain_type: plains
+  adjacent_to:
+  - E129
+  - E306
+  - E307
+  - E309
+  - E312
+  - E342
+  - E345
+  - S086
+  - S087
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E312
+  terrain_type: plains
+  adjacent_to:
+  - E306
+  - E311
+  - E316
+  - E321
+  - E333
+  - E340
+  - E342
+  - E345
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E316
+  terrain_type: plains
+  adjacent_to:
+  - E252
+  - E253
+  - E272
+  - E306
+  - E312
+  - E321
+  - E330
+  - E331
+  - E333
+  - E340
+  - E342
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E321
+  terrain_type: plains
+  adjacent_to:
+  - E245
+  - E247
+  - E248
+  - E252
+  - E253
+  - E262
+  - E272
+  - E303
+  - E306
+  - E312
+  - E316
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E330
+  terrain_type: forest
+  adjacent_to:
+  - E270
+  - E272
+  - E316
+  - E331
+  - E333
+  - E336
+  - E347
+  - S031
+  - S032
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 1
+    ore: 1
+    rations: 2
+- territory_id: E331
+  terrain_type: forest
+  adjacent_to:
+  - E253
+  - E272
+  - E316
+  - E330
+  - E333
+  - E336
+  - E339
+  - E340
+  - E347
+  - S031
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 1
+    ore: 1
+    rations: 2
+- territory_id: E333
+  terrain_type: forest
+  adjacent_to:
+  - E272
+  - E312
+  - E316
+  - E330
+  - E331
+  - E339
+  - E340
+  - E342
+  - E347
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    rations: 1
+  keywords:
+  - sacred-land
+- territory_id: E336
+  terrain_type: forest
+  adjacent_to:
+  - E330
+  - E331
+  - E347
+  - E348
+  - E350
+  - E351
+  - S030
+  - S031
+  - S032
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    coal: 1
+  keywords:
+  - sacred-land
+- territory_id: E339
+  terrain_type: forest
+  adjacent_to:
+  - E331
+  - E333
+  - E340
+  - E342
+  - E345
+  - E346
+  - E347
+  - E348
+  - E373
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 1
+    coal: 1
+    rations: 2
+- territory_id: E340
+  terrain_type: forest
+  adjacent_to:
+  - E312
+  - E316
+  - E331
+  - E333
+  - E339
+  - E342
+  - E345
+  - E346
+  - E347
+  - S086
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 1
+    coal: 1
+    rations: 2
+    cloth: 1
+- territory_id: E342
+  terrain_type: forest
+  adjacent_to:
+  - E306
+  - E311
+  - E312
+  - E316
+  - E333
+  - E339
+  - E340
+  - E345
+  - S086
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    ore: 1
+    rations: 1
+    cloth: 1
+- territory_id: E345
+  terrain_type: forest
+  adjacent_to:
+  - E311
+  - E312
+  - E339
+  - E340
+  - E342
+  - E346
+  - E373
+  - E374
+  - hu-xin-city
+  - S086
+  - S087
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    platinum: 1
+    rations: 1
+- territory_id: E346
+  terrain_type: forest
+  adjacent_to:
+  - E339
+  - E340
+  - E345
+  - E347
+  - E348
+  - E373
+  - E374
+  - S081
+  - S082
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    ore: 1
+- territory_id: E347
+  terrain_type: forest
+  adjacent_to:
+  - E330
+  - E331
+  - E333
+  - E336
+  - E339
+  - E340
+  - E346
+  - E348
+  - E350
+  - S032
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    platinum: 1
+- territory_id: E348
+  terrain_type: forest
+  adjacent_to:
+  - E336
+  - E339
+  - E346
+  - E347
+  - E350
+  - E351
+  - E367
+  - E373
+  - E376
+  - E377
+  - S081
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    cloth: 1
+- territory_id: E350
+  terrain_type: forest
+  adjacent_to:
+  - E336
+  - E347
+  - E348
+  - E351
+  - E353
+  - E367
+  - E376
+  - S030
+  - S031
+  - S032
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    ore: 1
+- territory_id: E351
+  terrain_type: forest
+  adjacent_to:
+  - E336
+  - E348
+  - E350
+  - E353
+  - E356
+  - E367
+  - E376
+  - E377
+  - S030
+  - S032
+  - S033
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    ore: 1
+- territory_id: E353
+  terrain_type: forest
+  adjacent_to:
+  - E350
+  - E351
+  - E358
+  - E367
+  - S029
+  - S030
+  - S032
+  - S033
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    ore: 1
+- territory_id: E356
+  terrain_type: forest
+  adjacent_to:
+  - E351
+  - E358
+  - E359
+  - E360
+  - E361
+  - E367
+  - E376
+  - E377
+  - S033
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    coal: 1
+- territory_id: E358
+  terrain_type: forest
+  adjacent_to:
+  - E353
+  - E356
+  - E359
+  - E360
+  - E367
+  - S033
+  - S034
+  - S035
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    coal: 1
+- territory_id: E359
+  terrain_type: forest
+  adjacent_to:
+  - A042
+  - A043
+  - E356
+  - E358
+  - E360
+  - E361
+  - E362
+  - S033
+  - S034
+  - S038
+  - S041
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    platinum: 1
+- territory_id: E360
+  terrain_type: forest
+  adjacent_to:
+  - A042
+  - A043
+  - E356
+  - E358
+  - E359
+  - E361
+  - E362
+  - E377
+  - E381
+  - S041
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    platinum: 1
+- territory_id: E361
+  terrain_type: forest
+  adjacent_to:
+  - E356
+  - E359
+  - E360
+  - E362
+  - E376
+  - E377
+  - E380
+  - E381
+  - S042
+  - S043
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    ore: 1
+- territory_id: E362
+  terrain_type: forest
+  adjacent_to:
+  - A042
+  - A043
+  - A045
+  - E359
+  - E360
+  - E361
+  - S042
+  - S043
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    platinum: 1
+- territory_id: E367
+  terrain_type: forest
+  adjacent_to:
+  - E348
+  - E350
+  - E351
+  - E353
+  - E356
+  - E358
+  - E376
+  - E377
+  - S033
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    coal: 1
+- territory_id: E373
+  terrain_type: forest
+  adjacent_to:
+  - E339
+  - E345
+  - E346
+  - E348
+  - E374
+  - S080
+  - S081
+  - S082
+  - S083
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    platinum: 1
+- territory_id: E374
+  terrain_type: forest
+  adjacent_to:
+  - E345
+  - E346
+  - E373
+  - F002
+  - S082
+  - S083
+  - S086
+  - S087
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    lumber: 2
+    cloth: 1
+- territory_id: E376
+  terrain_type: mountain
+  adjacent_to:
+  - E348
+  - E350
+  - E351
+  - E356
+  - E361
+  - E367
+  - E377
+  - E380
+  - E381
+  - S081
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: hu-xin
+- territory_id: E377
+  terrain_type: mountain
+  adjacent_to:
+  - E348
+  - E351
+  - E356
+  - E360
+  - E361
+  - E367
+  - E376
+  - E380
+  - E381
+  - S081
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+  controller: hu-xin
+- territory_id: E380
+  terrain_type: mountain
+  adjacent_to:
+  - E361
+  - E376
+  - E377
+  - E381
+  - E382
+  - E383
+  - E385
+  - E387
+  - S043
+  - S080
+  - S081
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+  controller: hu-xin
+- territory_id: E381
+  terrain_type: mountain
+  adjacent_to:
+  - E360
+  - E361
+  - E376
+  - E377
+  - E380
+  - E382
+  - E383
+  - S043
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+  controller: hu-xin
+- territory_id: E382
+  terrain_type: mountain
+  adjacent_to:
+  - E380
+  - E381
+  - E383
+  - E385
+  - E387
+  - S042
+  - S043
+  - S080
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    cloth: 1
+  controller: hu-xin
+- territory_id: E383
+  terrain_type: mountain
+  adjacent_to:
+  - E380
+  - E381
+  - E382
+  - E385
+  - E387
+  - S042
+  - S043
+  - S044
+  - S079
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: hu-xin
+- territory_id: E385
+  terrain_type: mountain
+  adjacent_to:
+  - E380
+  - E382
+  - E383
+  - E387
+  - S057
+  - S058
+  - S073
+  - S079
+  - S080
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+  controller: hu-xin
+- territory_id: E387
+  terrain_type: mountain
+  adjacent_to:
+  - E380
+  - E382
+  - E383
+  - E385
+  - F003
+  - S079
+  - S080
+  - S084
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+  controller: hu-xin
+- territory_id: E400
+  terrain_type: mountain
+  adjacent_to:
+  - A004
+  - A006
+  - E021
+  - E022
+  - E401
+  - E404
+  - E405
+  - E406
+  - S125
+  - S126
+  - S136
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E401
+  terrain_type: mountain
+  adjacent_to:
+  - A004
+  - A006
+  - A010
+  - A011
+  - E400
+  - E404
+  - E405
+  - E406
+  - S125
+  - S136
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E404
+  terrain_type: plains
+  adjacent_to:
+  - E048
+  - E400
+  - E401
+  - E405
+  - E406
+  - E409
+  - S123
+  - S124
+  - S125
+  - S126
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E405
+  terrain_type: plains
+  adjacent_to:
+  - E400
+  - E401
+  - E404
+  - E406
+  - E407
+  - E408
+  - S123
+  - S124
+  - S136
+  - S137
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E406
+  terrain_type: mountain
+  adjacent_to:
+  - A013
+  - E400
+  - E401
+  - E404
+  - E405
+  - E407
+  - S124
+  - S136
+  - S137
+  original_nation: earth-kingdom
+  production:
+    ore: 1
+    coal: 1
+  controller: earth-kingdom
+- territory_id: E407
+  terrain_type: plains
+  adjacent_to:
+  - A013
+  - E405
+  - E406
+  - E408
+  - E409
+  - S119
+  - S124
+  - S137
+  - S138
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E408
+  terrain_type: plains
+  adjacent_to:
+  - E405
+  - E407
+  - E409
+  - E412
+  - E413
+  - S119
+  - S123
+  - S124
+  - S137
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E409
+  terrain_type: plains
+  adjacent_to:
+  - E404
+  - E407
+  - E408
+  - E412
+  - E413
+  - S119
+  - S122
+  - S123
+  - S124
+  - S137
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E412
+  terrain_type: plains
+  adjacent_to:
+  - E408
+  - E409
+  - E413
+  - E416
+  - E417
+  - S119
+  - S120
+  - S121
+  - S122
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E413
+  terrain_type: plains
+  adjacent_to:
+  - E031
+  - E408
+  - E409
+  - E412
+  - E416
+  - E417
+  - S119
+  - S120
+  - S121
+  - S122
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E416
+  terrain_type: plains
+  adjacent_to:
+  - E034
+  - E412
+  - E413
+  - E417
+  - E419
+  - E420
+  - E422
+  - S120
+  - S121
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E417
+  terrain_type: plains
+  adjacent_to:
+  - E032
+  - E034
+  - E412
+  - E413
+  - E416
+  - E419
+  - E420
+  - S120
+  - S121
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E419
+  terrain_type: plains
+  adjacent_to:
+  - E416
+  - E417
+  - E420
+  - E422
+  - E423
+  - E424
+  - E425
+  - S097
+  - S120
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E420
+  terrain_type: plains
+  adjacent_to:
+  - E416
+  - E417
+  - E419
+  - E422
+  - S097
+  - S118
+  - S119
+  - S120
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E422
+  terrain_type: plains
+  adjacent_to:
+  - E416
+  - E419
+  - E420
+  - E423
+  - E424
+  - S097
+  - S118
+  - S120
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E423
+  terrain_type: plains
+  adjacent_to:
+  - E419
+  - E422
+  - E424
+  - E425
+  - S097
+  - S098
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E424
+  terrain_type: plains
+  adjacent_to:
+  - E419
+  - E422
+  - E423
+  - E425
+  - S097
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E425
+  terrain_type: plains
+  adjacent_to:
+  - E419
+  - E423
+  - E424
+  - E426
+  - S097
+  - S098
+  - W040
+  - W041
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E426
+  terrain_type: plains
+  adjacent_to:
+  - A018
+  - A022
+  - E425
+  - E428
+  - S096
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E428
+  terrain_type: plains
+  adjacent_to:
+  - A018
+  - A021
+  - A022
+  - E426
+  - S099
+  - W040
+  - W052
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 1
+- territory_id: E500
+  terrain_type: farm
+  adjacent_to:
+  - E181
+  - E183
+  - E184
+  - E189
+  - E190
+  - E192
+  - E501
+  - S012
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E501
+  terrain_type: farm
+  adjacent_to:
+  - E165
+  - E177
+  - E181
+  - E183
+  - E184
+  - E500
+  - E505
+  - E506
+  - E507
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E505
+  terrain_type: farm
+  adjacent_to:
+  - E016
+  - E143
+  - E145
+  - E163
+  - E165
+  - E172
+  - E177
+  - E501
+  - E506
+  - E507
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E506
+  terrain_type: farm
+  adjacent_to:
+  - E163
+  - E165
+  - E177
+  - E501
+  - E505
+  - E507
+  - E508
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E507
+  terrain_type: farm
+  adjacent_to:
+  - E159
+  - E163
+  - E501
+  - E505
+  - E506
+  - E508
+  - E509
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E508
+  terrain_type: farm
+  adjacent_to:
+  - E145
+  - E146
+  - E148
+  - E159
+  - E506
+  - E507
+  - E509
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E509
+  terrain_type: farm
+  adjacent_to:
+  - E146
+  - E148
+  - E150
+  - E158
+  - E159
+  - E507
+  - E508
+  - E510
+  - E514
+  - E515
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E510
+  terrain_type: farm
+  adjacent_to:
+  - E149
+  - E150
+  - E153
+  - E158
+  - E207
+  - E509
+  - E513
+  - E514
+  - E515
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E513
+  terrain_type: farm
+  adjacent_to:
+  - E153
+  - E158
+  - E200
+  - E202
+  - E207
+  - E222
+  - E510
+  - E514
+  - E515
+  - E516
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E514
+  terrain_type: farm
+  adjacent_to:
+  - E158
+  - E202
+  - E509
+  - E510
+  - E513
+  - E515
+  - E516
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E515
+  terrain_type: farm
+  adjacent_to:
+  - E192
+  - E202
+  - E509
+  - E510
+  - E513
+  - E514
+  - E516
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E516
+  terrain_type: farm
+  adjacent_to:
+  - E189
+  - E190
+  - E192
+  - E202
+  - E207
+  - E513
+  - E514
+  - E515
+  original_nation: earth-kingdom
+  production:
+    rations: 2
+  controller: earth-kingdom
+- territory_id: E601
+  terrain_type: plains
+  adjacent_to:
+  - E602
+  - E603
+  - E604
+  - S089
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+  keywords:
+  - sacred-land
+- territory_id: E602
+  terrain_type: plains
+  adjacent_to:
+  - E601
+  - E603
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+  keywords:
+  - sacred-land
+- territory_id: E603
+  terrain_type: plains
+  adjacent_to:
+  - E601
+  - E602
+  - E604
+  - S089
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+  keywords:
+  - sacred-land
+- territory_id: E604
+  terrain_type: plains
+  adjacent_to:
+  - E601
+  - E603
+  - S089
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+  keywords:
+  - sacred-land
+- territory_id: E605
+  terrain_type: plains
+  adjacent_to:
+  - E606
+  - E607
+  - S093
+  original_nation: earth-kingdom
+  controller: kyoshi-island
+  production:
+    ore: 2
+    lumber: 2
+    coal: 2
+    rations: 2
+    cloth: 2
+    platinum: 0
+- territory_id: E606
+  terrain_type: plains
+  adjacent_to:
+  - E605
+  - E607
+  - S093
+  original_nation: earth-kingdom
+  controller: kyoshi-island
+  production:
+    ore: 2
+    lumber: 2
+    coal: 2
+    rations: 2
+    cloth: 2
+    platinum: 0
+- territory_id: E607
+  terrain_type: plains
+  adjacent_to:
+  - E605
+  - E606
+  - S093
+  original_nation: earth-kingdom
+  controller: kyoshi-island
+  production:
+    ore: 2
+    lumber: 2
+    coal: 2
+    rations: 2
+    cloth: 2
+    platinum: 0
+- territory_id: F001
+  terrain_type: plains
+  adjacent_to:
+  - E121
+  - E126
+  - F002
+  - F003
+  - F004
+  - S083
+  - S084
+  - S085
+  - S087
+  - S088
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    cloth: 2
+    rations: 1
+    lumber: 1
+- territory_id: F002
+  terrain_type: plains
+  adjacent_to:
+  - E374
+  - F001
+  - F003
+  - F004
+  - S083
+  - S084
+  - S085
+  - S087
+  - S088
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 3
+    lumber: 1
+    platinum: 1
+    cloth: 1
+- territory_id: F003
+  terrain_type: plains
+  adjacent_to:
+  - E387
+  - F001
+  - F002
+  - F004
+  - F008
+  - S079
+  - S080
+  - S084
+  - S085
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 3
+    coal: 1
+    platinum: 2
+    lumber: 1
+- territory_id: F004
+  terrain_type: plains
+  adjacent_to:
+  - F001
+  - F002
+  - F003
+  - F008
+  - F009
+  - F010
+  - S078
+  - S079
+  - S084
+  - S085
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    rations: 3
+    cloth: 1
+- territory_id: F008
+  terrain_type: plains
+  adjacent_to:
+  - F003
+  - F004
+  - F009
+  - F010
+  - F011
+  - S078
+  - S079
+  - S085
+  - S089
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    cloth: 2
+    lumber: 1
+- territory_id: F009
+  terrain_type: plains
+  adjacent_to:
+  - F004
+  - F008
+  - F010
+  - F011
+  - F013
+  - S077
+  - S085
+  - S089
+  - S094
+  original_nation: fire-nation
+  controller: saowon
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+- territory_id: F010
+  terrain_type: plains
+  adjacent_to:
+  - F004
+  - F008
+  - F009
+  - F011
+  - F013
+  - S077
+  - S078
+  - S079
+  original_nation: fire-nation
+  controller: saowon
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+- territory_id: F011
+  terrain_type: plains
+  adjacent_to:
+  - F008
+  - F009
+  - F010
+  - F013
+  - F014
+  - S077
+  original_nation: fire-nation
+  controller: saowon
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+- territory_id: F013
+  terrain_type: plains
+  adjacent_to:
+  - F009
+  - F010
+  - F011
+  - F014
+  - F015
+  - F017
+  - S073
+  - S077
+  - S078
+  - S079
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    rations: 1
+    platinum: 2
+- territory_id: F014
+  terrain_type: plains
+  adjacent_to:
+  - F011
+  - F013
+  - F015
+  - F017
+  - F018
+  - mainka
+  - S073
+  - S077
+  - S078
+  - S079
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    platinum: 1
+    cloth: 2
+- territory_id: F015
+  terrain_type: plains
+  adjacent_to:
+  - F013
+  - F014
+  - F017
+  - F018
+  - F019
+  - F022
+  - S073
+  - S077
+  - S078
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 4
+    cloth: 2
+    lumber: 1
+- territory_id: F017
+  terrain_type: mountain
+  adjacent_to:
+  - F013
+  - F014
+  - F015
+  - F018
+  - F019
+  - F022
+  - F080
+  - S058
+  - S073
+  - S074
+  - S077
+  original_nation: fire-nation
+  production:
+    rations: 2
+  controller: fire-nation
+- territory_id: F018
+  terrain_type: mountain
+  adjacent_to:
+  - F014
+  - F015
+  - F017
+  - F019
+  - F020
+  - F022
+  - S072
+  - S073
+  - S074
+  original_nation: fire-nation
+  production:
+    rations: 2
+  controller: fire-nation
+- territory_id: F019
+  terrain_type: mountain
+  adjacent_to:
+  - F015
+  - F017
+  - F018
+  - F020
+  - F022
+  - F026
+  - F080
+  - F081
+  - char-harbor
+  - S073
+  - S074
+  original_nation: fire-nation
+  production:
+    rations: 2
+  controller: fire-nation
+- territory_id: F020
+  terrain_type: mountain
+  adjacent_to:
+  - F018
+  - F019
+  - F022
+  - F026
+  - F028
+  - F037
+  - S072
+  - S074
+  original_nation: fire-nation
+  controller: fire-nation
+- territory_id: F022
+  terrain_type: plains
+  adjacent_to:
+  - F015
+  - F017
+  - F018
+  - F019
+  - F020
+  - F026
+  - F028
+  - F037
+  - F038
+  - S071
+  - S072
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 1
+    rations: 2
+    lumber: 1
+    cloth: 1
+  keywords:
+  - sacred-land
+- territory_id: F026
+  terrain_type: farm
+  adjacent_to:
+  - F019
+  - F020
+  - F022
+  - F028
+  - F029
+  - F031
+  - F037
+  - F043
+  - F046
+  - S074
+  - S075
+  original_nation: fire-nation
+  production:
+    rations: 2
+  controller: fire-nation
+  keywords:
+  - sacred-land
+- territory_id: F028
+  terrain_type: farm
+  adjacent_to:
+  - F020
+  - F022
+  - F026
+  - F029
+  - F031
+  - F037
+  - F043
+  original_nation: fire-nation
+  production:
+    rations: 2
+  controller: fire-nation
+- territory_id: F029
+  terrain_type: farm
+  adjacent_to:
+  - F026
+  - F028
+  - F031
+  - F037
+  - F043
+  - F044
+  - F046
+  - S064
+  original_nation: fire-nation
+  production:
+    rations: 2
+  controller: fire-nation
+- territory_id: F031
+  terrain_type: mountain
+  adjacent_to:
+  - F026
+  - F028
+  - F029
+  - F044
+  - F046
+  - F048
+  - S074
+  - S075
+  original_nation: fire-nation
+  controller: fire-nation
+- territory_id: F037
+  terrain_type: plains
+  adjacent_to:
+  - F020
+  - F022
+  - F026
+  - F028
+  - F029
+  - F038
+  - F039
+  - F040
+  - F043
+  - S072
+  original_nation: fire-nation
+  controller: fire-sages
+  production:
+    ore: 2
+    lumber: 2
+    coal: 2
+    rations: 2
+    cloth: 2
+    platinum: 2
+- territory_id: F038
+  terrain_type: plains
+  adjacent_to:
+  - F022
+  - F037
+  - F039
+  - F040
+  - F043
+  - S065
+  - S071
+  - S072
+  original_nation: fire-nation
+  controller: fire-sages
+  production:
+    ore: 2
+    lumber: 2
+    coal: 2
+    rations: 2
+    cloth: 2
+    platinum: 2
+- territory_id: F039
+  terrain_type: plains
+  adjacent_to:
+  - F037
+  - F038
+  - F040
+  - F043
+  - S065
+  - S071
+  - S072
+  original_nation: fire-nation
+  controller: fire-sages
+  production:
+    ore: 2
+    lumber: 2
+    coal: 2
+    rations: 2
+    cloth: 2
+    platinum: 2
+- territory_id: F040
+  terrain_type: plains
+  adjacent_to:
+  - F037
+  - F038
+  - F039
+  - F043
+  - S065
+  - S071
+  - S072
+  original_nation: fire-nation
+  controller: fire-sages
+  production:
+    ore: 2
+    lumber: 2
+    coal: 2
+    rations: 2
+    cloth: 2
+    platinum: 2
+- territory_id: F043
+  terrain_type: farm
+  adjacent_to:
+  - F026
+  - F028
+  - F029
+  - F037
+  - F038
+  - F039
+  - F040
+  - F044
+  - F046
+  - S064
+  - S065
+  - S145
+  original_nation: fire-nation
+  production:
+    rations: 2
+  controller: fire-nation
+- territory_id: F044
+  terrain_type: farm
+  adjacent_to:
+  - F029
+  - F031
+  - F043
+  - F046
+  - F048
+  - F049
+  - F050
+  - S064
+  original_nation: fire-nation
+  production:
+    rations: 2
+  controller: fire-nation
+- territory_id: F046
+  terrain_type: mountain
+  adjacent_to:
+  - F026
+  - F029
+  - F031
+  - F043
+  - F044
+  - F048
+  - F049
+  - F050
+  - F052
+  - S064
+  - S075
+  original_nation: fire-nation
+  controller: fire-nation
+- territory_id: F048
+  terrain_type: forest
+  adjacent_to:
+  - F031
+  - F044
+  - F046
+  - F049
+  - F050
+  - F052
+  - F054
+  - S063
+  - S064
+  - S075
+  original_nation: fire-nation
+  production:
+    lumber: 2
+  controller: fire-nation
+- territory_id: F049
+  terrain_type: forest
+  adjacent_to:
+  - F044
+  - F046
+  - F048
+  - F050
+  - F052
+  - F065
+  - S063
+  - S064
+  original_nation: fire-nation
+  production:
+    lumber: 2
+  controller: fire-nation
+- territory_id: F050
+  terrain_type: forest
+  adjacent_to:
+  - F044
+  - F046
+  - F048
+  - F049
+  - F052
+  - F054
+  - F065
+  - S062
+  - S063
+  - S064
+  original_nation: fire-nation
+  production:
+    lumber: 2
+  controller: fire-nation
+- territory_id: F052
+  terrain_type: forest
+  adjacent_to:
+  - F046
+  - F048
+  - F049
+  - F050
+  - F054
+  - F056
+  - F057
+  - F058
+  - F065
+  - F066
+  - S075
+  original_nation: fire-nation
+  production:
+    lumber: 2
+  controller: fire-nation
+- territory_id: F054
+  terrain_type: mountain
+  adjacent_to:
+  - F048
+  - F050
+  - F052
+  - F056
+  - F057
+  - F058
+  - F059
+  - F060
+  - F065
+  - F066
+  - F068
+  - caldera-city
+  original_nation: fire-nation
+  controller: fire-nation
+- territory_id: F056
+  terrain_type: mountain
+  adjacent_to:
+  - F052
+  - F054
+  - F057
+  - F058
+  - F059
+  - F060
+  - F066
+  - F068
+  original_nation: fire-nation
+  controller: fire-nation
+- territory_id: F057
+  terrain_type: forest
+  adjacent_to:
+  - F052
+  - F054
+  - F056
+  - F058
+  - F059
+  - F060
+  - F084
+  - F085
+  - S075
+  - S076
+  original_nation: fire-nation
+  production:
+    lumber: 2
+  controller: fire-nation
+- territory_id: F058
+  terrain_type: forest
+  adjacent_to:
+  - F052
+  - F054
+  - F056
+  - F057
+  - F059
+  - F084
+  - F085
+  - F086
+  - S075
+  - S076
+  original_nation: fire-nation
+  production:
+    lumber: 2
+  controller: fire-nation
+- territory_id: F059
+  terrain_type: plains
+  adjacent_to:
+  - F054
+  - F056
+  - F057
+  - F058
+  - F060
+  - F085
+  - F086
+  - F087
+  - F088
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    rations: 3
+- territory_id: F060
+  terrain_type: plains
+  adjacent_to:
+  - F054
+  - F056
+  - F057
+  - F059
+  - F068
+  - F069
+  - F071
+  - F086
+  - F087
+  - F088
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    coal: 3
+    platinum: 1
+    rations: 1
+    cloth: 1
+- territory_id: F065
+  terrain_type: mountain
+  adjacent_to:
+  - F049
+  - F050
+  - F052
+  - F054
+  - F066
+  - F067
+  - F068
+  - S062
+  - S063
+  original_nation: fire-nation
+  production:
+    ore: 1
+    coal: 1
+  controller: fire-nation
+- territory_id: F066
+  terrain_type: mountain
+  adjacent_to:
+  - F052
+  - F054
+  - F056
+  - F065
+  - F067
+  - F068
+  - F069
+  original_nation: fire-nation
+  production:
+    ore: 1
+    coal: 1
+  controller: fire-nation
+- territory_id: F067
+  terrain_type: plains
+  adjacent_to:
+  - F065
+  - F066
+  - F068
+  - F069
+  - F070
+  - F071
+  - S061
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    lumber: 1
+    cloth: 2
+    cloth: 2
+- territory_id: F068
+  terrain_type: plains
+  adjacent_to:
+  - F054
+  - F056
+  - F060
+  - F065
+  - F066
+  - F067
+  - F069
+  - F070
+  - F071
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    cloth: 2
+    platinum: 1
+    rations: 1
+    rations: 1
+- territory_id: F069
+  terrain_type: plains
+  adjacent_to:
+  - F060
+  - F066
+  - F067
+  - F068
+  - F070
+  - F071
+  - F088
+  - S061
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 1
+    platinum: 1
+    cloth: 3
+- territory_id: F070
+  terrain_type: plains
+  adjacent_to:
+  - F067
+  - F068
+  - F069
+  - F071
+  - F088
+  - S052
+  - S053
+  - S061
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 3
+    coal: 3
+    lumber: 1
+    cloth: 1
+    platinum: 1
+- territory_id: F071
+  terrain_type: plains
+  adjacent_to:
+  - F060
+  - F067
+  - F068
+  - F069
+  - F070
+  - F088
+  - S061
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 3
+    coal: 2
+    platinum: 1
+    cloth: 1
+- territory_id: F080
+  terrain_type: plains
+  adjacent_to:
+  - F017
+  - F019
+  - F081
+  - F082
+  - S057
+  - S058
+  - S073
+  - S074
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    platinum: 1
+    lumber: 2
+    rations: 1
+- territory_id: F081
+  terrain_type: mountain
+  adjacent_to:
+  - F019
+  - F080
+  - F082
+  - F083
+  - S057
+  - S058
+  - S074
+  original_nation: fire-nation
+  production:
+    ore: 1
+    coal: 1
+  controller: fire-nation
+- territory_id: F082
+  terrain_type: mountain
+  adjacent_to:
+  - F080
+  - F081
+  - F083
+  - F084
+  - S058
+  - S059
+  - S074
+  - S076
+  original_nation: fire-nation
+  production:
+    ore: 1
+    coal: 1
+  controller: fire-nation
+- territory_id: F083
+  terrain_type: mountain
+  adjacent_to:
+  - F081
+  - F082
+  - F084
+  - F085
+  - S056
+  - S058
+  - S059
+  - S074
+  - S076
+  original_nation: fire-nation
+  production:
+    ore: 1
+    coal: 2
+  controller: fire-nation
+- territory_id: F084
+  terrain_type: plains
+  adjacent_to:
+  - F057
+  - F058
+  - F082
+  - F083
+  - F085
+  - F086
+  - S046
+  - S056
+  - S059
+  - S076
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    rations: 2
+    lumber: 1
+- territory_id: F085
+  terrain_type: plains
+  adjacent_to:
+  - F057
+  - F058
+  - F059
+  - F083
+  - F084
+  - F086
+  - F087
+  - S046
+  - S054
+  - S056
+  - S059
+  - S076
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    cloth: 2
+    platinum: 1
+- territory_id: F086
+  terrain_type: plains
+  adjacent_to:
+  - F058
+  - F059
+  - F060
+  - F084
+  - F085
+  - F087
+  - F088
+  - S046
+  - S054
+  - S059
+  - S060
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    rations: 1
+    platinum: 2
+- territory_id: F087
+  terrain_type: plains
+  adjacent_to:
+  - F059
+  - F060
+  - F085
+  - F086
+  - F088
+  - S055
+  - S059
+  - S060
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 2
+    coal: 2
+    platinum: 1
+    rations: 1
+    lumber: 1
+- territory_id: F088
+  terrain_type: plains
+  adjacent_to:
+  - F059
+  - F060
+  - F069
+  - F070
+  - F071
+  - F086
+  - F087
+  - S053
+  - S055
+  - S060
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    ore: 3
+    coal: 3
+    platinum: 1
+    rations: 1
+- territory_id: S001
+  terrain_type: ocean
+  adjacent_to:
+  - E176
+  - S003
+  - S004
+  - S009
+  - S010
+- territory_id: S002
+  terrain_type: ocean
+  adjacent_to:
+  - S003
+  - S131
+- territory_id: S003
+  terrain_type: ocean
+  adjacent_to:
+  - S001
+  - S002
+  - S004
+  - S005
+  - S006
+  - S007
+- territory_id: S004
+  terrain_type: ocean
+  adjacent_to:
+  - E176
+  - S001
+  - S003
+  - S005
+  - S006
+  - S007
+  - S009
+- territory_id: S005
+  terrain_type: ocean
+  adjacent_to:
+  - E001
+  - S003
+  - S004
+  - S006
+  - S007
+  - S131
+- territory_id: S006
+  terrain_type: ocean
+  adjacent_to:
+  - E008
+  - E010
+  - E167
+  - S003
+  - S004
+  - S005
+  - S007
+- territory_id: S007
+  terrain_type: ocean
+  adjacent_to:
+  - E010
+  - E166
+  - E167
+  - E172
+  - E176
+  - E177
+  - S003
+  - S004
+  - S005
+  - S006
+- territory_id: S008
+  terrain_type: ocean
+  adjacent_to:
+  - E176
+  - E177
+  - E181
+  - E183
+  - E184
+  - S009
+  - S010
+  - S011
+  - S012
+- territory_id: S009
+  terrain_type: ocean
+  adjacent_to:
+  - E176
+  - E177
+  - E183
+  - S001
+  - S004
+  - S008
+  - S010
+  - S011
+  - S012
+- territory_id: S010
+  terrain_type: ocean
+  adjacent_to:
+  - S001
+  - S008
+  - S009
+  - S011
+  - S012
+  - S014
+  - S015
+- territory_id: S011
+  terrain_type: ocean
+  adjacent_to:
+  - E189
+  - E190
+  - E196
+  - S008
+  - S009
+  - S010
+  - S012
+  - S014
+  - S015
+- territory_id: S012
+  terrain_type: ocean
+  adjacent_to:
+  - E184
+  - E189
+  - E190
+  - E192
+  - E500
+  - S008
+  - S009
+  - S010
+  - S011
+  - S015
+- territory_id: S013
+  terrain_type: ocean
+  adjacent_to:
+  - A065
+  - E190
+  - E195
+  - E196
+  - E210
+  - E216
+  - S014
+  - S015
+  - S023
+- territory_id: S014
+  terrain_type: ocean
+  adjacent_to:
+  - A065
+  - E195
+  - E196
+  - E210
+  - S010
+  - S011
+  - S013
+  - S015
+  - S016
+  - S023
+  - S024
+- territory_id: S015
+  terrain_type: ocean
+  adjacent_to:
+  - E210
+  - S010
+  - S011
+  - S012
+  - S013
+  - S014
+  - S016
+  - S023
+- territory_id: S016
+  terrain_type: ocean
+  adjacent_to:
+  - S014
+  - S015
+  - S020
+  - S023
+  - W001
+  - W003
+  - W005
+  - W009
+- territory_id: S017
+  terrain_type: ocean
+  adjacent_to:
+  - S018
+  - S019
+  - S020
+  - W019
+- territory_id: S018
+  terrain_type: ocean
+  adjacent_to:
+  - S017
+  - S019
+  - S020
+  - W009
+  - W011
+  - W018
+  - W019
+- territory_id: S019
+  terrain_type: ocean
+  adjacent_to:
+  - S017
+  - S018
+  - S020
+  - W011
+  - W017
+  - W018
+  - W019
+  - W020
+  - W036
+  - W037
+- territory_id: S020
+  terrain_type: ocean
+  adjacent_to:
+  - S016
+  - S017
+  - S018
+  - S019
+  - W003
+  - W004
+  - W009
+  - W011
+  - W012
+  - W018
+- territory_id: S021
+  terrain_type: ocean
+  adjacent_to:
+  - A063
+  - E267
+  - S022
+  - S024
+  - S026
+  - S027
+  - W001
+  - W003
+  - W004
+  - W005
+  - W006
+  - W014
+- territory_id: S022
+  terrain_type: ocean
+  adjacent_to:
+  - A063
+  - E261
+  - E267
+  - S021
+  - S023
+  - S024
+  - W001
+  - W003
+  - W005
+  - W006
+- territory_id: S023
+  terrain_type: ocean
+  adjacent_to:
+  - A065
+  - E216
+  - S013
+  - S014
+  - S015
+  - S016
+  - S022
+  - S024
+  - W001
+  - W003
+- territory_id: S024
+  terrain_type: ocean
+  adjacent_to:
+  - A063
+  - A064
+  - A065
+  - E216
+  - E261
+  - S014
+  - S021
+  - S022
+  - S023
+  - W001
+- territory_id: S025
+  terrain_type: ocean
+  adjacent_to:
+  - E264
+  - E267
+  - E268
+  - E270
+  - S026
+  - S027
+  - S028
+  - W014
+- territory_id: S026
+  terrain_type: ocean
+  adjacent_to:
+  - E267
+  - E268
+  - E270
+  - S021
+  - S025
+  - S027
+  - S028
+  - W014
+- territory_id: S027
+  terrain_type: ocean
+  adjacent_to:
+  - S021
+  - S025
+  - S026
+  - S028
+  - W005
+  - W006
+  - W014
+  - W015
+- territory_id: S028
+  terrain_type: ocean
+  adjacent_to:
+  - S025
+  - S026
+  - S027
+  - W015
+  - W017
+  - W022
+  - W023
+  - W024
+  - W025
+  - W026
+- territory_id: S029
+  terrain_type: ocean
+  adjacent_to:
+  - E353
+  - S030
+  - S032
+  - S036
+  - W026
+  - W027
+  - W029
+  - W030
+  - W031
+  - W032
+- territory_id: S030
+  terrain_type: ocean
+  adjacent_to:
+  - E270
+  - E336
+  - E350
+  - E351
+  - E353
+  - S029
+  - S031
+  - S032
+  - W024
+  - W025
+  - W026
+  - W027
+  - W029
+- territory_id: S031
+  terrain_type: ocean
+  adjacent_to:
+  - E264
+  - E270
+  - E272
+  - E330
+  - E331
+  - E336
+  - E350
+  - S030
+  - S032
+  - W025
+- territory_id: S032
+  terrain_type: ocean
+  adjacent_to:
+  - E330
+  - E336
+  - E347
+  - E350
+  - E351
+  - E353
+  - S029
+  - S030
+  - S031
+  - W027
+- territory_id: S033
+  terrain_type: ocean
+  adjacent_to:
+  - E351
+  - E353
+  - E356
+  - E358
+  - E359
+  - E367
+  - S034
+  - S035
+  - S036
+  - W030
+- territory_id: S034
+  terrain_type: ocean
+  adjacent_to:
+  - A042
+  - E358
+  - E359
+  - S033
+  - S035
+  - S036
+  - S038
+  - S041
+- territory_id: S035
+  terrain_type: ocean
+  adjacent_to:
+  - E358
+  - S033
+  - S034
+  - S036
+  - W030
+  - W031
+- territory_id: S036
+  terrain_type: ocean
+  adjacent_to:
+  - S029
+  - S033
+  - S034
+  - S035
+  - W029
+  - W030
+  - W031
+  - W032
+  - W038
+- territory_id: S037
+  terrain_type: ocean
+  adjacent_to:
+  - S038
+  - S039
+- territory_id: S038
+  terrain_type: ocean
+  adjacent_to:
+  - A042
+  - E359
+  - S034
+  - S037
+  - S039
+  - S040
+  - S041
+- territory_id: S039
+  terrain_type: ocean
+  adjacent_to:
+  - A055
+  - S037
+  - S038
+  - S040
+  - S048
+- territory_id: S040
+  terrain_type: ocean
+  adjacent_to:
+  - A043
+  - A045
+  - A055
+  - S038
+  - S039
+  - S044
+  - S045
+  - S046
+  - S048
+- territory_id: S041
+  terrain_type: ocean
+  adjacent_to:
+  - A042
+  - A043
+  - A045
+  - E359
+  - E360
+  - S034
+  - S038
+- territory_id: S042
+  terrain_type: ocean
+  adjacent_to:
+  - A043
+  - A045
+  - E361
+  - E362
+  - E382
+  - E383
+  - S043
+  - S044
+  - S045
+- territory_id: S043
+  terrain_type: ocean
+  adjacent_to:
+  - A043
+  - A045
+  - E361
+  - E362
+  - E380
+  - E381
+  - E382
+  - E383
+  - S042
+  - S044
+- territory_id: S044
+  terrain_type: ocean
+  adjacent_to:
+  - A045
+  - A055
+  - E383
+  - S040
+  - S042
+  - S043
+  - S045
+  - S046
+  - S056
+  - S057
+  - S058
+  - S059
+- territory_id: S045
+  terrain_type: ocean
+  adjacent_to:
+  - A043
+  - A045
+  - A055
+  - S040
+  - S042
+  - S044
+  - S046
+  - S047
+  - S056
+- territory_id: S046
+  terrain_type: ocean
+  adjacent_to:
+  - A055
+  - F084
+  - F085
+  - F086
+  - S040
+  - S044
+  - S045
+  - S047
+  - S054
+  - S055
+  - S056
+  - S058
+  - S059
+- territory_id: S047
+  terrain_type: ocean
+  adjacent_to:
+  - A055
+  - S045
+  - S046
+  - S048
+  - S054
+  - S055
+- territory_id: S048
+  terrain_type: ocean
+  adjacent_to:
+  - A055
+  - S039
+  - S040
+  - S047
+  - S049
+  - S050
+- territory_id: S049
+  terrain_type: ocean
+  adjacent_to:
+  - S048
+  - S050
+  - S051
+- territory_id: S050
+  terrain_type: ocean
+  adjacent_to:
+  - S048
+  - S049
+  - S051
+- territory_id: S051
+  terrain_type: ocean
+  adjacent_to:
+  - S049
+  - S050
+- territory_id: S052
+  terrain_type: ocean
+  adjacent_to:
+  - F070
+  - S053
+  - S061
+  - S062
+  - S066
+- territory_id: S053
+  terrain_type: ocean
+  adjacent_to:
+  - F070
+  - F088
+  - S052
+  - S054
+  - S055
+  - S060
+  - S061
+- territory_id: S054
+  terrain_type: ocean
+  adjacent_to:
+  - A055
+  - F085
+  - F086
+  - S046
+  - S047
+  - S053
+  - S055
+  - S060
+- territory_id: S055
+  terrain_type: ocean
+  adjacent_to:
+  - F087
+  - F088
+  - S046
+  - S047
+  - S053
+  - S054
+  - S060
+- territory_id: S056
+  terrain_type: ocean
+  adjacent_to:
+  - A055
+  - F083
+  - F084
+  - F085
+  - S044
+  - S045
+  - S046
+  - S057
+  - S058
+  - S059
+- territory_id: S057
+  terrain_type: ocean
+  adjacent_to:
+  - E385
+  - F080
+  - F081
+  - S044
+  - S056
+  - S058
+  - S059
+  - S073
+  - S078
+  - S079
+- territory_id: S058
+  terrain_type: ocean
+  adjacent_to:
+  - E385
+  - F017
+  - F080
+  - F081
+  - F082
+  - F083
+  - S044
+  - S046
+  - S056
+  - S057
+  - S059
+  - S073
+  - S074
+  - S079
+- territory_id: S059
+  terrain_type: ocean
+  adjacent_to:
+  - F082
+  - F083
+  - F084
+  - F085
+  - F086
+  - F087
+  - S044
+  - S046
+  - S056
+  - S057
+  - S058
+- territory_id: S060
+  terrain_type: ocean
+  adjacent_to:
+  - F086
+  - F087
+  - F088
+  - S053
+  - S054
+  - S055
+- territory_id: S061
+  terrain_type: ocean
+  adjacent_to:
+  - F067
+  - F069
+  - F070
+  - F071
+  - S052
+  - S053
+- territory_id: S062
+  terrain_type: ocean
+  adjacent_to:
+  - F050
+  - F065
+  - S052
+  - S063
+  - S066
+  - S145
+- territory_id: S063
+  terrain_type: ocean
+  adjacent_to:
+  - F048
+  - F049
+  - F050
+  - F065
+  - S062
+  - S066
+  - S145
+- territory_id: S064
+  terrain_type: ocean
+  adjacent_to:
+  - F029
+  - F043
+  - F044
+  - F046
+  - F048
+  - F049
+  - F050
+  - S065
+  - S145
+- territory_id: S065
+  terrain_type: ocean
+  adjacent_to:
+  - F038
+  - F039
+  - F040
+  - F043
+  - S064
+  - S071
+  - S145
+- territory_id: S066
+  terrain_type: ocean
+  adjacent_to:
+  - S052
+  - S062
+  - S063
+  - S145
+- territory_id: S067
+  terrain_type: ocean
+  adjacent_to:
+  - A057
+  - E154
+  - S068
+  - S069
+- territory_id: S068
+  terrain_type: ocean
+  adjacent_to:
+  - E154
+  - S067
+  - S069
+  - S070
+  - S071
+- territory_id: S069
+  terrain_type: ocean
+  adjacent_to:
+  - A057
+  - A062
+  - E154
+  - S067
+  - S068
+  - S070
+- territory_id: S070
+  terrain_type: ocean
+  adjacent_to:
+  - A031
+  - A057
+  - A058
+  - A059
+  - A062
+  - E154
+  - S068
+  - S069
+  - S103
+- territory_id: S071
+  terrain_type: ocean
+  adjacent_to:
+  - F022
+  - F038
+  - F039
+  - F040
+  - S065
+  - S068
+  - S072
+- territory_id: S072
+  terrain_type: ocean
+  adjacent_to:
+  - F018
+  - F020
+  - F022
+  - F037
+  - F038
+  - F039
+  - F040
+  - S071
+- territory_id: S073
+  terrain_type: ocean
+  adjacent_to:
+  - E385
+  - F013
+  - F014
+  - F015
+  - F017
+  - F018
+  - F019
+  - F080
+  - S057
+  - S058
+  - S078
+  - S079
+- territory_id: S074
+  terrain_type: ocean
+  adjacent_to:
+  - F017
+  - F018
+  - F019
+  - F020
+  - F026
+  - F031
+  - F080
+  - F081
+  - F082
+  - F083
+  - S058
+  - S075
+- territory_id: S075
+  terrain_type: ocean
+  adjacent_to:
+  - F026
+  - F031
+  - F046
+  - F048
+  - F052
+  - F057
+  - F058
+  - S074
+  - S076
+- territory_id: S076
+  terrain_type: ocean
+  adjacent_to:
+  - F057
+  - F058
+  - F082
+  - F083
+  - F084
+  - F085
+  - S075
+- territory_id: S077
+  terrain_type: ocean
+  adjacent_to:
+  - F009
+  - F010
+  - F011
+  - F013
+  - F014
+  - F015
+  - F017
+  - S078
+  - S094
+- territory_id: S078
+  terrain_type: ocean
+  adjacent_to:
+  - F004
+  - F008
+  - F010
+  - F013
+  - F014
+  - F015
+  - S057
+  - S073
+  - S077
+  - S079
+- territory_id: S079
+  terrain_type: ocean
+  adjacent_to:
+  - E383
+  - E385
+  - E387
+  - F003
+  - F004
+  - F008
+  - F010
+  - F013
+  - F014
+  - S057
+  - S058
+  - S073
+  - S078
+  - S080
+- territory_id: S080
+  terrain_type: ocean
+  adjacent_to:
+  - E373
+  - E380
+  - E382
+  - E385
+  - E387
+  - F003
+  - S079
+  - S081
+  - S082
+  - S083
+  - S084
+- territory_id: S081
+  terrain_type: ocean
+  adjacent_to:
+  - E346
+  - E348
+  - E373
+  - E376
+  - E377
+  - E380
+  - S080
+  - S082
+- territory_id: S082
+  terrain_type: ocean
+  adjacent_to:
+  - E346
+  - E373
+  - E374
+  - S080
+  - S081
+  - S083
+  - S084
+- territory_id: S083
+  terrain_type: ocean
+  adjacent_to:
+  - E373
+  - E374
+  - F001
+  - F002
+  - S080
+  - S082
+  - S084
+  - S086
+  - S087
+  - S088
+- territory_id: S084
+  terrain_type: ocean
+  adjacent_to:
+  - E387
+  - F001
+  - F002
+  - F003
+  - F004
+  - S080
+  - S082
+  - S083
+- territory_id: S085
+  terrain_type: ocean
+  adjacent_to:
+  - E121
+  - F001
+  - F002
+  - F003
+  - F004
+  - F008
+  - F009
+  - S088
+  - S089
+- territory_id: S086
+  terrain_type: ocean
+  adjacent_to:
+  - E126
+  - E307
+  - E309
+  - E311
+  - E340
+  - E342
+  - E345
+  - E374
+  - S083
+  - S087
+  - S088
+- territory_id: S087
+  terrain_type: ocean
+  adjacent_to:
+  - E126
+  - E127
+  - E309
+  - E311
+  - E345
+  - E374
+  - F001
+  - F002
+  - S083
+  - S086
+  - S088
+- territory_id: S088
+  terrain_type: ocean
+  adjacent_to:
+  - E120
+  - E121
+  - E126
+  - E127
+  - F001
+  - F002
+  - S083
+  - S085
+  - S086
+  - S087
+  - S089
+- territory_id: S089
+  terrain_type: ocean
+  adjacent_to:
+  - A015
+  - E120
+  - E121
+  - E601
+  - E603
+  - E604
+  - F008
+  - F009
+  - S085
+  - S088
+  - S090
+  - S093
+  - S094
+  - W201
+  - W202
+  - W203
+- territory_id: S090
+  terrain_type: ocean
+  adjacent_to:
+  - A014
+  - E037
+  - E038
+  - E095
+  - E107
+  - E120
+  - E121
+  - S089
+  - S093
+- territory_id: S091
+  terrain_type: ocean
+  adjacent_to:
+  - E034
+  - E038
+  - E041
+  - E042
+  - E043
+  - S092
+- territory_id: S092
+  terrain_type: ocean
+  adjacent_to:
+  - A014
+  - A018
+  - A021
+  - E037
+  - E038
+  - E042
+  - S091
+  - S096
+- territory_id: S093
+  terrain_type: ocean
+  adjacent_to:
+  - A014
+  - A015
+  - A016
+  - A017
+  - E037
+  - E038
+  - E605
+  - E606
+  - E607
+  - S089
+  - S090
+- territory_id: S094
+  terrain_type: ocean
+  adjacent_to:
+  - A017
+  - F009
+  - S077
+  - S089
+- territory_id: S095
+  terrain_type: ocean
+  adjacent_to:
+  - A015
+  - A016
+  - A017
+  - A021
+  - A022
+  - A024
+  - A031
+  - S101
+  - S102
+  - S103
+- territory_id: S096
+  terrain_type: ocean
+  adjacent_to:
+  - E426
+  - S092
+- territory_id: S097
+  terrain_type: ocean
+  adjacent_to:
+  - E419
+  - E420
+  - E422
+  - E423
+  - E424
+  - E425
+  - S098
+  - S115
+  - W043
+- territory_id: S098
+  terrain_type: ocean
+  adjacent_to:
+  - E423
+  - E425
+  - S097
+  - S115
+  - W040
+  - W041
+  - W043
+- territory_id: S099
+  terrain_type: ocean
+  adjacent_to:
+  - E428
+  - S100
+  - W040
+  - W041
+  - W052
+  - W054
+  - W055
+  - W067
+- territory_id: S100
+  terrain_type: ocean
+  adjacent_to:
+  - S099
+  - W041
+  - W043
+  - W044
+  - W045
+  - W046
+  - W047
+  - W052
+  - W067
+- territory_id: S101
+  terrain_type: ocean
+  adjacent_to:
+  - A024
+  - S095
+  - S102
+  - S103
+  - W054
+  - W055
+  - W064
+  - W065
+  - W066
+- territory_id: S102
+  terrain_type: ocean
+  adjacent_to:
+  - A016
+  - A021
+  - A022
+  - A024
+  - S095
+  - S101
+  - W054
+  - W065
+- territory_id: S103
+  terrain_type: ocean
+  adjacent_to:
+  - A024
+  - A031
+  - A054
+  - A058
+  - A059
+  - A062
+  - S070
+  - S095
+  - S101
+  - S104
+  - W065
+- territory_id: S104
+  terrain_type: ocean
+  adjacent_to:
+  - A024
+  - A031
+  - A054
+  - A059
+  - S103
+  - S105
+  - W066
+  - W069
+  - W073
+  - W074
+- territory_id: S105
+  terrain_type: ocean
+  adjacent_to:
+  - A054
+  - A056
+  - A058
+  - A059
+  - S104
+  - S106
+  - S107
+  - S109
+  - W073
+  - W074
+- territory_id: S106
+  terrain_type: ocean
+  adjacent_to:
+  - A054
+  - A056
+  - A057
+  - S105
+  - S107
+  - S109
+  - W074
+- territory_id: S107
+  terrain_type: ocean
+  adjacent_to:
+  - A056
+  - A057
+  - S105
+  - S106
+  - S108
+  - S109
+  - S110
+  - W074
+- territory_id: S108
+  terrain_type: ocean
+  adjacent_to:
+  - S107
+  - S109
+  - S110
+  - S112
+  - W060
+  - W061
+  - W069
+- territory_id: S109
+  terrain_type: ocean
+  adjacent_to:
+  - S105
+  - S106
+  - S107
+  - S108
+  - S110
+  - S112
+  - W069
+  - W074
+- territory_id: S110
+  terrain_type: ocean
+  adjacent_to:
+  - S107
+  - S108
+  - S109
+  - S112
+  - W060
+  - W061
+  - W063
+  - W068
+  - W069
+  - W073
+  - W074
+- territory_id: S111
+  terrain_type: ocean
+  adjacent_to:
+  - S112
+  - S113
+  - S114
+  - W057
+  - W058
+  - W059
+  - W060
+- territory_id: S112
+  terrain_type: ocean
+  adjacent_to:
+  - S108
+  - S109
+  - S110
+  - S111
+  - W059
+  - W060
+  - W061
+- territory_id: S113
+  terrain_type: ocean
+  adjacent_to:
+  - S111
+  - S114
+  - W047
+  - W058
+- territory_id: S114
+  terrain_type: ocean
+  adjacent_to:
+  - S111
+  - S113
+  - W044
+  - W045
+  - W046
+  - W047
+  - W058
+- territory_id: S115
+  terrain_type: ocean
+  adjacent_to:
+  - S097
+  - S098
+  - S116
+  - S117
+  - S118
+  - W041
+  - W043
+  - W044
+  - W045
+- territory_id: S116
+  terrain_type: ocean
+  adjacent_to:
+  - S115
+  - W044
+  - W045
+- territory_id: S117
+  terrain_type: ocean
+  adjacent_to:
+  - S115
+  - S118
+- territory_id: S118
+  terrain_type: ocean
+  adjacent_to:
+  - E420
+  - E422
+  - S115
+  - S117
+  - S119
+  - S120
+- territory_id: S119
+  terrain_type: ocean
+  adjacent_to:
+  - E407
+  - E408
+  - E409
+  - E412
+  - E413
+  - E420
+  - S118
+  - S120
+- territory_id: S120
+  terrain_type: ocean
+  adjacent_to:
+  - E412
+  - E413
+  - E416
+  - E417
+  - E419
+  - E420
+  - E422
+  - S118
+  - S119
+  - S121
+- territory_id: S121
+  terrain_type: ocean
+  adjacent_to:
+  - E031
+  - E032
+  - E034
+  - E412
+  - E413
+  - E416
+  - E417
+  - S120
+  - S122
+- territory_id: S122
+  terrain_type: ocean
+  adjacent_to:
+  - E031
+  - E032
+  - E046
+  - E047
+  - E048
+  - E409
+  - E412
+  - E413
+  - S121
+  - S123
+  - S124
+- territory_id: S123
+  terrain_type: ocean
+  adjacent_to:
+  - E031
+  - E047
+  - E048
+  - E053
+  - E404
+  - E405
+  - E408
+  - E409
+  - S122
+  - S124
+  - S126
+- territory_id: S124
+  terrain_type: ocean
+  adjacent_to:
+  - E048
+  - E053
+  - E404
+  - E405
+  - E406
+  - E407
+  - E408
+  - E409
+  - S122
+  - S123
+  - S126
+- territory_id: S125
+  terrain_type: ocean
+  adjacent_to:
+  - A004
+  - A006
+  - E021
+  - E022
+  - E025
+  - E048
+  - E053
+  - E400
+  - E401
+  - E404
+  - S126
+  - S136
+- territory_id: S126
+  terrain_type: ocean
+  adjacent_to:
+  - E021
+  - E022
+  - E024
+  - E025
+  - E048
+  - E049
+  - E053
+  - E400
+  - E404
+  - S123
+  - S124
+  - S125
+- territory_id: S127
+  terrain_type: ocean
+  adjacent_to:
+  - A004
+  - E003
+  - E004
+  - E005
+  - E021
+  - E022
+  - E024
+- territory_id: S128
+  terrain_type: ocean
+  adjacent_to:
+  - E018
+  - E019
+  - E020
+  - E021
+  - E024
+  - E025
+  - E065
+  - E068
+  - E141
+  - S129
+- territory_id: S129
+  terrain_type: ocean
+  adjacent_to:
+  - E016
+  - E018
+  - E019
+  - E020
+  - E065
+  - E068
+  - E141
+  - E143
+  - S128
+- territory_id: S130
+  terrain_type: ocean
+  adjacent_to:
+  - E001
+  - E003
+  - E004
+  - E005
+  - E007
+  - E008
+  - S131
+  - S134
+- territory_id: S131
+  terrain_type: ocean
+  adjacent_to:
+  - E001
+  - E004
+  - S002
+  - S005
+  - S130
+  - S132
+- territory_id: S132
+  terrain_type: ocean
+  adjacent_to:
+  - S131
+  - S133
+- territory_id: S133
+  terrain_type: ocean
+  adjacent_to:
+  - A001
+  - A003
+  - E003
+  - E004
+  - S132
+  - S134
+  - S135
+  - S139
+- territory_id: S134
+  terrain_type: ocean
+  adjacent_to:
+  - A001
+  - A003
+  - A004
+  - A008
+  - E003
+  - E004
+  - S130
+  - S133
+- territory_id: S135
+  terrain_type: ocean
+  adjacent_to:
+  - A001
+  - A003
+  - A008
+  - A010
+  - A011
+  - S133
+  - S139
+  - S140
+- territory_id: S136
+  terrain_type: ocean
+  adjacent_to:
+  - A006
+  - A010
+  - A011
+  - A013
+  - E400
+  - E401
+  - E405
+  - E406
+  - S125
+  - S137
+- territory_id: S137
+  terrain_type: ocean
+  adjacent_to:
+  - A011
+  - A013
+  - E405
+  - E406
+  - E407
+  - E408
+  - E409
+  - S136
+  - S138
+- territory_id: S138
+  terrain_type: ocean
+  adjacent_to:
+  - A013
+  - E407
+  - S137
+  - S140
+  - S141
+- territory_id: S139
+  terrain_type: ocean
+  adjacent_to:
+  - A001
+  - A008
+  - A010
+  - A011
+  - S133
+  - S135
+  - S140
+- territory_id: S140
+  terrain_type: ocean
+  adjacent_to:
+  - S135
+  - S138
+  - S139
+  - S141
+- territory_id: S141
+  terrain_type: ocean
+  adjacent_to:
+  - S138
+  - S140
+- territory_id: S143
+  terrain_type: ocean
+  adjacent_to:
+  - E130
+  - E131
+  - E132
+  - E135
+  - E228
+  - E229
+  - E243
+  - E245
+  - E247
+  - E248
+  - S144
+- territory_id: S144
+  terrain_type: ocean
+  adjacent_to:
+  - A048
+  - E131
+  - E135
+  - E149
+  - E151
+  - E228
+  - E229
+  - E245
+  - S143
+  - S146
+- territory_id: S145
+  terrain_type: ocean
+  adjacent_to:
+  - F043
+  - S062
+  - S063
+  - S064
+  - S065
+  - S066
+- territory_id: S146
+  terrain_type: ocean
+  adjacent_to:
+  - E080
+  - E082
+  - E085
+  - E112
+  - E135
+  - E148
+  - E149
+  - E150
+  - E151
+  - E158
+  - S144
+- territory_id: W001
+  terrain_type: tundra
+  adjacent_to:
+  - A063
+  - S016
+  - S021
+  - S022
+  - S023
+  - S024
+  - W003
+  - W004
+  - W005
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+- territory_id: W003
+  terrain_type: tundra
+  adjacent_to:
+  - S016
+  - S020
+  - S021
+  - S022
+  - S023
+  - W001
+  - W004
+  - W005
+  - W006
+  - W009
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+- territory_id: W004
+  terrain_type: tundra
+  adjacent_to:
+  - S020
+  - S021
+  - W001
+  - W003
+  - W005
+  - W006
+  - W009
+  - W011
+  - W012
+  - W014
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+- territory_id: W005
+  terrain_type: mountain
+  adjacent_to:
+  - S016
+  - S021
+  - S022
+  - S027
+  - W001
+  - W003
+  - W004
+  - W006
+  - W009
+  - W012
+  - W014
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: north-water
+- territory_id: W006
+  terrain_type: mountain
+  adjacent_to:
+  - S021
+  - S022
+  - S027
+  - W003
+  - W004
+  - W005
+  - W009
+  - W012
+  - W014
+  - W015
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: north-water
+- territory_id: W009
+  terrain_type: tundra
+  adjacent_to:
+  - E134
+  - S016
+  - S018
+  - S020
+  - W003
+  - W004
+  - W005
+  - W006
+  - W011
+  - W012
+  - W018
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+- territory_id: W011
+  terrain_type: tundra
+  adjacent_to:
+  - E134
+  - S018
+  - S019
+  - S020
+  - W004
+  - W009
+  - W012
+  - W017
+  - W018
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+  keywords:
+  - sacred-land
+- territory_id: W012
+  terrain_type: tundra
+  adjacent_to:
+  - S020
+  - W004
+  - W005
+  - W006
+  - W009
+  - W011
+  - W014
+  - W015
+  - W017
+  - W022
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+  keywords:
+  - sacred-land
+- territory_id: W014
+  terrain_type: tundra
+  adjacent_to:
+  - S021
+  - S025
+  - S026
+  - S027
+  - W004
+  - W005
+  - W006
+  - W012
+  - W015
+  - W017
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+- territory_id: W015
+  terrain_type: tundra
+  adjacent_to:
+  - S027
+  - S028
+  - W006
+  - W012
+  - W014
+  - W017
+  - W022
+  - W023
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+    cloth: 2
+- territory_id: W017
+  terrain_type: tundra
+  adjacent_to:
+  - S019
+  - S028
+  - W011
+  - W012
+  - W014
+  - W015
+  - W018
+  - W019
+  - W020
+  - W022
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+    cloth: 2
+- territory_id: W018
+  terrain_type: tundra
+  adjacent_to:
+  - S018
+  - S019
+  - S020
+  - W009
+  - W011
+  - W017
+  - W019
+  - W020
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+    cloth: 2
+- territory_id: W019
+  terrain_type: tundra
+  adjacent_to:
+  - S017
+  - S018
+  - S019
+  - W017
+  - W018
+  - W020
+  - W036
+  - W037
+  - W038
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+    cloth: 2
+- territory_id: W020
+  terrain_type: tundra
+  adjacent_to:
+  - S019
+  - W017
+  - W018
+  - W019
+  - W022
+  - W023
+  - W034
+  - W036
+  - W037
+  - W038
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    cloth: 2
+- territory_id: W022
+  terrain_type: tundra
+  adjacent_to:
+  - S028
+  - W012
+  - W015
+  - W017
+  - W020
+  - W023
+  - W024
+  - W025
+  - W034
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    cloth: 2
+- territory_id: W023
+  terrain_type: tundra
+  adjacent_to:
+  - S028
+  - W015
+  - W020
+  - W022
+  - W024
+  - W025
+  - W026
+  - W027
+  - W034
+  - agna-qela
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    cloth: 2
+- territory_id: W024
+  terrain_type: mountain
+  adjacent_to:
+  - S028
+  - S030
+  - W022
+  - W023
+  - W025
+  - W026
+  - W027
+  - W029
+  - W032
+  - W034
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    platinum: 2
+    lumber: 1
+  controller: north-water
+- territory_id: W025
+  terrain_type: mountain
+  adjacent_to:
+  - E270
+  - S028
+  - S030
+  - S031
+  - W022
+  - W023
+  - W024
+  - W026
+  - W027
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    platinum: 2
+    lumber: 1
+  controller: north-water
+- territory_id: W026
+  terrain_type: mountain
+  adjacent_to:
+  - S028
+  - S029
+  - S030
+  - W023
+  - W024
+  - W025
+  - W027
+  - W029
+  - W034
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+    lumber: 1
+  controller: north-water
+- territory_id: W027
+  terrain_type: mountain
+  adjacent_to:
+  - S029
+  - S030
+  - S032
+  - W023
+  - W024
+  - W025
+  - W026
+  - W029
+  - W030
+  - W032
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: north-water
+- territory_id: W029
+  terrain_type: mountain
+  adjacent_to:
+  - S029
+  - S030
+  - S036
+  - W024
+  - W026
+  - W027
+  - W030
+  - W031
+  - W032
+  original_nation: water-tribe
+  production:
+    ore: 1
+    lumber: 1
+    coal: 1
+  controller: north-water
+- territory_id: W030
+  terrain_type: tundra
+  adjacent_to:
+  - S029
+  - S033
+  - S035
+  - S036
+  - W027
+  - W029
+  - W031
+  - W032
+  - taryuk
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+- territory_id: W031
+  terrain_type: tundra
+  adjacent_to:
+  - S029
+  - S035
+  - S036
+  - W029
+  - W030
+  - W032
+  - W038
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 2
+- territory_id: W032
+  terrain_type: tundra
+  adjacent_to:
+  - S029
+  - S036
+  - W024
+  - W027
+  - W029
+  - W030
+  - W031
+  - W034
+  - W036
+  - W037
+  - W038
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+- territory_id: W034
+  terrain_type: tundra
+  adjacent_to:
+  - W020
+  - W022
+  - W023
+  - W024
+  - W026
+  - W032
+  - W036
+  - W037
+  - W038
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+- territory_id: W036
+  terrain_type: tundra
+  adjacent_to:
+  - S019
+  - W019
+  - W020
+  - W032
+  - W034
+  - W037
+  - W038
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+    rations: 1
+- territory_id: W037
+  terrain_type: tundra
+  adjacent_to:
+  - S019
+  - W019
+  - W020
+  - W032
+  - W034
+  - W036
+  - W038
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+- territory_id: W038
+  terrain_type: tundra
+  adjacent_to:
+  - S036
+  - W019
+  - W020
+  - W031
+  - W032
+  - W034
+  - W036
+  - W037
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    ore: 1
+    coal: 1
+- territory_id: W040
+  terrain_type: tundra
+  adjacent_to:
+  - E425
+  - E428
+  - S098
+  - S099
+  - W041
+  - W052
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 3
+    rations: 1
+- territory_id: W041
+  terrain_type: tundra
+  adjacent_to:
+  - E425
+  - S098
+  - S099
+  - S100
+  - S115
+  - W040
+  - W043
+  - W044
+  - W045
+  - W052
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 3
+    cloth: 1
+- territory_id: W043
+  terrain_type: mountain
+  adjacent_to:
+  - S097
+  - S098
+  - S100
+  - S115
+  - W041
+  - W044
+  - W045
+  - whale-harbor
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W044
+  terrain_type: mountain
+  adjacent_to:
+  - S100
+  - S114
+  - S115
+  - S116
+  - W041
+  - W043
+  - W045
+  - W046
+  - W047
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W045
+  terrain_type: mountain
+  adjacent_to:
+  - S100
+  - S114
+  - S115
+  - S116
+  - W041
+  - W043
+  - W044
+  - W046
+  - W047
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W046
+  terrain_type: tundra
+  adjacent_to:
+  - S100
+  - S114
+  - W044
+  - W045
+  - W047
+  - W052
+  - W058
+  - W067
+  - wolf-cove
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 1
+    coal: 1
+    platinum: 1
+    rations: 3
+  keywords:
+  - sacred-land
+- territory_id: W047
+  terrain_type: tundra
+  adjacent_to:
+  - S100
+  - S113
+  - S114
+  - W044
+  - W045
+  - W046
+  - W058
+  - W067
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 2
+    cloth: 1
+    platinum: 1
+  keywords:
+  - sacred-land
+- territory_id: W052
+  terrain_type: tundra
+  adjacent_to:
+  - E428
+  - S099
+  - S100
+  - W040
+  - W041
+  - W046
+  - W054
+  - W055
+  - W067
+  - W070
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 3
+    coal: 2
+    platinum: 1
+- territory_id: W054
+  terrain_type: tundra
+  adjacent_to:
+  - S099
+  - S101
+  - S102
+  - W052
+  - W055
+  - W063
+  - W064
+  - W065
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 3
+    cloth: 1
+- territory_id: W055
+  terrain_type: tundra
+  adjacent_to:
+  - S099
+  - S101
+  - W052
+  - W054
+  - W056
+  - W063
+  - W064
+  - W065
+  - W067
+  - W070
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 1
+    cloth: 2
+    rations: 1
+- territory_id: W056
+  terrain_type: tundra
+  adjacent_to:
+  - W055
+  - W057
+  - W062
+  - W067
+  - W070
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 1
+    coal: 3
+    rations: 1
+    cloth: 1
+- territory_id: W057
+  terrain_type: tundra
+  adjacent_to:
+  - S111
+  - W056
+  - W058
+  - W059
+  - W062
+  - W067
+  - W070
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 1
+    coal: 3
+    cloth: 1
+    platinum: 1
+- territory_id: W058
+  terrain_type: tundra
+  adjacent_to:
+  - S111
+  - S113
+  - S114
+  - W046
+  - W047
+  - W057
+  - W059
+  - W062
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 1
+    rations: 2
+    cloth: 1
+- territory_id: W059
+  terrain_type: tundra
+  adjacent_to:
+  - S111
+  - S112
+  - W057
+  - W058
+  - W060
+  - W061
+  - W062
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 1
+    platinum: 1
+    cloth: 1
+    rations: 1
+- territory_id: W060
+  terrain_type: mountain
+  adjacent_to:
+  - S108
+  - S110
+  - S111
+  - S112
+  - W059
+  - W061
+  - W062
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W061
+  terrain_type: mountain
+  adjacent_to:
+  - S108
+  - S110
+  - S112
+  - W059
+  - W060
+  - W062
+  - W063
+  - W064
+  - W068
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W062
+  terrain_type: mountain
+  adjacent_to:
+  - W056
+  - W057
+  - W058
+  - W059
+  - W060
+  - W061
+  - W063
+  - W068
+  - W070
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W063
+  terrain_type: tundra
+  adjacent_to:
+  - S110
+  - W054
+  - W055
+  - W061
+  - W062
+  - W064
+  - W066
+  - W068
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 1
+    coal: 2
+    cloth: 1
+    platinum: 1
+    rations: 1
+- territory_id: W064
+  terrain_type: mountain
+  adjacent_to:
+  - S101
+  - W054
+  - W055
+  - W061
+  - W063
+  - W065
+  - W066
+  - W068
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W065
+  terrain_type: tundra
+  adjacent_to:
+  - A024
+  - S101
+  - S102
+  - S103
+  - W054
+  - W055
+  - W064
+  - W066
+  - W068
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 1
+    coal: 3
+    rations: 2
+- territory_id: W066
+  terrain_type: mountain
+  adjacent_to:
+  - A024
+  - S101
+  - S104
+  - W063
+  - W064
+  - W065
+  - W068
+  - W069
+  - W073
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W067
+  terrain_type: mountain
+  adjacent_to:
+  - S099
+  - S100
+  - W046
+  - W047
+  - W052
+  - W055
+  - W056
+  - W057
+  - W070
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W068
+  terrain_type: tundra
+  adjacent_to:
+  - S110
+  - W061
+  - W062
+  - W063
+  - W064
+  - W065
+  - W066
+  - W069
+  - W073
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 2
+    rations: 1
+    platinum: 1
+- territory_id: W069
+  terrain_type: tundra
+  adjacent_to:
+  - S104
+  - S108
+  - S109
+  - S110
+  - W066
+  - W068
+  - W073
+  - W074
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 2
+    cloth: 2
+- territory_id: W070
+  terrain_type: mountain
+  adjacent_to:
+  - W052
+  - W055
+  - W056
+  - W057
+  - W062
+  - W067
+  original_nation: water-tribe
+  production:
+    ore: 1
+    coal: 1
+    lumber: 1
+  controller: south-water
+- territory_id: W073
+  terrain_type: tundra
+  adjacent_to:
+  - S104
+  - S105
+  - S110
+  - W066
+  - W068
+  - W069
+  - W074
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 1
+    cloth: 2
+    rations: 1
+- territory_id: W074
+  terrain_type: tundra
+  adjacent_to:
+  - S104
+  - S105
+  - S106
+  - S107
+  - S109
+  - S110
+  - W069
+  - W073
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    ore: 2
+    coal: 2
+    cloth: 2
+- territory_id: W201
+  terrain_type: forest
+  adjacent_to:
+  - S089
+  - W202
+  - W203
+  original_nation: water-tribe
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+  controller: north-water
+  keywords:
+  - sacred-land
+- territory_id: W202
+  terrain_type: forest
+  adjacent_to:
+  - S089
+  - W201
+  - W203
+  original_nation: water-tribe
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+  controller: north-water
+  keywords:
+  - sacred-land
+- territory_id: W203
+  terrain_type: forest
+  adjacent_to:
+  - A038
+  - S089
+  - W201
+  - W202
+  original_nation: water-tribe
+  production:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+  controller: north-water
+  keywords:
+  - sacred-land
+# City Territories
+- territory_id: northern-air-temple
+  name: Northern Air Temple
+  terrain_type: city
+  adjacent_to:
+  - A064
+  original_nation: air-nomads
+  controller: air-nomads
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: western-air-temple
+  name: Western Air Temple
+  terrain_type: city
+  adjacent_to:
+  - A045
+  original_nation: air-nomads
+  controller: air-nomads
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: southern-air-temple
+  name: Southern Air Temple
+  terrain_type: city
+  adjacent_to:
+  - A027
+  original_nation: air-nomads
+  controller: air-nomads
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: eastern-air-temple
+  name: Eastern Air Temple
+  terrain_type: city
+  adjacent_to:
+  - A003
+  original_nation: air-nomads
+  controller: air-nomads
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: panshi
+  name: Panshi
+  terrain_type: city
+  adjacent_to:
+  - E006
+  original_nation: earth-kingdom
+  controller: earth-kingdom
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: gaoling-city
+  name: Gaoling
+  terrain_type: city
+  adjacent_to:
+  - E043
+  original_nation: earth-kingdom
+  controller: fifth-nation
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: omashu-city
+  name: Omashu
+  terrain_type: city
+  adjacent_to:
+  - E109
+  original_nation: earth-kingdom
+  controller: omashu
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: hu-xin-city
+  name: Hu Xin
+  terrain_type: city
+  adjacent_to:
+  - E345
+  original_nation: earth-kingdom
+  controller: hu-xin
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: mainka
+  name: Ma'Inka
+  terrain_type: city
+  adjacent_to:
+  - F014
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: char-harbor
+  name: Char Harbor
+  terrain_type: city
+  adjacent_to:
+  - F019
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: caldera-city
+  name: Caldera City
+  terrain_type: city
+  adjacent_to:
+  - F054
+  original_nation: fire-nation
+  controller: fire-nation
+  production:
+    platinum: 3
+  victory_points: 10
+- territory_id: taryuk
+  name: Taryuk
+  terrain_type: city
+  adjacent_to:
+  - W030
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: agna-qela
+  name: Agna Qel'a
+  terrain_type: city
+  adjacent_to:
+  - W023
+  original_nation: water-tribe
+  controller: north-water
+  production:
+    platinum: 3
+  victory_points: 10
+- territory_id: whale-harbor
+  name: Whale Harbor
+  terrain_type: city
+  adjacent_to:
+  - W043
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    platinum: 3
+  victory_points: 5
+- territory_id: wolf-cove
+  name: Wolf Cove
+  terrain_type: city
+  adjacent_to:
+  - W046
+  original_nation: water-tribe
+  controller: south-water
+  production:
+    platinum: 3
+  victory_points: 10
+factions:
+- faction_id: fire-nation
+  name: Fire Nation
+  nation: fire-nation
+- faction_id: saowon
+  name: Saowon
+  nation: fire-nation
+- faction_id: fire-sages
+  name: Fire Sages
+  nation: fire-nation
+- faction_id: loyalists
+  name: Loyalists
+  nation: fire-nation
+- faction_id: earth-kingdom
+  name: Earth Kingdom
+  nation: earth-kingdom
+- faction_id: omashu
+  name: Omashu
+  nation: earth-kingdom
+- faction_id: gaoling
+  name: Gaoling
+  nation: earth-kingdom
+- faction_id: hu-xin
+  name: Hu Xin
+  nation: earth-kingdom
+- faction_id: kyoshi-island
+  name: Kyoshi Island
+  nation: earth-kingdom
+- faction_id: air-nomads
+  name: Air Nomads
+  nation: air-nomads
+- faction_id: north-water
+  name: Northern Water Tribe
+  nation: water-tribe
+- faction_id: south-water
+  name: Southern Water Tribe
+  nation: water-tribe
+- faction_id: fifth-nation
+  name: Fifth Nation
+  nation: water-tribe
+- faction_id: dai-li
+  name: Dai Li
+  nation: earth-kingdom
+- faction_id: red-sun
+  name: The Guild of the Red Sun
+  nation: null
+unit_types:
+# Generic Units (no nation restriction)
+- type_id: infantry
+  name: Infantry
+  movement: 5
+  organization: 8
+  attack: 4
+  defense: 3
+  siege_attack: 0
+  siege_defense: 1
+  cost:
+    cloth: 2
+    ore: 2
+    platinum: 3
+  upkeep:
+    rations: 1
+- type_id: cavalry
+  name: Cavalry
+  movement: 6
+  organization: 8
+  attack: 3
+  defense: 2
+  siege_attack: 0
+  siege_defense: 0
+  cost:
+    lumber: 1
+    cloth: 2
+    ore: 2
+    platinum: 3
+  upkeep:
+    rations: 1
+- type_id: scout
+  name: Scout
+  movement: 5
+  organization: 8
+  attack: 4
+  defense: 3
+  siege_attack: 0
+  siege_defense: 0
+  keywords:
+  - infiltrator
+  cost:
+    lumber: 1
+    cloth: 2
+    ore: 2
+    platinum: 3
+  upkeep:
+    rations: 1
+- type_id: spy
+  name: Spy
+  movement: 5
+  organization: 8
+  attack: 0
+  defense: 0
+  siege_attack: 0
+  siege_defense: 0
+  keywords:
+  - infiltrator
+  cost:
+    cloth: 3
+    ore: 2
+    platinum: 4
+  upkeep:
+    rations: 1
+    platinum: 1
+- type_id: siege-engine
+  name: Siege Engine
+  movement: 2
+  organization: 8
+  attack: 0
+  defense: 0
+  siege_attack: 4
+  siege_defense: 4
+  cost:
+    lumber: 2
+    cloth: 2
+    platinum: 4
+  upkeep:
+    rations: 1
+    ore: 1
+# Generic Naval Units (no nation restriction)
+- type_id: transport
+  name: Transport
+  movement: 4
+  organization: 8
+  attack: 1
+  defense: 1
+  siege_attack: 0
+  siege_defense: 0
+  is_naval: true
+  capacity: 3
+  cost:
+    ore: 2
+    lumber: 4
+    cloth: 3
+    platinum: 2
+  upkeep:
+    lumber: 1
+    ore: 1
+- type_id: battleship
+  name: Battleship
+  movement: 2
+  organization: 8
+  attack: 6
+  defense: 5
+  siege_attack: 0
+  siege_defense: 0
+  is_naval: true
+  capacity: 0
+  cost:
+    ore: 2
+    lumber: 5
+    cloth: 4
+    platinum: 2
+  upkeep:
+    lumber: 2
+    ore: 1
+    cloth: 1
+- type_id: frigate
+  name: Frigate
+  movement: 4
+  organization: 8
+  attack: 3
+  defense: 2
+  siege_attack: 0
+  siege_defense: 0
+  is_naval: true
+  capacity: 0
+  cost:
+    ore: 2
+    lumber: 4
+    cloth: 3
+    platinum: 2
+  upkeep:
+    lumber: 1
+    ore: 1
+    cloth: 1
+# Water Tribe Units
+- type_id: water-bender-brigade
+  name: Water Bender Brigade
+  nation: water-tribe
+  movement: 5
+  organization: 12
+  attack: 5
+  defense: 3
+  siege_attack: 0
+  siege_defense: 1
+  keywords:
+  - marine
+  cost:
+    cloth: 4
+    ore: 2
+    platinum: 4
+  upkeep:
+    rations: 1
+    cloth: 1
+- type_id: water-tribe-marines
+  name: Water Tribe Marines
+  nation: water-tribe
+  movement: 5
+  organization: 10
+  attack: 4
+  defense: 3
+  siege_attack: 0
+  siege_defense: 1
+  keywords:
+  - marine
+  cost:
+    cloth: 2
+    ore: 2
+    platinum: 3
+  upkeep:
+    rations: 1
+    cloth: 1
+- type_id: water-tribe-sloop
+  name: Water Tribe Sloop Formation
+  nation: water-tribe
+  movement: 4
+  organization: 10
+  attack: 2
+  defense: 4
+  siege_attack: 0
+  siege_defense: 0
+  is_naval: true
+  capacity: 3
+  cost:
+    rations: 2
+    cloth: 2
+    ore: 2
+    platinum: 4
+  upkeep:
+    rations: 1
+    ore: 1
+# Fire Nation Units
+- type_id: fire-bender-brigade
+  name: Fire Bender Brigade
+  nation: fire-nation
+  movement: 5
+  organization: 10
+  attack: 6
+  defense: 3
+  siege_attack: 0
+  siege_defense: 1
+  cost:
+    cloth: 2
+    ore: 2
+    platinum: 4
+  upkeep:
+    rations: 1
+    coal: 1
+- type_id: proto-tank
+  name: Proto-Tank
+  nation: fire-nation
+  movement: 2
+  organization: 8
+  attack: 5
+  defense: 5
+  siege_attack: 4
+  siege_defense: 4
+  cost:
+    coal: 4
+    ore: 2
+    platinum: 3
+  upkeep:
+    coal: 2
+    ore: 1
+- type_id: ironclad
+  name: Ironclad
+  nation: fire-nation
+  movement: 4
+  organization: 10
+  attack: 3
+  defense: 5
+  siege_attack: 0
+  siege_defense: 0
+  is_naval: true
+  capacity: 2
+  cost:
+    ore: 4
+    lumber: 4
+    coal: 2
+    platinum: 2
+  upkeep:
+    coal: 2
+    ore: 2
+- type_id: fire-sage
+  name: Fire Sage
+  nation: fire-nation
+  movement: 5
+  organization: 12
+  attack: 6
+  defense: 4
+  siege_attack: 1
+  siege_defense: 1
+  cost:
+    ore: 6
+    platinum: 4
+    cloth: 2
+    rations: 2
+# Earth Kingdom Units
+- type_id: earth-bender-brigade
+  name: Earth Bender Brigade
+  nation: earth-kingdom
+  movement: 5
+  organization: 8
+  attack: 4
+  defense: 5
+  siege_attack: 1
+  siege_defense: 2
+  cost:
+    cloth: 2
+    ore: 2
+    platinum: 4
+  upkeep:
+    rations: 1
+    ore: 1
+- type_id: earth-combat-engineers
+  name: Earth Bender Combat Engineers
+  nation: earth-kingdom
+  movement: 4
+  organization: 8
+  attack: 2
+  defense: 1
+  siege_attack: 4
+  siege_defense: 4
+  cost:
+    lumber: 2
+    cloth: 2
+    ore: 2
+    platinum: 4
+  upkeep:
+    rations: 1
+    ore: 1
+- type_id: dai-li-squad
+  name: Dai Li Squad
+  nation: earth-kingdom
+  movement: 5
+  organization: 12
+  attack: 0
+  defense: 0
+  siege_attack: 0
+  siege_defense: 0
+  keywords:
+  - infiltrator
+  - scout
+  cost:
+    ore: 6
+    platinum: 4
+    cloth: 2
+    rations: 2
+- type_id: kyoshi-warriors
+  name: Kyoshi Warriors
+  nation: earth-kingdom
+  movement: 5
+  organization: 12
+  attack: 5
+  defense: 5
+  siege_attack: 2
+  siege_defense: 1
+  cost:
+    ore: 3
+    platinum: 3
+    cloth: 3
+    rations: 2
+  upkeep:
+    rations: 1
+    cloth: 1
+# Fifth Nation Units
+- type_id: mixed-bender-brigade
+  name: Mixed Bender Brigade
+  nation: fifth-nation
+  movement: 5
+  organization: 8
+  attack: 5
+  defense: 4
+  siege_attack: 0
+  siege_defense: 1
+  keywords:
+  - marine
+  cost:
+    cloth: 2
+    ore: 2
+    platinum: 3
+  upkeep:
+    rations: 1
+    cloth: 1
+- type_id: fifth-nation-sloop
+  name: Fifth Nation Sloop Formation
+  nation: fifth-nation
+  movement: 4
+  organization: 8
+  attack: 4
+  defense: 2
+  siege_attack: 0
+  siege_defense: 0
+  is_naval: true
+  capacity: 3
+  cost:
+    ore: 2
+    lumber: 4
+    cloth: 3
+    platinum: 2
+  upkeep:
+    lumber: 1
+    ore: 1
+    cloth: 1
+building_types:
+# Social/Infrastructure Buildings
+- type_id: university
+  name: University
+  description: Educates adults. Requires a law be passed authorizing construction.
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    platinum: 1
+- type_id: public-school
+  name: Public School
+  description: Educates young children. Requires a law be passed authorizing construction.
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    platinum: 1
+- type_id: hospital
+  name: Hospital
+  description: Units ending turn here gain +2 organization recovery during organization phase. Requires law.
+  keywords:
+  - hospital
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    ore: 1
+    platinum: 1
+- type_id: shrine
+  name: Shrine
+  description: Honors the spirits. Repairs nearest nexus by 1 when built; damages by 2 if destroyed.
+  keywords:
+  - spiritual
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    ore: 1
+- type_id: temple
+  name: Temple
+  description: Honors the spirits. Repairs nearest nexus by 1 when built; damages by 2 if destroyed.
+  keywords:
+  - spiritual
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    ore: 1
+# Non-Industrial Resource Buildings (+2 production in territories that already produce)
+- type_id: quarry
+  name: Quarry
+  description: +2 ore production (natural only)
+  keywords:
+  - ore
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    lumber: 1
+- type_id: lumber-yard
+  name: Lumber Yard
+  description: +2 lumber production (natural only)
+  keywords:
+  - lumber
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    ore: 1
+- type_id: mine
+  name: Mine
+  description: +2 coal production (natural only)
+  keywords:
+  - coal
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    lumber: 1
+- type_id: granary
+  name: Granary
+  description: +2 rations production (natural only)
+  keywords:
+  - rations
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    lumber: 1
+- type_id: weavery
+  name: Weavery
+  description: +2 cloth production (natural only)
+  keywords:
+  - cloth
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    lumber: 1
+- type_id: mint
+  name: Mint
+  description: +2 platinum production (natural only)
+  keywords:
+  - platinum
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    lumber: 1
+# Industrial Resource Buildings (+2 production in any territory)
+- type_id: foundry
+  name: Foundry
+  description: +2 ore production (any territory)
+  keywords:
+  - ore
+  - industrial
+  cost:
+    coal: 2
+    ore: 4
+    platinum: 2
+  upkeep:
+    coal: 1
+- type_id: lumber-processing
+  name: Lumber Processing Facility
+  description: +2 lumber production (any territory)
+  keywords:
+  - lumber
+  - industrial
+  cost:
+    lumber: 2
+    coal: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    coal: 1
+- type_id: strip-mine
+  name: Strip Mine
+  description: +2 coal production (any territory)
+  keywords:
+  - coal
+  - industrial
+  cost:
+    coal: 4
+    ore: 2
+    platinum: 2
+  upkeep:
+    lumber: 1
+- type_id: factory-farm
+  name: Factory Farm
+  description: +2 rations production (any territory)
+  keywords:
+  - rations
+  - industrial
+  cost:
+    lumber: 2
+    coal: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    lumber: 1
+- type_id: cloth-factory
+  name: Cloth Factory
+  description: +2 cloth production (any territory)
+  keywords:
+  - cloth
+  - industrial
+  cost:
+    cloth: 2
+    coal: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    coal: 1
+# Fortification Buildings (city-only, +2 siege defense each)
+- type_id: reinforced-walls
+  name: Reinforced Walls
+  description: +2 Siege Defense in cities
+  keywords:
+  - fortification
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    ore: 1
+- type_id: ballistae
+  name: Ballistae
+  description: +2 Siege Defense in cities
+  keywords:
+  - fortification
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    lumber: 1
+- type_id: bastion
+  name: Bastion
+  description: +2 Siege Defense in cities
+  keywords:
+  - fortification
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    ore: 1
+- type_id: motte-and-bailey
+  name: Motte and Bailey
+  description: +2 Siege Defense in cities
+  keywords:
+  - fortification
+  cost:
+    lumber: 2
+    ore: 2
+    platinum: 2
+  upkeep:
+    ore: 1
+alliances:
+- factions:
+  - fire-nation
+  - saowon
+  status: ACTIVE
+- factions:
+  - fire-nation
+  - fire-sages
+  status: ACTIVE
+- factions:
+  - saowon
+  - fire-sages
+  status: ACTIVE
+- factions:
+  - earth-kingdom
+  - omashu
+  status: ACTIVE
+- factions:
+  - earth-kingdom
+  - gaoling
+  status: ACTIVE
+- factions:
+  - earth-kingdom
+  - hu-xin
+  status: ACTIVE
+- factions:
+  - earth-kingdom
+  - kyoshi-island
+  status: ACTIVE
+- factions:
+  - omashu
+  - gaoling
+  status: ACTIVE
+- factions:
+  - omashu
+  - hu-xin
+  status: ACTIVE
+- factions:
+  - omashu
+  - kyoshi-island
+  status: ACTIVE
+- factions:
+  - gaoling
+  - hu-xin
+  status: ACTIVE
+- factions:
+  - gaoling
+  - kyoshi-island
+  status: ACTIVE
+- factions:
+  - hu-xin
+  - kyoshi-island
+  status: ACTIVE
+- factions:
+  - north-water
+  - south-water
+  status: ACTIVE
+
+faction_resources:
+# 10 of each resource
+- faction_id: saowon
+  resources:
+    ore: 10
+    lumber: 10
+    coal: 10
+    rations: 10
+    cloth: 10
+    platinum: 10
+- faction_id: dai-li
+  resources:
+    ore: 10
+    lumber: 10
+    coal: 10
+    rations: 10
+    cloth: 10
+    platinum: 10
+- faction_id: fire-sages
+  resources:
+    ore: 10
+    lumber: 10
+    coal: 10
+    rations: 10
+    cloth: 10
+    platinum: 10
+- faction_id: hu-xin
+  resources:
+    ore: 10
+    lumber: 10
+    coal: 10
+    rations: 10
+    cloth: 10
+    platinum: 10
+- faction_id: air-nomads
+  resources:
+    ore: 10
+    lumber: 10
+    coal: 10
+    rations: 10
+    cloth: 10
+    platinum: 10
+- faction_id: omashu
+  resources:
+    ore: 10
+    lumber: 10
+    coal: 10
+    rations: 10
+    cloth: 10
+    platinum: 10
+# 3 of each resource
+- faction_id: kyoshi-island
+  resources:
+    ore: 3
+    lumber: 3
+    coal: 3
+    rations: 3
+    cloth: 3
+    platinum: 3
+# 20 of each resource
+- faction_id: fire-nation
+  resources:
+    ore: 20
+    lumber: 20
+    coal: 20
+    rations: 20
+    cloth: 20
+    platinum: 20
+- faction_id: fifth-nation
+  resources:
+    ore: 20
+    lumber: 20
+    coal: 20
+    rations: 20
+    cloth: 20
+    platinum: 20
+- faction_id: south-water
+  resources:
+    ore: 20
+    lumber: 20
+    coal: 20
+    rations: 20
+    cloth: 20
+    platinum: 20
+- faction_id: north-water
+  resources:
+    ore: 20
+    lumber: 20
+    coal: 20
+    rations: 20
+    cloth: 20
+    platinum: 20
+
+spirit_nexuses:
+  - identifier: south-pole
+    territory_id: W060
+    health: 10
+  - identifier: north-pole
+    territory_id: S026
+    health: 0
+  - identifier: western-air
+    territory_id: S046
+    health: -2
+  - identifier: oasis
+    territory_id: E055
+    health: 10
+  - identifier: city-nexus
+    territory_id: E505
+    health: 10
+  - identifier: fire-temple
+    territory_id: F038
+    health: 10
+  - identifier: east-air
+    territory_id: A008
+    health: 10
+  - identifier: natsuo-island
+    territory_id: E602
+    health: 10
+  - identifier: kintuk-island
+    territory_id: W202
+    health: 10
+  - identifier: hu-xin-nexus
+    territory_id: E342
+    health: 10
+buildings:
+# Air Temple city shrines and temples (8)
+- building_id: temple-northern-air-temple
+  type: temple
+  territory_id: northern-air-temple
+- building_id: shrine-northern-air-temple
+  type: shrine
+  territory_id: northern-air-temple
+- building_id: temple-western-air-temple
+  type: temple
+  territory_id: western-air-temple
+- building_id: shrine-western-air-temple
+  type: shrine
+  territory_id: western-air-temple
+- building_id: temple-southern-air-temple
+  type: temple
+  territory_id: southern-air-temple
+- building_id: shrine-southern-air-temple
+  type: shrine
+  territory_id: southern-air-temple
+- building_id: temple-eastern-air-temple
+  type: temple
+  territory_id: eastern-air-temple
+- building_id: shrine-eastern-air-temple
+  type: shrine
+  territory_id: eastern-air-temple
+# Earth Kingdom shrines and temples (10)
+- building_id: shrine-E001
+  type: shrine
+  territory_id: E001
+- building_id: temple-E003
+  type: temple
+  territory_id: E003
+- building_id: shrine-E004
+  type: shrine
+  territory_id: E004
+- building_id: temple-E005
+  type: temple
+  territory_id: E005
+- building_id: shrine-E006
+  type: shrine
+  territory_id: E006
+- building_id: temple-E007
+  type: temple
+  territory_id: E007
+- building_id: shrine-E008
+  type: shrine
+  territory_id: E008
+- building_id: temple-E010
+  type: temple
+  territory_id: E010
+- building_id: shrine-E015
+  type: shrine
+  territory_id: E015
+- building_id: temple-E016
+  type: temple
+  territory_id: E016
+# Fire Nation shrines and temples (10)
+- building_id: shrine-F001
+  type: shrine
+  territory_id: F001
+- building_id: temple-F002
+  type: temple
+  territory_id: F002
+- building_id: shrine-F003
+  type: shrine
+  territory_id: F003
+- building_id: temple-F004
+  type: temple
+  territory_id: F004
+- building_id: shrine-F008
+  type: shrine
+  territory_id: F008
+- building_id: temple-F013
+  type: temple
+  territory_id: F013
+- building_id: shrine-F014
+  type: shrine
+  territory_id: F014
+- building_id: temple-F015
+  type: temple
+  territory_id: F015
+- building_id: shrine-F017
+  type: shrine
+  territory_id: F017
+- building_id: temple-F018
+  type: temple
+  territory_id: F018
+# Fire Sages shrines and temples (2)
+- building_id: temple-F037
+  type: temple
+  territory_id: F037
+- building_id: shrine-F038
+  type: shrine
+  territory_id: F038
+# Kyoshi Island shrine (1)
+- building_id: shrine-E605
+  type: shrine
+  territory_id: E605
+# Gaoling shrines and temples (2)
+- building_id: shrine-E021
+  type: shrine
+  territory_id: E021
+- building_id: temple-E022
+  type: temple
+  territory_id: E022
+# Fifth Nation shrines and temples (2)
+- building_id: shrine-E037
+  type: shrine
+  territory_id: E037
+- building_id: temple-E038
+  type: temple
+  territory_id: E038
+# Hu Xin shrines and temples (2)
+- building_id: shrine-E330
+  type: shrine
+  territory_id: E330
+- building_id: temple-E331
+  type: temple
+  territory_id: E331
+# North Water shrines and temples (4)
+- building_id: shrine-W001
+  type: shrine
+  territory_id: W001
+- building_id: temple-W003
+  type: temple
+  territory_id: W003
+- building_id: shrine-W004
+  type: shrine
+  territory_id: W004
+- building_id: temple-W005
+  type: temple
+  territory_id: W005
+# South Water shrines and temples (2)
+- building_id: shrine-W040
+  type: shrine
+  territory_id: W040
+- building_id: temple-W041
+  type: temple
+  territory_id: W041
+# South Water industrial buildings (~10)
+- building_id: foundry-W043
+  type: foundry
+  territory_id: W043
+- building_id: lumber-processing-W044
+  type: lumber-processing
+  territory_id: W044
+- building_id: strip-mine-W045
+  type: strip-mine
+  territory_id: W045
+- building_id: factory-farm-W046
+  type: factory-farm
+  territory_id: W046
+- building_id: cloth-factory-W047
+  type: cloth-factory
+  territory_id: W047
+- building_id: foundry-W052
+  type: foundry
+  territory_id: W052
+- building_id: strip-mine-W054
+  type: strip-mine
+  territory_id: W054
+- building_id: factory-farm-W058
+  type: factory-farm
+  territory_id: W058
+- building_id: factory-farm-W059
+  type: factory-farm
+  territory_id: W059
+- building_id: factory-farm-W065
+  type: factory-farm
+  territory_id: W065
+# F081-F088 industrial buildings (~7)
+- building_id: foundry-F081
+  type: foundry
+  territory_id: F081
+- building_id: strip-mine-F082
+  type: strip-mine
+  territory_id: F082
+- building_id: lumber-processing-F083
+  type: lumber-processing
+  territory_id: F083
+- building_id: factory-farm-F084
+  type: factory-farm
+  territory_id: F084
+- building_id: cloth-factory-F085
+  type: cloth-factory
+  territory_id: F085
+- building_id: foundry-F086
+  type: foundry
+  territory_id: F086
+- building_id: strip-mine-F087
+  type: strip-mine
+  territory_id: F087
+# Earth Kingdom non-industrial buildings (~12 for 125 territories)
+- building_id: lumber-yard-E003
+  type: lumber-yard
+  territory_id: E003
+- building_id: lumber-yard-E004
+  type: lumber-yard
+  territory_id: E004
+- building_id: lumber-yard-E005
+  type: lumber-yard
+  territory_id: E005
+- building_id: quarry-E018
+  type: quarry
+  territory_id: E018
+- building_id: quarry-E019
+  type: quarry
+  territory_id: E019
+- building_id: granary-E500
+  type: granary
+  territory_id: E500
+- building_id: granary-E502
+  type: granary
+  territory_id: E502
+- building_id: granary-E504
+  type: granary
+  territory_id: E504
+- building_id: quarry-E063
+  type: quarry
+  territory_id: E063
+- building_id: mine-E065
+  type: mine
+  territory_id: E065
+# Fire Nation non-industrial buildings (~5 for 46 territories)
+- building_id: granary-F001
+  type: granary
+  territory_id: F001
+- building_id: weavery-F002
+  type: weavery
+  territory_id: F002
+- building_id: lumber-yard-F003
+  type: lumber-yard
+  territory_id: F003
+- building_id: mine-F019
+  type: mine
+  territory_id: F019
+- building_id: quarry-F020
+  type: quarry
+  territory_id: F020
+# Gaoling non-industrial buildings (~5 for 13 territories)
+- building_id: lumber-yard-E053
+  type: lumber-yard
+  territory_id: E053
+- building_id: mine-E021
+  type: mine
+  territory_id: E021
+- building_id: mine-E031
+  type: mine
+  territory_id: E031
+- building_id: granary-E024
+  type: granary
+  territory_id: E024
+- building_id: granary-E416
+  type: granary
+  territory_id: E416
+# Fifth Nation non-industrial buildings (~1 for 10 territories)
+- building_id: mint-E042
+  type: mint
+  territory_id: E042
+# Hu Xin non-industrial buildings (~3 for 31 territories)
+- building_id: lumber-yard-E333
+  type: lumber-yard
+  territory_id: E333
+- building_id: mint-E345
+  type: mint
+  territory_id: E345
+- building_id: quarry-E342
+  type: quarry
+  territory_id: E342
+# North Water non-industrial buildings (~3 for 31 territories)
+- building_id: quarry-W006
+  type: quarry
+  territory_id: W006
+- building_id: mine-W009
+  type: mine
+  territory_id: W009
+- building_id: quarry-W014
+  type: quarry
+  territory_id: W014
+# South Water non-industrial buildings (~3 for 27 territories)
+- building_id: weavery-W055
+  type: weavery
+  territory_id: W055
+- building_id: mine-W056
+  type: mine
+  territory_id: W056
+- building_id: mine-W057
+  type: mine
+  territory_id: W057
+# Fire Nation industrial coal buildings
+- building_id: strip-mine-F010
+  type: strip-mine
+  territory_id: F010
+- building_id: strip-mine-F011
+  type: strip-mine
+  territory_id: F011
+# Omashu non-industrial buildings (~2 for 20 territories)
+- building_id: mint-E086
+  type: mint
+  territory_id: E086
+- building_id: weavery-E107
+  type: weavery
+  territory_id: E107
+# Air Nomads temples and shrines (~12 for 33 territories)
+- building_id: temple-A001
+  type: temple
+  territory_id: A001
+- building_id: shrine-A004
+  type: shrine
+  territory_id: A004
+- building_id: temple-A008
+  type: temple
+  territory_id: A008
+- building_id: shrine-A011
+  type: shrine
+  territory_id: A011
+- building_id: temple-A014
+  type: temple
+  territory_id: A014
+- building_id: shrine-A018
+  type: shrine
+  territory_id: A018
+- building_id: temple-A022
+  type: temple
+  territory_id: A022
+- building_id: shrine-A026
+  type: shrine
+  territory_id: A026
+- building_id: temple-A031
+  type: temple
+  territory_id: A031
+- building_id: shrine-A037
+  type: shrine
+  territory_id: A037
+- building_id: temple-A063
+  type: temple
+  territory_id: A063
+- building_id: shrine-A065
+  type: shrine
+  territory_id: A065
+units:
+# Fire Nation land units - F054
+- unit_id: FN-001
+  type: infantry
+  owner_faction: fire-nation
+  current_territory_id: F054
+- unit_id: FN-002
+  type: cavalry
+  owner_faction: fire-nation
+  current_territory_id: F054
+- unit_id: FN-003
+  type: scout
+  owner_faction: fire-nation
+  current_territory_id: F054
+- unit_id: FN-004
+  type: siege-engine
+  owner_faction: fire-nation
+  current_territory_id: F054
+- unit_id: FN-005
+  type: fire-bender-brigade
+  owner_faction: fire-nation
+  current_territory_id: F054
+- unit_id: FN-006
+  type: proto-tank
+  owner_faction: fire-nation
+  current_territory_id: F054
+# Fire Nation land units - F019
+- unit_id: FN-007
+  type: infantry
+  owner_faction: fire-nation
+  current_territory_id: F019
+- unit_id: FN-008
+  type: cavalry
+  owner_faction: fire-nation
+  current_territory_id: F019
+- unit_id: FN-009
+  type: scout
+  owner_faction: fire-nation
+  current_territory_id: F019
+- unit_id: FN-010
+  type: siege-engine
+  owner_faction: fire-nation
+  current_territory_id: F019
+- unit_id: FN-011
+  type: fire-bender-brigade
+  owner_faction: fire-nation
+  current_territory_id: F019
+- unit_id: FN-012
+  type: proto-tank
+  owner_faction: fire-nation
+  current_territory_id: F019
+# Fire Nation land units - F081
+- unit_id: FN-013
+  type: infantry
+  owner_faction: fire-nation
+  current_territory_id: F081
+- unit_id: FN-014
+  type: cavalry
+  owner_faction: fire-nation
+  current_territory_id: F081
+- unit_id: FN-015
+  type: scout
+  owner_faction: fire-nation
+  current_territory_id: F081
+- unit_id: FN-016
+  type: siege-engine
+  owner_faction: fire-nation
+  current_territory_id: F081
+- unit_id: FN-017
+  type: fire-bender-brigade
+  owner_faction: fire-nation
+  current_territory_id: F081
+- unit_id: FN-018
+  type: proto-tank
+  owner_faction: fire-nation
+  current_territory_id: F081
+# Fire Nation land units - F001-F011 (smaller deployment)
+- unit_id: FN-019
+  type: infantry
+  owner_faction: fire-nation
+  current_territory_id: F001
+- unit_id: FN-020
+  type: cavalry
+  owner_faction: fire-nation
+  current_territory_id: F003
+- unit_id: FN-021
+  type: scout
+  owner_faction: fire-nation
+  current_territory_id: F004
+- unit_id: FN-022
+  type: siege-engine
+  owner_faction: fire-nation
+  current_territory_id: F008
+- unit_id: FN-023
+  type: fire-bender-brigade
+  owner_faction: fire-nation
+  current_territory_id: F009
+- unit_id: FN-024
+  type: proto-tank
+  owner_faction: fire-nation
+  current_territory_id: F010
+# Fire Nation spies - E073 and E134
+- unit_id: FN-025
+  type: spy
+  owner_faction: fire-nation
+  current_territory_id: E073
+- unit_id: FN-026
+  type: spy
+  owner_faction: fire-nation
+  current_territory_id: E134
+# Fire Nation naval units - S076
+- unit_id: FN-027
+  type: transport
+  owner_faction: fire-nation
+  current_territory_id: S076
+- unit_id: FN-028
+  type: battleship
+  owner_faction: fire-nation
+  current_territory_id: S076
+- unit_id: FN-029
+  type: frigate
+  owner_faction: fire-nation
+  current_territory_id: S076
+- unit_id: FN-030
+  type: ironclad
+  owner_faction: fire-nation
+  current_territory_id: S076
+# Fire Nation naval units - S074
+- unit_id: FN-031
+  type: transport
+  owner_faction: fire-nation
+  current_territory_id: S074
+- unit_id: FN-032
+  type: battleship
+  owner_faction: fire-nation
+  current_territory_id: S074
+- unit_id: FN-033
+  type: frigate
+  owner_faction: fire-nation
+  current_territory_id: S074
+- unit_id: FN-034
+  type: ironclad
+  owner_faction: fire-nation
+  current_territory_id: S074
+# Fire Nation naval units - S085
+- unit_id: FN-035
+  type: transport
+  owner_faction: fire-nation
+  current_territory_id: S085
+- unit_id: FN-036
+  type: battleship
+  owner_faction: fire-nation
+  current_territory_id: S085
+- unit_id: FN-037
+  type: frigate
+  owner_faction: fire-nation
+  current_territory_id: S085
+- unit_id: FN-038
+  type: ironclad
+  owner_faction: fire-nation
+  current_territory_id: S085
+# Fire Nation naval units - S089
+- unit_id: FN-039
+  type: transport
+  owner_faction: fire-nation
+  current_territory_id: S089
+- unit_id: FN-040
+  type: battleship
+  owner_faction: fire-nation
+  current_territory_id: S089
+- unit_id: FN-041
+  type: frigate
+  owner_faction: fire-nation
+  current_territory_id: S089
+- unit_id: FN-042
+  type: ironclad
+  owner_faction: fire-nation
+  current_territory_id: S089
+# Earth Kingdom land units - E149
+- unit_id: EK-001
+  type: infantry
+  owner_faction: earth-kingdom
+  current_territory_id: E149
+- unit_id: EK-002
+  type: cavalry
+  owner_faction: earth-kingdom
+  current_territory_id: E149
+- unit_id: EK-003
+  type: scout
+  owner_faction: earth-kingdom
+  current_territory_id: E149
+- unit_id: EK-004
+  type: siege-engine
+  owner_faction: earth-kingdom
+  current_territory_id: E149
+- unit_id: EK-005
+  type: earth-bender-brigade
+  owner_faction: earth-kingdom
+  current_territory_id: E149
+- unit_id: EK-006
+  type: earth-combat-engineers
+  owner_faction: earth-kingdom
+  current_territory_id: E149
+# Earth Kingdom land units - E245
+- unit_id: EK-007
+  type: infantry
+  owner_faction: earth-kingdom
+  current_territory_id: E245
+- unit_id: EK-008
+  type: cavalry
+  owner_faction: earth-kingdom
+  current_territory_id: E245
+- unit_id: EK-009
+  type: scout
+  owner_faction: earth-kingdom
+  current_territory_id: E245
+- unit_id: EK-010
+  type: siege-engine
+  owner_faction: earth-kingdom
+  current_territory_id: E245
+- unit_id: EK-011
+  type: earth-bender-brigade
+  owner_faction: earth-kingdom
+  current_territory_id: E245
+- unit_id: EK-012
+  type: earth-combat-engineers
+  owner_faction: earth-kingdom
+  current_territory_id: E245
+# Earth Kingdom land units - E509
+- unit_id: EK-013
+  type: infantry
+  owner_faction: earth-kingdom
+  current_territory_id: E509
+- unit_id: EK-014
+  type: cavalry
+  owner_faction: earth-kingdom
+  current_territory_id: E509
+- unit_id: EK-015
+  type: scout
+  owner_faction: earth-kingdom
+  current_territory_id: E509
+- unit_id: EK-016
+  type: siege-engine
+  owner_faction: earth-kingdom
+  current_territory_id: E509
+- unit_id: EK-017
+  type: earth-bender-brigade
+  owner_faction: earth-kingdom
+  current_territory_id: E509
+- unit_id: EK-018
+  type: earth-combat-engineers
+  owner_faction: earth-kingdom
+  current_territory_id: E509
+# Earth Kingdom land units - E078
+- unit_id: EK-019
+  type: infantry
+  owner_faction: earth-kingdom
+  current_territory_id: E078
+- unit_id: EK-020
+  type: cavalry
+  owner_faction: earth-kingdom
+  current_territory_id: E078
+- unit_id: EK-021
+  type: scout
+  owner_faction: earth-kingdom
+  current_territory_id: E078
+- unit_id: EK-022
+  type: siege-engine
+  owner_faction: earth-kingdom
+  current_territory_id: E078
+# Earth Kingdom land units - E424
+- unit_id: EK-023
+  type: earth-bender-brigade
+  owner_faction: earth-kingdom
+  current_territory_id: E424
+- unit_id: EK-024
+  type: earth-combat-engineers
+  owner_faction: earth-kingdom
+  current_territory_id: E424
+# Earth Kingdom spies - E052 and F081
+- unit_id: EK-025
+  type: spy
+  owner_faction: earth-kingdom
+  current_territory_id: E052
+- unit_id: EK-026
+  type: spy
+  owner_faction: earth-kingdom
+  current_territory_id: F081
+# Earth Kingdom naval units - S096
+- unit_id: EK-027
+  type: transport
+  owner_faction: earth-kingdom
+  current_territory_id: S096
+- unit_id: EK-028
+  type: battleship
+  owner_faction: earth-kingdom
+  current_territory_id: S096
+- unit_id: EK-029
+  type: frigate
+  owner_faction: earth-kingdom
+  current_territory_id: S096
+# Earth Kingdom naval units - S129
+- unit_id: EK-030
+  type: transport
+  owner_faction: earth-kingdom
+  current_territory_id: S129
+- unit_id: EK-031
+  type: battleship
+  owner_faction: earth-kingdom
+  current_territory_id: S129
+- unit_id: EK-032
+  type: frigate
+  owner_faction: earth-kingdom
+  current_territory_id: S129
+# Earth Kingdom naval units - S144
+- unit_id: EK-033
+  type: transport
+  owner_faction: earth-kingdom
+  current_territory_id: S144
+- unit_id: EK-034
+  type: battleship
+  owner_faction: earth-kingdom
+  current_territory_id: S144
+- unit_id: EK-035
+  type: frigate
+  owner_faction: earth-kingdom
+  current_territory_id: S144
+# Earth Kingdom naval units - S245
+- unit_id: EK-036
+  type: transport
+  owner_faction: earth-kingdom
+  current_territory_id: S245
+- unit_id: EK-037
+  type: battleship
+  owner_faction: earth-kingdom
+  current_territory_id: S245
+- unit_id: EK-038
+  type: frigate
+  owner_faction: earth-kingdom
+  current_territory_id: S245
+# North Water land units - W030
+- unit_id: WT-001
+  type: water-bender-brigade
+  owner_faction: north-water
+  current_territory_id: W030
+- unit_id: WT-002
+  type: water-bender-brigade
+  owner_faction: north-water
+  current_territory_id: W030
+- unit_id: WT-003
+  type: water-tribe-marines
+  owner_faction: north-water
+  current_territory_id: W030
+- unit_id: WT-004
+  type: infantry
+  owner_faction: north-water
+  current_territory_id: W030
+- unit_id: WT-005
+  type: scout
+  owner_faction: north-water
+  current_territory_id: W030
+# North Water land units - W023
+- unit_id: WT-006
+  type: water-bender-brigade
+  owner_faction: north-water
+  current_territory_id: W023
+- unit_id: WT-007
+  type: water-tribe-marines
+  owner_faction: north-water
+  current_territory_id: W023
+- unit_id: WT-008
+  type: water-tribe-marines
+  owner_faction: north-water
+  current_territory_id: W023
+- unit_id: WT-009
+  type: infantry
+  owner_faction: north-water
+  current_territory_id: W023
+- unit_id: WT-010
+  type: scout
+  owner_faction: north-water
+  current_territory_id: W023
+# North Water spies - W052 and W202
+- unit_id: WT-011
+  type: spy
+  owner_faction: north-water
+  current_territory_id: W052
+- unit_id: WT-012
+  type: spy
+  owner_faction: north-water
+  current_territory_id: W202
+# North Water naval units - S028
+- unit_id: WT-013
+  type: water-tribe-sloop
+  owner_faction: north-water
+  current_territory_id: S028
+- unit_id: WT-014
+  type: water-tribe-sloop
+  owner_faction: north-water
+  current_territory_id: S028
+- unit_id: WT-015
+  type: frigate
+  owner_faction: north-water
+  current_territory_id: S028
+# North Water naval units - S029
+- unit_id: WT-016
+  type: water-tribe-sloop
+  owner_faction: north-water
+  current_territory_id: S029
+- unit_id: WT-017
+  type: frigate
+  owner_faction: north-water
+  current_territory_id: S029
+# Dai Li units - E509
+- unit_id: EK-039
+  type: dai-li-squad
+  owner_faction: dai-li
+  current_territory_id: E509
+- unit_id: EK-040
+  type: dai-li-squad
+  owner_faction: dai-li
+  current_territory_id: E509
+- unit_id: EK-041
+  type: dai-li-squad
+  owner_faction: dai-li
+  current_territory_id: E509
+- unit_id: EK-042
+  type: dai-li-squad
+  owner_faction: dai-li
+  current_territory_id: E509
+# Fire Sages units - F037
+- unit_id: FN-043
+  type: fire-sage
+  owner_faction: fire-sages
+  current_territory_id: F037
+- unit_id: FN-044
+  type: fire-sage
+  owner_faction: fire-sages
+  current_territory_id: F037
+- unit_id: FN-045
+  type: fire-sage
+  owner_faction: fire-sages
+  current_territory_id: F037
+- unit_id: FN-046
+  type: fire-sage
+  owner_faction: fire-sages
+  current_territory_id: F037
+# Fire Sages naval units - S072
+- unit_id: FN-047
+  type: transport
+  owner_faction: fire-sages
+  current_territory_id: S072
+- unit_id: FN-048
+  type: transport
+  owner_faction: fire-sages
+  current_territory_id: S072
+- unit_id: FN-049
+  type: frigate
+  owner_faction: fire-sages
+  current_territory_id: S072
+- unit_id: FN-050
+  type: frigate
+  owner_faction: fire-sages
+  current_territory_id: S072
+# Kyoshi Island units - E606
+- unit_id: EK-043
+  type: kyoshi-warriors
+  owner_faction: kyoshi-island
+  current_territory_id: E606
+- unit_id: EK-044
+  type: kyoshi-warriors
+  owner_faction: kyoshi-island
+  current_territory_id: E606
+# Kyoshi Island naval units - S093
+- unit_id: EK-045
+  type: transport
+  owner_faction: kyoshi-island
+  current_territory_id: S093
+- unit_id: EK-046
+  type: transport
+  owner_faction: kyoshi-island
+  current_territory_id: S093
+- unit_id: EK-047
+  type: frigate
+  owner_faction: kyoshi-island
+  current_territory_id: S093
+- unit_id: EK-048
+  type: frigate
+  owner_faction: kyoshi-island
+  current_territory_id: S093
+# South Water land units - W064
+- unit_id: WT-018
+  type: water-bender-brigade
+  owner_faction: south-water
+  current_territory_id: W064
+- unit_id: WT-019
+  type: water-bender-brigade
+  owner_faction: south-water
+  current_territory_id: W064
+- unit_id: WT-020
+  type: water-tribe-marines
+  owner_faction: south-water
+  current_territory_id: W064
+- unit_id: WT-021
+  type: infantry
+  owner_faction: south-water
+  current_territory_id: W064
+- unit_id: WT-022
+  type: scout
+  owner_faction: south-water
+  current_territory_id: W064
+# South Water land units - W043
+- unit_id: WT-023
+  type: water-bender-brigade
+  owner_faction: south-water
+  current_territory_id: W043
+- unit_id: WT-024
+  type: water-tribe-marines
+  owner_faction: south-water
+  current_territory_id: W043
+- unit_id: WT-025
+  type: water-tribe-marines
+  owner_faction: south-water
+  current_territory_id: W043
+- unit_id: WT-026
+  type: infantry
+  owner_faction: south-water
+  current_territory_id: W043
+- unit_id: WT-027
+  type: scout
+  owner_faction: south-water
+  current_territory_id: W043
+# South Water spies
+- unit_id: WT-028
+  type: spy
+  owner_faction: south-water
+  current_territory_id: W052
+- unit_id: WT-029
+  type: spy
+  owner_faction: south-water
+  current_territory_id: W202
+# South Water naval units - S104
+- unit_id: WT-030
+  type: water-tribe-sloop
+  owner_faction: south-water
+  current_territory_id: S104
+- unit_id: WT-031
+  type: water-tribe-sloop
+  owner_faction: south-water
+  current_territory_id: S104
+- unit_id: WT-032
+  type: frigate
+  owner_faction: south-water
+  current_territory_id: S104
+# South Water naval units - S099
+- unit_id: WT-033
+  type: water-tribe-sloop
+  owner_faction: south-water
+  current_territory_id: S099
+- unit_id: WT-034
+  type: frigate
+  owner_faction: south-water
+  current_territory_id: S099
+# Fifth Nation land units - E043
+- unit_id: 5N-001
+  type: mixed-bender-brigade
+  owner_faction: fifth-nation
+  current_territory_id: E043
+- unit_id: 5N-002
+  type: mixed-bender-brigade
+  owner_faction: fifth-nation
+  current_territory_id: E043
+- unit_id: 5N-003
+  type: mixed-bender-brigade
+  owner_faction: fifth-nation
+  current_territory_id: E043
+- unit_id: 5N-004
+  type: infantry
+  owner_faction: fifth-nation
+  current_territory_id: E043
+- unit_id: 5N-005
+  type: infantry
+  owner_faction: fifth-nation
+  current_territory_id: E043
+- unit_id: 5N-006
+  type: scout
+  owner_faction: fifth-nation
+  current_territory_id: E043
+- unit_id: 5N-007
+  type: scout
+  owner_faction: fifth-nation
+  current_territory_id: E043
+# Fifth Nation spies
+- unit_id: 5N-008
+  type: spy
+  owner_faction: fifth-nation
+  current_territory_id: W052
+- unit_id: 5N-009
+  type: spy
+  owner_faction: fifth-nation
+  current_territory_id: F054
+# Fifth Nation naval units - S091
+- unit_id: 5N-010
+  type: fifth-nation-sloop
+  owner_faction: fifth-nation
+  current_territory_id: S091
+- unit_id: 5N-011
+  type: fifth-nation-sloop
+  owner_faction: fifth-nation
+  current_territory_id: S091
+- unit_id: 5N-012
+  type: fifth-nation-sloop
+  owner_faction: fifth-nation
+  current_territory_id: S091
+- unit_id: 5N-013
+  type: frigate
+  owner_faction: fifth-nation
+  current_territory_id: S091
+- unit_id: 5N-014
+  type: frigate
+  owner_faction: fifth-nation
+  current_territory_id: S091
+# Saowon land units - F010
+- unit_id: FN-051
+  type: fire-bender-brigade
+  owner_faction: saowon
+  current_territory_id: F010
+- unit_id: FN-052
+  type: fire-bender-brigade
+  owner_faction: saowon
+  current_territory_id: F010
+- unit_id: FN-053
+  type: fire-bender-brigade
+  owner_faction: saowon
+  current_territory_id: F010
+- unit_id: WT-028
+  type: spy
+  owner_faction: saowon
+  current_territory_id: F010
+# Saowon naval units - S078
+- unit_id: FN-055
+  type: ironclad
+  owner_faction: saowon
+  current_territory_id: S078
+- unit_id: FN-056
+  type: ironclad
+  owner_faction: saowon
+  current_territory_id: S078
+- unit_id: FN-057
+  type: ironclad
+  owner_faction: saowon
+  current_territory_id: S078
+- unit_id: FN-058
+  type: ironclad
+  owner_faction: saowon
+  current_territory_id: S078
+# Hu-Xin land units - E345
+- unit_id: EK-049
+  type: infantry
+  owner_faction: hu-xin
+  current_territory_id: E345
+- unit_id: EK-050
+  type: infantry
+  owner_faction: hu-xin
+  current_territory_id: E345
+- unit_id: EK-051
+  type: earth-bender-brigade
+  owner_faction: hu-xin
+  current_territory_id: E345
+- unit_id: EK-052
+  type: earth-bender-brigade
+  owner_faction: hu-xin
+  current_territory_id: E345
+- unit_id: EK-053
+  type: earth-combat-engineers
+  owner_faction: hu-xin
+  current_territory_id: E345
+- unit_id: EK-054
+  type: earth-combat-engineers
+  owner_faction: hu-xin
+  current_territory_id: E345
+- unit_id: EK-055
+  type: spy
+  owner_faction: hu-xin
+  current_territory_id: E345
+# Hu-Xin naval units - S082
+- unit_id: EK-056
+  type: transport
+  owner_faction: hu-xin
+  current_territory_id: S082
+- unit_id: EK-057
+  type: transport
+  owner_faction: hu-xin
+  current_territory_id: S082
+- unit_id: EK-058
+  type: transport
+  owner_faction: hu-xin
+  current_territory_id: S082
+- unit_id: EK-059
+  type: frigate
+  owner_faction: hu-xin
+  current_territory_id: S082
+# Omashu land units - E109
+- unit_id: EK-060
+  type: infantry
+  owner_faction: omashu
+  current_territory_id: E109
+- unit_id: EK-061
+  type: infantry
+  owner_faction: omashu
+  current_territory_id: E109
+- unit_id: EK-062
+  type: earth-bender-brigade
+  owner_faction: omashu
+  current_territory_id: E109
+- unit_id: EK-063
+  type: earth-bender-brigade
+  owner_faction: omashu
+  current_territory_id: E109
+- unit_id: EK-064
+  type: earth-combat-engineers
+  owner_faction: omashu
+  current_territory_id: E109
+- unit_id: EK-065
+  type: earth-combat-engineers
+  owner_faction: omashu
+  current_territory_id: E109
+- unit_id: EK-066
+  type: spy
+  owner_faction: omashu
+  current_territory_id: E109
+# Omashu naval units - S090
+- unit_id: EK-067
+  type: transport
+  owner_faction: omashu
+  current_territory_id: S090
+- unit_id: EK-068
+  type: transport
+  owner_faction: omashu
+  current_territory_id: S090
+- unit_id: EK-069
+  type: transport
+  owner_faction: omashu
+  current_territory_id: S090
+- unit_id: EK-070
+  type: frigate
+  owner_faction: omashu
+  current_territory_id: S090
+# Gaoling land units - E047
+- unit_id: EK-071
+  type: infantry
+  owner_faction: gaoling
+  current_territory_id: E047
+- unit_id: EK-072
+  type: infantry
+  owner_faction: gaoling
+  current_territory_id: E047
+- unit_id: EK-073
+  type: earth-bender-brigade
+  owner_faction: gaoling
+  current_territory_id: E047
+- unit_id: EK-074
+  type: earth-bender-brigade
+  owner_faction: gaoling
+  current_territory_id: E047
+- unit_id: EK-075
+  type: earth-combat-engineers
+  owner_faction: gaoling
+  current_territory_id: E047
+- unit_id: EK-076
+  type: earth-combat-engineers
+  owner_faction: gaoling
+  current_territory_id: E047
+- unit_id: EK-077
+  type: spy
+  owner_faction: gaoling
+  current_territory_id: E047
+# Gaoling naval units - S122
+- unit_id: EK-078
+  type: transport
+  owner_faction: gaoling
+  current_territory_id: S122
+- unit_id: EK-079
+  type: transport
+  owner_faction: gaoling
+  current_territory_id: S122
+- unit_id: EK-080
+  type: transport
+  owner_faction: gaoling
+  current_territory_id: S122
+- unit_id: EK-081
+  type: frigate
+  owner_faction: gaoling
+  current_territory_id: S122
