@@ -7947,7 +7947,7 @@ territories:
   adjacent_to:
   - F014
   original_nation: fire-nation
-  controller: fire-nation
+  controller: saowon
   production:
     platinum: 3
   victory_points: 5

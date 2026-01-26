@@ -299,6 +299,27 @@ async def my_faction_cmd(interaction: discord.Interaction):
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
+def _chunk_list_for_embed(items: list, max_chars: int = 1000) -> list:
+    """Split a list of strings into chunks that fit within embed field limits."""
+    chunks = []
+    current_chunk = []
+    current_len = 0
+
+    for item in items:
+        item_len = len(item) + 1  # +1 for newline
+        if current_len + item_len > max_chars and current_chunk:
+            chunks.append(current_chunk)
+            current_chunk = []
+            current_len = 0
+        current_chunk.append(item)
+        current_len += item_len
+
+    if current_chunk:
+        chunks.append(current_chunk)
+
+    return chunks
+
+
 @tree.command(
     name="my-units",
     description="View units your character owns or commands"
@@ -313,11 +334,8 @@ async def my_units_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        # Create summary embed
-        embed = discord.Embed(
-            title=f"{data['character'].name}'s Units",
-            color=discord.Color.blue()
-        )
+        # Build all unit sections as (name, items_list) tuples
+        sections = []
 
         # Active owned units
         owned_list = []
@@ -326,13 +344,8 @@ async def my_units_cmd(interaction: discord.Interaction):
             if unit.current_territory_id is not None:
                 unit_str += f" (Territory {unit.current_territory_id})"
             owned_list.append(unit_str)
-
         if owned_list:
-            embed.add_field(
-                name=f"Owned Units ({len(owned_list)})",
-                value="\n".join(owned_list),
-                inline=False
-            )
+            sections.append((f"Owned Units ({len(owned_list)})", owned_list))
 
         # Active commanded units (exclude owned to avoid duplicates)
         owned_ids = {u.id for u in data['owned_units']}
@@ -343,13 +356,8 @@ async def my_units_cmd(interaction: discord.Interaction):
                 if unit.current_territory_id is not None:
                     unit_str += f" (Territory {unit.current_territory_id})"
                 commanded_list.append(unit_str)
-
         if commanded_list:
-            embed.add_field(
-                name=f"Commanded Units ({len(commanded_list)})",
-                value="\n".join(commanded_list),
-                inline=False
-            )
+            sections.append((f"Commanded Units ({len(commanded_list)})", commanded_list))
 
         # Faction units sections (for each faction where character has COMMAND permission)
         faction_units_list = data.get('faction_units_list', [])
@@ -360,20 +368,8 @@ async def my_units_cmd(interaction: discord.Interaction):
                 if unit.current_territory_id is not None:
                     unit_str += f" (Territory {unit.current_territory_id})"
                 faction_list.append(unit_str)
-
-            # Split into chunks if too many
-            if len(faction_list) <= 15:
-                embed.add_field(
-                    name=f"{faction.name} Units ({len(faction_list)})",
-                    value="\n".join(faction_list),
-                    inline=False
-                )
-            else:
-                embed.add_field(
-                    name=f"{faction.name} Units ({len(faction_list)})",
-                    value="\n".join(faction_list[:15]) + f"\n... and {len(faction_list) - 15} more",
-                    inline=False
-                )
+            if faction_list:
+                sections.append((f"{faction.name} Units ({len(faction_list)})", faction_list))
 
         # Disbanded units section
         disbanded_list = []
@@ -381,17 +377,44 @@ async def my_units_cmd(interaction: discord.Interaction):
             is_owner = unit.owner_character_id == data['character'].id
             role = "owned" if is_owner else "commanded"
             disbanded_list.append(f"`{unit.unit_id}`: {unit.name or unit.unit_type} ({role})")
-
         if disbanded_list:
-            embed.add_field(
-                name=f"Disbanded Units ({len(disbanded_list)})",
-                value="\n".join(disbanded_list),
-                inline=False
-            )
+            sections.append((f"Disbanded Units ({len(disbanded_list)})", disbanded_list))
 
-        embed.set_footer(text="Use /view-unit <unit_id> to see detailed unit information")
+        # Build embeds, splitting sections into chunks as needed
+        embeds = []
+        current_embed = discord.Embed(
+            title=f"{data['character'].name}'s Units",
+            color=discord.Color.blue()
+        )
+        field_count = 0
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        for section_name, items in sections:
+            chunks = _chunk_list_for_embed(items)
+            for i, chunk in enumerate(chunks):
+                # Discord limit: 25 fields per embed
+                if field_count >= 24:
+                    current_embed.set_footer(text="Continued in next message...")
+                    embeds.append(current_embed)
+                    current_embed = discord.Embed(
+                        title=f"{data['character'].name}'s Units (continued)",
+                        color=discord.Color.blue()
+                    )
+                    field_count = 0
+
+                field_name = section_name if i == 0 else f"{section_name} (continued)"
+                current_embed.add_field(
+                    name=field_name,
+                    value="\n".join(chunk),
+                    inline=False
+                )
+                field_count += 1
+
+        current_embed.set_footer(text="Use /view-unit <unit_id> to see detailed unit information")
+        embeds.append(current_embed)
+
+        # Send all embeds
+        for i, embed in enumerate(embeds):
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @tree.command(
@@ -408,82 +431,79 @@ async def my_territories_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        # Create summary embed
         character_name = data['character'].name
         territories = data['territories']
         faction_territories_list = data.get('faction_territories_list', [])
         total_faction_count = sum(len(t) for _, t in faction_territories_list)
         total_count = len(territories) + total_faction_count
 
-        embed = discord.Embed(
-            title=f"🗺️ {character_name}'s Territories",
-            description=f"{total_count} territories accessible",
-            color=discord.Color.green()
-        )
+        # Build all territory sections as (name, items_list) tuples
+        sections = []
 
         # Character-controlled territories
         if territories:
             territory_list = []
             for territory in territories:
                 adjacent_ids = data['adjacencies'].get(territory.territory_id, [])
-
-                # Calculate total production
                 total_prod = (territory.ore_production + territory.lumber_production +
                              territory.coal_production + territory.rations_production +
                              territory.cloth_production)
-
                 terr_str = f"**{territory.territory_id}**: {territory.name or 'Unnamed'} ({territory.terrain_type})\n"
                 terr_str += f"  Production: {total_prod}/turn | Adjacent: {', '.join(str(t) for t in sorted(adjacent_ids)) if adjacent_ids else 'None'}"
-
                 territory_list.append(terr_str)
-
-            # Split into chunks if too many
-            if len(territory_list) <= 10:
-                embed.add_field(
-                    name=f"Controlled Territories ({len(territory_list)})",
-                    value="\n\n".join(territory_list),
-                    inline=False
-                )
-            else:
-                embed.add_field(
-                    name=f"Controlled Territories ({len(territory_list)})",
-                    value="\n\n".join(territory_list[:10]) + f"\n\n... and {len(territory_list) - 10} more",
-                    inline=False
-                )
+            sections.append((f"Controlled Territories ({len(territory_list)})", territory_list))
 
         # Faction-controlled territories (for each faction where character has permission)
         for faction, faction_territories in faction_territories_list:
             faction_terr_list = []
             for territory in faction_territories:
                 adjacent_ids = data['adjacencies'].get(territory.territory_id, [])
-
-                # Calculate total production
                 total_prod = (territory.ore_production + territory.lumber_production +
                              territory.coal_production + territory.rations_production +
                              territory.cloth_production)
-
                 terr_str = f"**{territory.territory_id}**: {territory.name or 'Unnamed'} ({territory.terrain_type})\n"
                 terr_str += f"  Production: {total_prod}/turn | Adjacent: {', '.join(str(t) for t in sorted(adjacent_ids)) if adjacent_ids else 'None'}"
-
                 faction_terr_list.append(terr_str)
+            if faction_terr_list:
+                sections.append((f"{faction.name} Territories ({len(faction_terr_list)})", faction_terr_list))
 
-            # Split into chunks if too many
-            if len(faction_terr_list) <= 10:
-                embed.add_field(
-                    name=f"{faction.name} Territories ({len(faction_terr_list)})",
-                    value="\n\n".join(faction_terr_list),
+        # Build embeds, splitting sections into chunks as needed
+        embeds = []
+        current_embed = discord.Embed(
+            title=f"🗺️ {character_name}'s Territories",
+            description=f"{total_count} territories accessible",
+            color=discord.Color.green()
+        )
+        field_count = 0
+
+        for section_name, items in sections:
+            # Territory entries are longer, use smaller chunk size
+            chunks = _chunk_list_for_embed(items, max_chars=900)
+            for i, chunk in enumerate(chunks):
+                # Discord limit: 25 fields per embed
+                if field_count >= 24:
+                    current_embed.set_footer(text="Continued in next message...")
+                    embeds.append(current_embed)
+                    current_embed = discord.Embed(
+                        title=f"🗺️ {character_name}'s Territories (continued)",
+                        color=discord.Color.green()
+                    )
+                    field_count = 0
+
+                field_name = section_name if i == 0 else f"{section_name} (continued)"
+                current_embed.add_field(
+                    name=field_name,
+                    value="\n\n".join(chunk),
                     inline=False
                 )
-            else:
-                embed.add_field(
-                    name=f"{faction.name} Territories ({len(faction_terr_list)})",
-                    value="\n\n".join(faction_terr_list[:10]) + f"\n\n... and {len(faction_terr_list) - 10} more",
-                    inline=False
-                )
+                field_count += 1
 
-        embed.set_footer(text="Use /view-territory <territory_id> for detailed information")
+        current_embed.set_footer(text="Use /view-territory <territory_id> for detailed information")
+        embeds.append(current_embed)
 
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        # Send all embeds
+        for embed in embeds:
+            await interaction.followup.send(embed=embed, ephemeral=True)
 
 
 @tree.command(
@@ -500,21 +520,49 @@ async def my_units_list_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
+        # Build sections of IDs
+        sections = []
+
         # Combine and deduplicate owned and commanded
         all_units = {unit.id: unit for unit in data['owned_units'] + data['commanded_units']}.values()
         unit_ids = [unit.unit_id for unit in all_units]
-
-        response = f"**Your unit IDs:**\n`{', '.join(unit_ids) if unit_ids else 'None'}`"
+        if unit_ids:
+            sections.append(("Your unit IDs", unit_ids))
 
         # Include faction units for each faction
         faction_units_list = data.get('faction_units_list', [])
         for faction, faction_units in faction_units_list:
             faction_unit_ids = [unit.unit_id for unit in faction_units]
-            response += f"\n\n**{faction.name} unit IDs:**\n`{', '.join(faction_unit_ids)}`"
+            if faction_unit_ids:
+                sections.append((f"{faction.name} unit IDs", faction_unit_ids))
 
-        response += "\n\nUse `/view-unit <unit_id>` for details."
+        # Build messages, respecting Discord's 2000 char limit
+        messages = []
+        current_msg = ""
+        for section_name, ids in sections:
+            section_text = f"**{section_name}:**\n`{', '.join(ids)}`"
+            # Check if adding this section would exceed limit
+            if len(current_msg) + len(section_text) + 4 > 1900:  # Leave room for newlines and footer
+                if current_msg:
+                    messages.append(current_msg)
+                current_msg = section_text
+            else:
+                if current_msg:
+                    current_msg += "\n\n"
+                current_msg += section_text
 
-        await interaction.followup.send(response, ephemeral=True)
+        if current_msg:
+            messages.append(current_msg)
+
+        # Add footer to last message
+        if messages:
+            messages[-1] += "\n\nUse `/view-unit <unit_id>` for details."
+        else:
+            messages = ["No units found.\n\nUse `/view-unit <unit_id>` for details."]
+
+        # Send all messages
+        for msg in messages:
+            await interaction.followup.send(msg, ephemeral=True)
 
 
 @tree.command(
@@ -531,21 +579,50 @@ async def my_territories_list_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        # Create list of territory IDs
-        territory_ids = [str(t.territory_id) for t in data['territories']]
         character_name = data['character'].name
 
-        response = f"**{character_name}'s territory IDs:**\n`{', '.join(territory_ids) if territory_ids else 'None'}`"
+        # Build sections of IDs
+        sections = []
+
+        # Character-controlled territories
+        territory_ids = [str(t.territory_id) for t in data['territories']]
+        if territory_ids:
+            sections.append((f"{character_name}'s territory IDs", territory_ids))
 
         # Include faction territories for each faction
         faction_territories_list = data.get('faction_territories_list', [])
         for faction, faction_territories in faction_territories_list:
             faction_territory_ids = [str(t.territory_id) for t in faction_territories]
-            response += f"\n\n**{faction.name} territory IDs:**\n`{', '.join(faction_territory_ids)}`"
+            if faction_territory_ids:
+                sections.append((f"{faction.name} territory IDs", faction_territory_ids))
 
-        response += "\n\nUse `/view-territory <territory_id>` for details."
+        # Build messages, respecting Discord's 2000 char limit
+        messages = []
+        current_msg = ""
+        for section_name, ids in sections:
+            section_text = f"**{section_name}:**\n`{', '.join(ids)}`"
+            # Check if adding this section would exceed limit
+            if len(current_msg) + len(section_text) + 4 > 1900:  # Leave room for newlines and footer
+                if current_msg:
+                    messages.append(current_msg)
+                current_msg = section_text
+            else:
+                if current_msg:
+                    current_msg += "\n\n"
+                current_msg += section_text
 
-        await interaction.followup.send(response, ephemeral=True)
+        if current_msg:
+            messages.append(current_msg)
+
+        # Add footer to last message
+        if messages:
+            messages[-1] += "\n\nUse `/view-territory <territory_id>` for details."
+        else:
+            messages = ["No territories found.\n\nUse `/view-territory <territory_id>` for details."]
+
+        # Send all messages
+        for msg in messages:
+            await interaction.followup.send(msg, ephemeral=True)
 
 
 @tree.command(
