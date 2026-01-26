@@ -1771,6 +1771,45 @@ async def view_product(
 
 
 @tree.command(
+    name="list-failed-blends",
+    description="[Admin] List all failed blend (ruined product) mappings"
+)
+@app_commands.default_permissions(manage_guild=True)
+async def list_failed_blends(interaction: discord.Interaction):
+    """List all failed blend mappings."""
+    async with db_pool.acquire() as conn:
+        failed_blends = await FailedBlend.fetch_all(conn)
+
+    if not failed_blends:
+        await interaction.response.send_message(
+            "No failed blend mappings found.",
+            ephemeral=True
+        )
+        return
+
+    # Build the embed
+    embed = discord.Embed(
+        title="Failed Blend Mappings",
+        description="These are the ruined products returned when a blend fails for each product type.",
+        color=discord.Color.orange()
+    )
+
+    for fb in failed_blends:
+        # Fetch the product to get its name
+        async with db_pool.acquire() as conn:
+            product = await Product.fetch_by_item_number_and_type(conn, fb.product_item_number, fb.product_type)
+
+        product_name = product.name if product else "Unknown"
+        embed.add_field(
+            name=fb.product_type.title(),
+            value=f"#{fb.product_item_number} - {product_name}",
+            inline=True
+        )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@tree.command(
     name="view-ingredient",
     description="[Admin] View details of an herbal ingredient"
 )
