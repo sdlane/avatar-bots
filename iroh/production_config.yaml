@@ -4973,9 +4973,9 @@ territories:
   production:
     ore: 2
     cloth: 2
-    platinum: 1
     rations: 1
     rations: 1
+    lumber: 1
 - territory_id: F069
   terrain_type: plains
   adjacent_to:
@@ -5138,7 +5138,7 @@ territories:
     ore: 2
     coal: 2
     cloth: 2
-    platinum: 1
+    lumber: 1
 - territory_id: F086
   terrain_type: plains
   adjacent_to:
@@ -5159,7 +5159,7 @@ territories:
     ore: 2
     coal: 2
     rations: 1
-    platinum: 2
+    lumber: 2
 - territory_id: F087
   terrain_type: plains
   adjacent_to:
@@ -5176,9 +5176,8 @@ territories:
   production:
     ore: 2
     coal: 2
-    platinum: 1
     rations: 1
-    lumber: 1
+    lumber: 2
 - territory_id: F088
   terrain_type: plains
   adjacent_to:
@@ -5197,8 +5196,8 @@ territories:
   production:
     ore: 3
     coal: 3
-    platinum: 1
     rations: 1
+    lumber: 1
 - territory_id: S001
   terrain_type: ocean
   adjacent_to:
@@ -8043,6 +8042,13 @@ factions:
 - faction_id: air-nomads
   name: Air Nomads
   nation: air-nomads
+  spending:
+    ore: 11
+    lumber: 17
+    coal: 31
+    rations: 13
+    cloth: 14
+    platinum: 23
 - faction_id: north-water
   name: Northern Water Tribe
   nation: water-tribe

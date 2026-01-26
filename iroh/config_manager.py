@@ -72,6 +72,18 @@ class ConfigManager:
                         member_identifiers.append(char.identifier)
                 faction_dict['members'] = member_identifiers
 
+            # Include spending if any values are non-zero
+            if (faction.ore_spending or faction.lumber_spending or faction.coal_spending or
+                faction.rations_spending or faction.cloth_spending or faction.platinum_spending):
+                faction_dict['spending'] = {
+                    'ore': faction.ore_spending,
+                    'lumber': faction.lumber_spending,
+                    'coal': faction.coal_spending,
+                    'rations': faction.rations_spending,
+                    'cloth': faction.cloth_spending,
+                    'platinum': faction.platinum_spending
+                }
+
             config_dict['factions'].append(faction_dict)
 
         # Export Player Resources
@@ -448,10 +460,17 @@ class ConfigManager:
         faction_map = {}  # faction_id -> internal id
         if 'factions' in config_dict:
             for faction_data in config_dict['factions']:
+                spending = faction_data.get('spending', {})
                 faction = Faction(
                     faction_id=faction_data['faction_id'],
                     name=faction_data['name'],
                     nation=faction_data.get('nation'),
+                    ore_spending=spending.get('ore', 0),
+                    lumber_spending=spending.get('lumber', 0),
+                    coal_spending=spending.get('coal', 0),
+                    rations_spending=spending.get('rations', 0),
+                    cloth_spending=spending.get('cloth', 0),
+                    platinum_spending=spending.get('platinum', 0),
                     guild_id=guild_id
                 )
                 await faction.upsert(conn)

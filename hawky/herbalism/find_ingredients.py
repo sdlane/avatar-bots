@@ -622,10 +622,11 @@ def print_ingredients_latex(ingredients: List[Ingredient], show_verification: bo
         # Verify using actual blending functions
         chakra = calculate_chakras(ingredients)
         product_type = get_product_type(ingredients)
-        print(f"% Verification: type={product_type}, "
-              f"primary={chakra.primary_chakra}/{chakra.primary_is_boon} (mag={chakra.primary_magnitude}), "
-              f"secondary={chakra.secondary_chakra}/{chakra.secondary_is_boon} (mag={chakra.secondary_magnitude}), "
-              f"tier={chakra.tier}")
+        product_type_display = product_type.title() if product_type else "Ruined"
+        print(f"% Verification: Type={product_type_display}, "
+              f"Primary={chakra.primary_chakra}/{chakra.primary_is_boon} (mag={chakra.primary_magnitude}), "
+              f"Secondary={chakra.secondary_chakra}/{chakra.secondary_is_boon} (mag={chakra.secondary_magnitude}), "
+              f"Tier={chakra.tier}")
 
 
 # --- Main ---
