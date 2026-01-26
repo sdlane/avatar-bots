@@ -516,6 +516,8 @@ class ConfigManager:
             for territory in config_dict['territories']:
                 if 'controller_faction_id' in territory:
                     referenced_faction_ids.add(territory['controller_faction_id'])
+                elif 'controller' in territory:
+                    referenced_faction_ids.add(territory['controller'])
 
         if 'units' in config_dict:
             for unit in config_dict['units']:
@@ -630,6 +632,9 @@ class ConfigManager:
                         controller_character_id = character.id
                 elif 'controller_faction_id' in territory_data:
                     controller_faction_id = faction_map.get(territory_data['controller_faction_id'])
+                elif 'controller' in territory_data:
+                    # Support 'controller' as alias for 'controller_faction_id'
+                    controller_faction_id = faction_map.get(territory_data['controller'])
 
                 production = territory_data.get('production', {})
                 territory = Territory(
