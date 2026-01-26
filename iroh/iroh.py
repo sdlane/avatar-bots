@@ -115,7 +115,7 @@ async def iroh_help_cmd(interaction: discord.Interaction):
                 value = value[:1020] + "..."
             embed.add_field(name=category, value=value, inline=False)
 
-    await interaction.response.send_message(embed=embed)
+    await interaction.response.send_message(embed=embed, ephemeral=True)
 
 
 # Helper function to check admin permissions
@@ -325,6 +325,10 @@ async def my_faction_cmd(interaction: discord.Interaction):
         # Build description with representation info
         description_lines = [f"**Representing:** {data['faction'].name}"]
         description_lines.append(f"Faction ID: `{data['faction'].faction_id}`")
+
+        # Calculate faction's total victory points from all members
+        faction_total_vp = sum(member.victory_points for member in data['members'])
+        description_lines.append(f"**Faction Victory Points:** {faction_total_vp}")
 
         # Show all memberships if multiple factions
         all_memberships = data.get('all_memberships', [])
@@ -3115,39 +3119,39 @@ async def view_victory_points_cmd(interaction: discord.Interaction, faction_id: 
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
-@tree.command(
-    name="order-assign-vp",
-    description="Submit an order to assign your victory points to a faction"
-)
-@app_commands.describe(
-    faction_id="The faction ID to assign your VPs to"
-)
-async def order_assign_vp_cmd(interaction: discord.Interaction, faction_id: str):
-    await interaction.response.defer()
-
-    async with db_pool.acquire() as conn:
-        # Get character for this user
-        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
-        if not character:
-            await interaction.followup.send(
-                emotive_message("You don't have a character in this wargame."),
-                ephemeral=True
-            )
-            return
-
-        success, message = await handlers.submit_assign_victory_points_order(
-            conn, character, faction_id, interaction.guild_id
-        )
-
-        if success:
-            logger.info(f"User {interaction.user.name} submitted VP assignment to '{faction_id}'")
-        else:
-            logger.warning(f"User {interaction.user.name} failed VP assignment: {message}")
-
-        await interaction.followup.send(
-            emotive_message(message),
-            ephemeral=not success
-        )
+# @tree.command(
+#     name="order-assign-vp",
+#     description="Submit an order to assign your victory points to a faction"
+# )
+# @app_commands.describe(
+#     faction_id="The faction ID to assign your VPs to"
+# )
+# async def order_assign_vp_cmd(interaction: discord.Interaction, faction_id: str):
+#     await interaction.response.defer()
+#
+#     async with db_pool.acquire() as conn:
+#         # Get character for this user
+#         character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+#         if not character:
+#             await interaction.followup.send(
+#                 emotive_message("You don't have a character in this wargame."),
+#                 ephemeral=True
+#             )
+#             return
+#
+#         success, message = await handlers.submit_assign_victory_points_order(
+#             conn, character, faction_id, interaction.guild_id
+#         )
+#
+#         if success:
+#             logger.info(f"User {interaction.user.name} submitted VP assignment to '{faction_id}'")
+#         else:
+#             logger.warning(f"User {interaction.user.name} failed VP assignment: {message}")
+#
+#         await interaction.followup.send(
+#             emotive_message(message),
+#             ephemeral=not success
+#         )
 
 
 # ============================================================================
