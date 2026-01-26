@@ -1699,4 +1699,221 @@ async def list_nexi(interaction: discord.Interaction):
     await interaction.followup.send(embed=embed)
 
 
+# Herbalism Admin Commands
+@tree.command(
+    name="view-product",
+    description="[Admin] View details of an herbal product"
+)
+@app_commands.describe(
+    item_number="The item number of the product",
+    product_type="The type of the herbal product"
+)
+@app_commands.choices(product_type=[
+    app_commands.Choice(name="Tea", value="tea"),
+    app_commands.Choice(name="Salve", value="salve"),
+    app_commands.Choice(name="Tincture", value="tincture"),
+    app_commands.Choice(name="Decoction", value="decoction"),
+    app_commands.Choice(name="Bath", value="bath"),
+    app_commands.Choice(name="Incense", value="incense"),
+])
+@app_commands.default_permissions(manage_guild=True)
+async def view_product(
+    interaction: discord.Interaction,
+    item_number: str,
+    product_type: app_commands.Choice[str]
+):
+    """View details of an herbal product."""
+    async with db_pool.acquire() as conn:
+        product = await Product.fetch_by_item_number_and_type(conn, item_number.strip(), product_type.value)
+
+    if product is None:
+        await interaction.response.send_message(
+            f"No product found with item number '{item_number}' and type '{product_type.name}'.",
+            ephemeral=True
+        )
+        return
+
+    # Build the embed (matching /blend-herbs output format)
+    embed = discord.Embed(
+        title=f"{product.product_type.title() if product.product_type else 'Product'}: {product.name or 'Unknown'}",
+        color=discord.Color.green()
+    )
+
+    embed.add_field(name="Item Number", value=product.item_number, inline=True)
+    embed.add_field(name="Quantity", value="1", inline=True)
+    embed.add_field(name="Type", value=product.product_type.title() if product.product_type else "Unknown", inline=True)
+
+    if product.flavor_text:
+        embed.add_field(name="Description", value=f"*{product.flavor_text}*", inline=False)
+
+    if product.rules_text:
+        embed.add_field(name="Effect", value=product.rules_text, inline=False)
+
+    # Add box room instructions (or apply-herbs instruction if skip_prod)
+    if product.skip_prod:
+        embed.set_footer(
+            text="This product cannot be found in the box room. Use the /apply-herbs command to apply it to a character."
+        )
+    else:
+        box_type = product.product_type.title() if product.product_type else "Product"
+        embed.set_footer(
+            text=f"Find this in the box room in the envelope labeled '{box_type}: {product.item_number}'. "
+                 f"Please let the GMs know if the folder is running low."
+        )
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="view-ingredient",
+    description="[Admin] View details of an herbal ingredient"
+)
+@app_commands.describe(
+    item_number="The item number of the ingredient"
+)
+@app_commands.default_permissions(manage_guild=True)
+async def view_ingredient(
+    interaction: discord.Interaction,
+    item_number: str
+):
+    """View details of an herbal ingredient."""
+    async with db_pool.acquire() as conn:
+        ingredient = await Ingredient.fetch_by_item_number(conn, item_number.strip())
+
+    if ingredient is None:
+        await interaction.response.send_message(
+            f"No ingredient found with item number '{item_number}'.",
+            ephemeral=True
+        )
+        return
+
+    # Build the embed
+    embed = discord.Embed(
+        title=f"Ingredient: {ingredient.name or 'Unknown'}",
+        color=discord.Color.blue()
+    )
+
+    embed.add_field(name="Item Number", value=ingredient.item_number, inline=True)
+    embed.add_field(name="Rarity", value=ingredient.rarity or "Unknown", inline=True)
+    embed.add_field(name="\u200b", value="\u200b", inline=True)  # Spacer
+
+    if ingredient.primary_chakra:
+        primary_strength = f" ({ingredient.primary_chakra_strength})" if ingredient.primary_chakra_strength else ""
+        embed.add_field(name="Primary Chakra", value=f"{ingredient.primary_chakra}{primary_strength}", inline=True)
+
+    if ingredient.secondary_chakra:
+        secondary_strength = f" ({ingredient.secondary_chakra_strength})" if ingredient.secondary_chakra_strength else ""
+        embed.add_field(name="Secondary Chakra", value=f"{ingredient.secondary_chakra}{secondary_strength}", inline=True)
+
+    if ingredient.primary_chakra or ingredient.secondary_chakra:
+        embed.add_field(name="\u200b", value="\u200b", inline=True)  # Spacer
+
+    properties_list = ingredient.get_properties_list()
+    if properties_list:
+        embed.add_field(name="Properties", value=", ".join(properties_list), inline=False)
+
+    if ingredient.flavor_text:
+        embed.add_field(name="Description", value=f"*{ingredient.flavor_text}*", inline=False)
+
+    if ingredient.rules_text:
+        embed.add_field(name="Rules", value=ingredient.rules_text, inline=False)
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
+@tree.command(
+    name="view-recipe",
+    description="[Admin] View recipes for an herbal product"
+)
+@app_commands.describe(
+    item_number="The item number of the product",
+    product_type="The type of the herbal product"
+)
+@app_commands.choices(product_type=[
+    app_commands.Choice(name="Tea", value="tea"),
+    app_commands.Choice(name="Salve", value="salve"),
+    app_commands.Choice(name="Tincture", value="tincture"),
+    app_commands.Choice(name="Decoction", value="decoction"),
+    app_commands.Choice(name="Bath", value="bath"),
+    app_commands.Choice(name="Incense", value="incense"),
+])
+@app_commands.default_permissions(manage_guild=True)
+async def view_recipe(
+    interaction: discord.Interaction,
+    item_number: str,
+    product_type: app_commands.Choice[str]
+):
+    """View recipes for an herbal product."""
+    async with db_pool.acquire() as conn:
+        # Fetch the product first to show its name
+        product = await Product.fetch_by_item_number_and_type(conn, item_number.strip(), product_type.value)
+
+        # Fetch subset recipes
+        subset_recipes = await SubsetRecipe.fetch_by_product(conn, item_number.strip(), product_type.value)
+
+        # Fetch constraint recipes
+        constraint_recipes = await ConstraintRecipe.fetch_by_product(conn, item_number.strip(), product_type.value)
+
+    if not subset_recipes and not constraint_recipes:
+        product_name = f" ({product.name})" if product and product.name else ""
+        await interaction.response.send_message(
+            f"No recipes found for {product_type.name} #{item_number}{product_name}.",
+            ephemeral=True
+        )
+        return
+
+    # Build the embed
+    product_name = product.name if product and product.name else "Unknown"
+    embed = discord.Embed(
+        title=f"Recipes for {product_type.name}: {product_name} (#{item_number})",
+        color=discord.Color.gold()
+    )
+
+    # Add subset recipes
+    if subset_recipes:
+        for i, recipe in enumerate(subset_recipes, 1):
+            ingredients_str = ", ".join(recipe.ingredients) if recipe.ingredients else "None"
+            value = f"**Ingredients:** {ingredients_str}\n**Quantity Produced:** {recipe.quantity_produced}"
+            embed.add_field(
+                name=f"Subset Recipe #{i}",
+                value=value,
+                inline=False
+            )
+
+    # Add constraint recipes
+    if constraint_recipes:
+        for i, recipe in enumerate(constraint_recipes, 1):
+            constraints = []
+
+            if recipe.ingredients:
+                ingredients_str = ", ".join(recipe.ingredients)
+                constraints.append(f"**Ingredients:** {ingredients_str}")
+
+            if recipe.primary_chakra:
+                boon_str = f" ({recipe.primary_is_boon})" if recipe.primary_is_boon else ""
+                constraints.append(f"**Primary Chakra:** {recipe.primary_chakra}{boon_str}")
+
+            if recipe.secondary_chakra:
+                boon_str = f" ({recipe.secondary_is_boon})" if recipe.secondary_is_boon else ""
+                constraints.append(f"**Secondary Chakra:** {recipe.secondary_chakra}{boon_str}")
+
+            if recipe.tier is not None:
+                constraints.append(f"**Tier:** {recipe.tier}")
+
+            constraints.append(f"**Quantity Produced:** {recipe.quantity_produced}")
+
+            value = "\n".join(constraints) if constraints else "No constraints"
+            embed.add_field(
+                name=f"Constraint Recipe #{i}",
+                value=value,
+                inline=False
+            )
+
+    # Add summary footer
+    total_recipes = len(subset_recipes) + len(constraint_recipes)
+    embed.set_footer(text=f"Total: {len(subset_recipes)} subset recipe(s), {len(constraint_recipes)} constraint recipe(s)")
+
+    await interaction.response.send_message(embed=embed, ephemeral=True)
+
+
 client.run(BOT_TOKEN)

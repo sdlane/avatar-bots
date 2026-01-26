@@ -210,6 +210,42 @@ class ConstraintRecipe:
         return result
 
     @classmethod
+    async def fetch_by_product(
+        cls,
+        conn: asyncpg.Connection,
+        product_item_number: str,
+        product_type: str
+    ) -> List["ConstraintRecipe"]:
+        """
+        Fetch all ConstraintRecipes for a specific product.
+        """
+        rows = await conn.fetch("""
+            SELECT id, product_item_number, product_type, quantity_produced, ingredients,
+                   primary_chakra, primary_is_boon, secondary_chakra, secondary_is_boon,
+                   tier, created_at
+            FROM ConstraintRecipe
+            WHERE product_item_number = $1 AND LOWER(product_type) = LOWER($2)
+            ORDER BY created_at ASC, id ASC;
+        """, product_item_number, product_type)
+        result = []
+        for row in rows:
+            ingredients = list(row['ingredients']) if row['ingredients'] else None
+            result.append(cls(
+                id=row['id'],
+                product_item_number=row['product_item_number'],
+                product_type=row['product_type'],
+                quantity_produced=row['quantity_produced'],
+                ingredients=ingredients,
+                primary_chakra=row['primary_chakra'],
+                primary_is_boon=row['primary_is_boon'],
+                secondary_chakra=row['secondary_chakra'],
+                secondary_is_boon=row['secondary_is_boon'],
+                tier=row['tier'],
+                created_at=row['created_at']
+            ))
+        return result
+
+    @classmethod
     async def delete_all(cls, conn: asyncpg.Connection):
         """
         Delete all ConstraintRecipe entries.

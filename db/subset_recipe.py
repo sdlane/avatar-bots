@@ -100,6 +100,34 @@ class SubsetRecipe:
         return result
 
     @classmethod
+    async def fetch_by_product(
+        cls,
+        conn: asyncpg.Connection,
+        product_item_number: str,
+        product_type: str
+    ) -> List["SubsetRecipe"]:
+        """
+        Fetch all SubsetRecipes for a specific product.
+        """
+        rows = await conn.fetch("""
+            SELECT id, product_item_number, product_type, quantity_produced, ingredients
+            FROM SubsetRecipe
+            WHERE product_item_number = $1 AND LOWER(product_type) = LOWER($2)
+            ORDER BY id;
+        """, product_item_number, product_type)
+        result = []
+        for row in rows:
+            ingredients = list(row['ingredients']) if row['ingredients'] else []
+            result.append(cls(
+                id=row['id'],
+                product_item_number=row['product_item_number'],
+                product_type=row['product_type'],
+                quantity_produced=row['quantity_produced'],
+                ingredients=ingredients
+            ))
+        return result
+
+    @classmethod
     async def delete_all(cls, conn: asyncpg.Connection):
         """
         Delete all SubsetRecipe entries.
