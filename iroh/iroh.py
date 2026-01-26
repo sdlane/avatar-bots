@@ -809,6 +809,72 @@ async def create_test_config(interaction: discord.Interaction):
             )
 
 
+@tree.command(
+    name="create-production-config",
+    description="[Admin] Create the production wargame configuration in this server"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def create_production_config(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    from config_manager import ConfigManager
+    import os
+    import yaml
+
+    # Load production config from file
+    production_config_path = os.path.join(os.path.dirname(__file__), 'production_config.yaml')
+    try:
+        with open(production_config_path, 'r') as f:
+            production_config = f.read()
+    except FileNotFoundError:
+        await interaction.followup.send(
+            emotive_message("Production configuration file not found. Please ensure production_config.yaml exists in the iroh directory."),
+            ephemeral=True
+        )
+        return
+    except Exception as e:
+        await interaction.followup.send(
+            emotive_message(f"Error reading production configuration file: {e}"),
+            ephemeral=True
+        )
+        return
+
+    async with db_pool.acquire() as conn:
+        success, message = await ConfigManager.import_config(conn, interaction.guild_id, production_config)
+
+        if success:
+            # Parse config to count entities
+            config_dict = yaml.safe_load(production_config)
+            num_factions = len(config_dict.get('factions', []))
+            num_territories = len(config_dict.get('territories', []))
+            num_unit_types = len(config_dict.get('unit_types', []))
+            num_units = len(config_dict.get('units', []))
+            num_buildings = len(config_dict.get('buildings', []))
+
+            created_items = []
+            if num_factions:
+                created_items.append(f"• {num_factions} faction{'s' if num_factions != 1 else ''}")
+            if num_territories:
+                created_items.append(f"• {num_territories} territor{'ies' if num_territories != 1 else 'y'}")
+            if num_unit_types:
+                created_items.append(f"• {num_unit_types} unit type{'s' if num_unit_types != 1 else ''}")
+            if num_units:
+                created_items.append(f"• {num_units} unit{'s' if num_units != 1 else ''}")
+            if num_buildings:
+                created_items.append(f"• {num_buildings} building{'s' if num_buildings != 1 else ''}")
+
+            created_str = '\n'.join(created_items) if created_items else '• (empty config)'
+
+            await interaction.followup.send(
+                emotive_message(f"Production wargame configuration created successfully!\n\nCreated:\n{created_str}")
+            )
+        else:
+            await interaction.followup.send(
+                emotive_message(f"Failed to create production configuration: {message}"),
+                ephemeral=True
+            )
+
+
 # Faction Management Commands
 @tree.command(
     name="create-faction",
