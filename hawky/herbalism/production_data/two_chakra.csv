@@ -11,8 +11,8 @@ Product Item Number,Product Type,Quantity Produced,Ingredient 1,Ingredient 2,Ing
 6655,Decoction,1,,,,,,,Light,bane,Sound,bane,3
 6653,Salve,1,,,,,,,Light,bane,Sound,bane,2
 6655,Salve,1,,,,,,,Light,bane,Sound,bane,3
-6655,bath,1,,,,,,,Light,bane,Sound,bane,2
-6655,bath,1,,,,,,,Light,bane,Sound,bane,3
+6655,Bath,1,,,,,,,Light,bane,Sound,bane,2
+6655,Bath,1,,,,,,,Light,bane,Sound,bane,3
 6134,Decoction,1,,,,,,,Earth,bane,Fire,boon,2
 6132,Decoction,1,,,,,,,Earth,bane,Fire,boon,1
 6143,Tincture,1,,,,,,,Earth,boon,Air,boon,2
