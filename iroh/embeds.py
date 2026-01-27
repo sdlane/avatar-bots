@@ -1184,3 +1184,66 @@ def create_faction_finances_embed(data: dict) -> discord.Embed:
     )
 
     return embed
+
+
+def create_edit_unit_type_embed(unit_type: UnitType) -> discord.Embed:
+    """Create embed for editing unit type via button interface."""
+    embed = discord.Embed(
+        title=f"Edit Unit Type: {unit_type.name}",
+        description=f"Type ID: `{unit_type.type_id}`",
+        color=discord.Color.blue()
+    )
+
+    # Basic info
+    embed.add_field(name="Nation", value=unit_type.nation or "Any", inline=True)
+    embed.add_field(name="Naval", value="Yes" if unit_type.is_naval else "No", inline=True)
+    embed.add_field(name="\u200b", value="\u200b", inline=True)  # Spacer
+
+    # Combat stats
+    stats = f"Move: {unit_type.movement} | Org: {unit_type.organization}\n"
+    stats += f"Atk: {unit_type.attack} | Def: {unit_type.defense}"
+    embed.add_field(name="Combat Stats", value=stats, inline=False)
+
+    # Size/Siege stats
+    size_stats = f"Siege Atk: {unit_type.siege_attack} | Siege Def: {unit_type.siege_defense}\n"
+    size_stats += f"Size: {unit_type.size} | Capacity: {unit_type.capacity}"
+    embed.add_field(name="Size/Siege", value=size_stats, inline=False)
+
+    # Cost
+    cost_parts = []
+    if unit_type.cost_ore > 0:
+        cost_parts.append(f"\u26cf\ufe0f{unit_type.cost_ore}")
+    if unit_type.cost_lumber > 0:
+        cost_parts.append(f"\U0001fab5{unit_type.cost_lumber}")
+    if unit_type.cost_coal > 0:
+        cost_parts.append(f"\u26ab{unit_type.cost_coal}")
+    if unit_type.cost_rations > 0:
+        cost_parts.append(f"\U0001f356{unit_type.cost_rations}")
+    if unit_type.cost_cloth > 0:
+        cost_parts.append(f"\U0001f9f5{unit_type.cost_cloth}")
+    if unit_type.cost_platinum > 0:
+        cost_parts.append(f"\U0001fa99{unit_type.cost_platinum}")
+    embed.add_field(name="Cost", value=" ".join(cost_parts) if cost_parts else "None", inline=True)
+
+    # Upkeep
+    upkeep_parts = []
+    if unit_type.upkeep_ore > 0:
+        upkeep_parts.append(f"\u26cf\ufe0f{unit_type.upkeep_ore}")
+    if unit_type.upkeep_lumber > 0:
+        upkeep_parts.append(f"\U0001fab5{unit_type.upkeep_lumber}")
+    if unit_type.upkeep_coal > 0:
+        upkeep_parts.append(f"\u26ab{unit_type.upkeep_coal}")
+    if unit_type.upkeep_rations > 0:
+        upkeep_parts.append(f"\U0001f356{unit_type.upkeep_rations}")
+    if unit_type.upkeep_cloth > 0:
+        upkeep_parts.append(f"\U0001f9f5{unit_type.upkeep_cloth}")
+    if unit_type.upkeep_platinum > 0:
+        upkeep_parts.append(f"\U0001fa99{unit_type.upkeep_platinum}")
+    embed.add_field(name="Upkeep", value=" ".join(upkeep_parts) if upkeep_parts else "None", inline=True)
+
+    # Keywords
+    keywords = ", ".join(unit_type.keywords) if unit_type.keywords else "None"
+    embed.add_field(name="Keywords", value=keywords, inline=False)
+
+    embed.set_footer(text="Click a button to modify fields")
+    return embed

@@ -1669,9 +1669,10 @@ async def edit_unit_type_cmd(interaction: discord.Interaction, type_id: str):
             )
             return
 
-        # Show modal
-        modal = EditUnitTypeModal(unit_type=unit_type, db_pool=db_pool)
-        await interaction.response.send_modal(modal)
+        # Show embed with buttons
+        embed = create_edit_unit_type_embed(unit_type)
+        view = EditUnitTypeView(unit_type, db_pool)
+        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
 @tree.command(
