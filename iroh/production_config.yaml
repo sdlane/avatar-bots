@@ -8225,12 +8225,13 @@ factions:
 unit_types:
 - type_id: infantry
   name: Infantry
-  movement: 5
-  organization: 8
-  attack: 4
-  defense: 3
-  siege_attack: 0
-  siege_defense: 1
+  stats:
+    movement: 5
+    organization: 8
+    attack: 4
+    defense: 3
+    siege_attack: 0
+    siege_defense: 1
   cost:
     cloth: 2
     ore: 2
@@ -8239,12 +8240,13 @@ unit_types:
     rations: 1
 - type_id: cavalry
   name: Cavalry
-  movement: 6
-  organization: 8
-  attack: 3
-  defense: 2
-  siege_attack: 0
-  siege_defense: 0
+  stats:
+    movement: 6
+    organization: 8
+    attack: 3
+    defense: 2
+    siege_attack: 0
+    siege_defense: 0
   cost:
     lumber: 1
     cloth: 2
@@ -8254,14 +8256,15 @@ unit_types:
     rations: 1
 - type_id: scout
   name: Scout
-  movement: 5
-  organization: 8
-  attack: 4
-  defense: 3
-  siege_attack: 0
-  siege_defense: 0
-  keywords:
-  - infiltrator
+  stats:
+    movement: 5
+    organization: 8
+    attack: 4
+    defense: 3
+    siege_attack: 0
+    siege_defense: 0
+    keywords:
+    - infiltrator
   cost:
     lumber: 1
     cloth: 2
@@ -8271,14 +8274,15 @@ unit_types:
     rations: 1
 - type_id: spy
   name: Spy
-  movement: 5
-  organization: 8
-  attack: 0
-  defense: 0
-  siege_attack: 0
-  siege_defense: 0
-  keywords:
-  - infiltrator
+  stats:
+    movement: 5
+    organization: 8
+    attack: 0
+    defense: 0
+    siege_attack: 0
+    siege_defense: 0
+    keywords:
+    - infiltrator
   cost:
     cloth: 3
     ore: 2
@@ -8288,12 +8292,13 @@ unit_types:
     platinum: 1
 - type_id: siege-engine
   name: Siege Engine
-  movement: 2
-  organization: 8
-  attack: 0
-  defense: 0
-  siege_attack: 4
-  siege_defense: 4
+  stats:
+    movement: 2
+    organization: 8
+    attack: 0
+    defense: 0
+    siege_attack: 4
+    siege_defense: 4
   cost:
     lumber: 2
     cloth: 2
@@ -8303,14 +8308,15 @@ unit_types:
     ore: 1
 - type_id: transport
   name: Transport
-  movement: 4
-  organization: 8
-  attack: 1
-  defense: 1
-  siege_attack: 0
-  siege_defense: 0
-  is_naval: true
-  capacity: 3
+  stats:
+    movement: 4
+    organization: 8
+    attack: 1
+    defense: 1
+    siege_attack: 0
+    siege_defense: 0
+    is_naval: true
+    capacity: 3
   cost:
     ore: 2
     lumber: 4
@@ -8321,14 +8327,15 @@ unit_types:
     ore: 1
 - type_id: battleship
   name: Battleship
-  movement: 2
-  organization: 8
-  attack: 6
-  defense: 5
-  siege_attack: 0
-  siege_defense: 0
-  is_naval: true
-  capacity: 0
+  stats:
+    movement: 2
+    organization: 8
+    attack: 6
+    defense: 5
+    siege_attack: 0
+    siege_defense: 0
+    is_naval: true
+    capacity: 0
   cost:
     ore: 2
     lumber: 5
@@ -8340,14 +8347,15 @@ unit_types:
     cloth: 1
 - type_id: frigate
   name: Frigate
-  movement: 4
-  organization: 8
-  attack: 3
-  defense: 2
-  siege_attack: 0
-  siege_defense: 0
-  is_naval: true
-  capacity: 0
+  stats:
+    movement: 4
+    organization: 8
+    attack: 3
+    defense: 2
+    siege_attack: 0
+    siege_defense: 0
+    is_naval: true
+    capacity: 0
   cost:
     ore: 2
     lumber: 4
@@ -8360,14 +8368,15 @@ unit_types:
 - type_id: water-bender-brigade
   name: Water Bender Brigade
   nation: water-tribe
-  movement: 5
-  organization: 12
-  attack: 5
-  defense: 3
-  siege_attack: 0
-  siege_defense: 1
-  keywords:
-  - marine
+  stats:
+    movement: 5
+    organization: 12
+    attack: 5
+    defense: 3
+    siege_attack: 0
+    siege_defense: 1
+    keywords:
+    - marine
   cost:
     cloth: 4
     ore: 2
@@ -8378,14 +8387,15 @@ unit_types:
 - type_id: water-tribe-marines
   name: Water Tribe Marines
   nation: water-tribe
-  movement: 5
-  organization: 10
-  attack: 4
-  defense: 3
-  siege_attack: 0
-  siege_defense: 1
-  keywords:
-  - marine
+  stats:
+    movement: 5
+    organization: 10
+    attack: 4
+    defense: 3
+    siege_attack: 0
+    siege_defense: 1
+    keywords:
+    - marine
   cost:
     cloth: 2
     ore: 2
@@ -8396,14 +8406,15 @@ unit_types:
 - type_id: water-tribe-sloop
   name: Water Tribe Sloop Formation
   nation: water-tribe
-  movement: 4
-  organization: 10
-  attack: 2
-  defense: 4
-  siege_attack: 0
-  siege_defense: 0
-  is_naval: true
-  capacity: 3
+  stats:
+    movement: 4
+    organization: 10
+    attack: 2
+    defense: 4
+    siege_attack: 0
+    siege_defense: 0
+    is_naval: true
+    capacity: 3
   cost:
     rations: 2
     cloth: 2
@@ -8415,12 +8426,13 @@ unit_types:
 - type_id: fire-bender-brigade
   name: Fire Bender Brigade
   nation: fire-nation
-  movement: 5
-  organization: 10
-  attack: 6
-  defense: 3
-  siege_attack: 0
-  siege_defense: 1
+  stats:
+    movement: 5
+    organization: 10
+    attack: 6
+    defense: 3
+    siege_attack: 0
+    siege_defense: 1
   cost:
     cloth: 2
     ore: 2
@@ -8431,12 +8443,13 @@ unit_types:
 - type_id: proto-tank
   name: Proto-Tank
   nation: fire-nation
-  movement: 2
-  organization: 8
-  attack: 5
-  defense: 5
-  siege_attack: 4
-  siege_defense: 4
+  stats:
+    movement: 2
+    organization: 8
+    attack: 5
+    defense: 5
+    siege_attack: 4
+    siege_defense: 4
   cost:
     coal: 4
     ore: 2
@@ -8447,14 +8460,15 @@ unit_types:
 - type_id: ironclad
   name: Ironclad
   nation: fire-nation
-  movement: 4
-  organization: 10
-  attack: 3
-  defense: 5
-  siege_attack: 0
-  siege_defense: 0
-  is_naval: true
-  capacity: 2
+  stats:
+    movement: 4
+    organization: 10
+    attack: 3
+    defense: 5
+    siege_attack: 0
+    siege_defense: 0
+    is_naval: true
+    capacity: 2
   cost:
     ore: 4
     lumber: 4
@@ -8466,12 +8480,13 @@ unit_types:
 - type_id: fire-sage
   name: Fire Sage
   nation: fire-nation
-  movement: 5
-  organization: 12
-  attack: 6
-  defense: 4
-  siege_attack: 1
-  siege_defense: 1
+  stats:
+    movement: 5
+    organization: 12
+    attack: 6
+    defense: 4
+    siege_attack: 1
+    siege_defense: 1
   cost:
     ore: 6
     platinum: 4
@@ -8480,12 +8495,13 @@ unit_types:
 - type_id: earth-bender-brigade
   name: Earth Bender Brigade
   nation: earth-kingdom
-  movement: 5
-  organization: 8
-  attack: 4
-  defense: 5
-  siege_attack: 1
-  siege_defense: 2
+  stats:
+    movement: 5
+    organization: 8
+    attack: 4
+    defense: 5
+    siege_attack: 1
+    siege_defense: 2
   cost:
     cloth: 2
     ore: 2
@@ -8496,12 +8512,13 @@ unit_types:
 - type_id: earth-combat-engineers
   name: Earth Bender Combat Engineers
   nation: earth-kingdom
-  movement: 4
-  organization: 8
-  attack: 2
-  defense: 1
-  siege_attack: 4
-  siege_defense: 4
+  stats:
+    movement: 4
+    organization: 8
+    attack: 2
+    defense: 1
+    siege_attack: 4
+    siege_defense: 4
   cost:
     lumber: 2
     cloth: 2
@@ -8513,15 +8530,16 @@ unit_types:
 - type_id: dai-li-squad
   name: Dai Li Squad
   nation: earth-kingdom
-  movement: 5
-  organization: 12
-  attack: 0
-  defense: 0
-  siege_attack: 0
-  siege_defense: 0
-  keywords:
-  - infiltrator
-  - scout
+  stats:
+    movement: 5
+    organization: 12
+    attack: 0
+    defense: 0
+    siege_attack: 0
+    siege_defense: 0
+    keywords:
+    - infiltrator
+    - scout
   cost:
     ore: 6
     platinum: 4
@@ -8530,12 +8548,13 @@ unit_types:
 - type_id: kyoshi-warriors
   name: Kyoshi Warriors
   nation: earth-kingdom
-  movement: 5
-  organization: 12
-  attack: 5
-  defense: 5
-  siege_attack: 2
-  siege_defense: 1
+  stats:
+    movement: 5
+    organization: 12
+    attack: 5
+    defense: 5
+    siege_attack: 2
+    siege_defense: 1
   cost:
     ore: 3
     platinum: 3
@@ -8547,14 +8566,15 @@ unit_types:
 - type_id: mixed-bender-brigade
   name: Mixed Bender Brigade
   nation: fifth-nation
-  movement: 5
-  organization: 8
-  attack: 5
-  defense: 4
-  siege_attack: 0
-  siege_defense: 1
-  keywords:
-  - marine
+  stats:
+    movement: 5
+    organization: 8
+    attack: 5
+    defense: 4
+    siege_attack: 0
+    siege_defense: 1
+    keywords:
+    - marine
   cost:
     cloth: 2
     ore: 2
@@ -8565,14 +8585,15 @@ unit_types:
 - type_id: fifth-nation-sloop
   name: Fifth Nation Sloop Formation
   nation: fifth-nation
-  movement: 4
-  organization: 8
-  attack: 4
-  defense: 2
-  siege_attack: 0
-  siege_defense: 0
-  is_naval: true
-  capacity: 3
+  stats:
+    movement: 4
+    organization: 8
+    attack: 4
+    defense: 2
+    siege_attack: 0
+    siege_defense: 0
+    is_naval: true
+    capacity: 3
   cost:
     ore: 2
     lumber: 4
@@ -8584,15 +8605,16 @@ unit_types:
     cloth: 1
 - type_id: dark-spirit
   name: Dark Spirit
-  movement: 6
-  organization: 6
-  attack: 6
-  defense: 6
-  siege_attack: 6
-  siege_defense: 6
-  keywords:
-  - hostile
-  - spirit
+  stats:
+    movement: 6
+    organization: 6
+    attack: 6
+    defense: 6
+    siege_attack: 6
+    siege_defense: 6
+    keywords:
+    - hostile
+    - spirit
 building_types:
 - type_id: university
   name: University
@@ -9515,11 +9537,11 @@ units:
 - unit_id: EK-005
   type: earth-bender-brigade
   owner_faction: earth-kingdom
-  current_territory_id: E149
+  current_territory_id: omashu-city
 - unit_id: EK-006
   type: earth-combat-engineers
   owner_faction: earth-kingdom
-  current_territory_id: E149
+  current_territory_id: omashu-city
 - unit_id: EK-007
   type: infantry
   owner_faction: earth-kingdom

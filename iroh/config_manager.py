@@ -931,6 +931,7 @@ class ConfigManager:
                     keywords=stats.get('keywords', unit_type.keywords),
                     guild_id=guild_id
                 )
+                
                 await unit.upsert(conn)
 
         logger.info(f"Successfully imported wargame config for guild {guild_id}")

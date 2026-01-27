@@ -104,9 +104,13 @@ async def view_territory(conn: asyncpg.Connection, territory_id: str, guild_id: 
     # Fetch adjacent territories
     adjacent_ids = await TerritoryAdjacency.fetch_adjacent(conn, territory_id, guild_id)
 
-    # Fetch controller character name if exists
+    # Fetch controller name - either faction or character
     controller_name = None
-    if territory.controller_character_id:
+    if territory.controller_faction_id:
+        faction = await Faction.fetch_by_id(conn, territory.controller_faction_id)
+        if faction:
+            controller_name = faction.name
+    elif territory.controller_character_id:
         character = await Character.fetch_by_id(conn, territory.controller_character_id)
         if character:
             controller_name = character.name
