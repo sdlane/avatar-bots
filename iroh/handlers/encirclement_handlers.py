@@ -9,6 +9,7 @@ import asyncpg
 from typing import List, Set, Optional
 from collections import deque
 import logging
+import json
 
 from db import (
     Unit, Territory, Character, Alliance, WarParticipant, TerritoryAdjacency,
