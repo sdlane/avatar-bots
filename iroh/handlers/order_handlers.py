@@ -1073,35 +1073,88 @@ async def view_pending_orders(
 async def submit_resource_transfer_order(
     conn: asyncpg.Connection,
     from_character: Character,
-    to_character_identifier: str,
+    to_identifier: str,
     resources: dict,
     is_ongoing: bool,
     term: Optional[int],
-    guild_id: int
+    guild_id: int,
+    from_faction_identifier: Optional[str] = None
 ) -> Tuple[bool, str]:
     """
     Submit a resource transfer order (one-time or ongoing).
 
+    Supports transfers between characters and/or factions:
+    - Character to character
+    - Character to faction (donation)
+    - Faction to character (requires FINANCIAL permission)
+    - Faction to faction (requires FINANCIAL permission)
+
     Args:
         conn: Database connection
-        from_character: Character sending resources
-        to_character_identifier: Character identifier receiving resources
-        resources: Dict with keys: ore, lumber, coal, rations, cloth
+        from_character: Character submitting the order
+        to_identifier: Recipient identifier (faction ID or character identifier)
+        resources: Dict with keys: ore, lumber, coal, rations, cloth, platinum
         is_ongoing: True for ongoing transfer, False for one-time
         term: Number of turns (ongoing only), None = indefinite
         guild_id: Guild ID
+        from_faction_identifier: If provided, send from faction's resources (requires FINANCIAL permission)
 
     Returns:
         (success, message)
     """
-    # Validate recipient character exists
-    to_character = await Character.fetch_by_identifier(conn, to_character_identifier, guild_id)
-    if not to_character:
-        return False, f"Character '{to_character_identifier}' not found."
+    # Resolve sender (character or faction)
+    sender_type = 'character'
+    sender_faction = None
+    sender_name = from_character.name
 
-    # Cannot transfer to self
-    if from_character.id == to_character.id:
-        return False, "Cannot transfer resources to yourself."
+    if from_faction_identifier:
+        # Sending from a faction - need to check permissions
+        sender_faction = await Faction.fetch_by_faction_id(conn, from_faction_identifier, guild_id)
+        if not sender_faction:
+            return False, f"Faction '{from_faction_identifier}' not found."
+
+        # Check if character is leader or has FINANCIAL permission
+        is_leader = sender_faction.leader_character_id == from_character.id
+        has_financial = await FactionPermission.has_permission(
+            conn, sender_faction.id, from_character.id, "FINANCIAL", guild_id
+        )
+
+        if not is_leader and not has_financial:
+            return False, f"You need FINANCIAL permission to send resources from {sender_faction.name}."
+
+        sender_type = 'faction'
+        sender_name = sender_faction.name
+
+    # Resolve recipient (try faction first, then character)
+    recipient_type = None
+    recipient_faction = None
+    recipient_character = None
+    recipient_name = None
+    recipient_id = None
+
+    # Try faction first
+    recipient_faction = await Faction.fetch_by_faction_id(conn, to_identifier, guild_id)
+    if recipient_faction:
+        recipient_type = 'faction'
+        recipient_name = recipient_faction.name
+        recipient_id = recipient_faction.id
+    else:
+        # Try character
+        recipient_character = await Character.fetch_by_identifier(conn, to_identifier, guild_id)
+        if recipient_character:
+            recipient_type = 'character'
+            recipient_name = recipient_character.name
+            recipient_id = recipient_character.id
+        else:
+            return False, f"Recipient '{to_identifier}' not found (not a faction or character)."
+
+    # Self-transfer checks
+    if sender_type == 'character' and recipient_type == 'character':
+        if from_character.id == recipient_character.id:
+            return False, "Cannot transfer resources to yourself."
+    elif sender_type == 'faction' and recipient_type == 'faction':
+        if sender_faction.id == recipient_faction.id:
+            return False, "Cannot transfer resources from a faction to itself."
 
     # Validate resources dict
     resource_types = ['ore', 'lumber', 'coal', 'rations', 'cloth', 'platinum']
@@ -1132,9 +1185,10 @@ async def submit_resource_transfer_order(
     order_count = await Order.get_count(conn, guild_id)
     order_id = f"ORD-{order_count + 1:04d}"
 
-    # Create order data
+    # Create order data with new structure
     order_data = {
-        'to_character_id': to_character.id,
+        'recipient_type': recipient_type,
+        'recipient_id': recipient_id,
         'ore': resources['ore'],
         'lumber': resources['lumber'],
         'coal': resources['coal'],
@@ -1142,6 +1196,11 @@ async def submit_resource_transfer_order(
         'cloth': resources['cloth'],
         'platinum': resources['platinum']
     }
+
+    # Add sender faction info if sending from faction
+    if sender_type == 'faction':
+        order_data['sender_type'] = 'faction'
+        order_data['sender_faction_id'] = sender_faction.id
 
     # Add ongoing-specific fields
     if is_ongoing:
@@ -1174,7 +1233,7 @@ async def submit_resource_transfer_order(
     transfer_type = "Ongoing" if is_ongoing else "One-time"
     term_str = f" (for {term} turns)" if is_ongoing and term else " (indefinite)" if is_ongoing else ""
 
-    return True, f"{transfer_type} transfer order submitted: {from_character.name} → {to_character.name}: {', '.join(resource_strs)}{term_str} (Order #{order_id})."
+    return True, f"{transfer_type} transfer order submitted: {sender_name} → {recipient_name}: {', '.join(resource_strs)}{term_str} (Order #{order_id})."
 
 
 async def submit_cancel_transfer_order(

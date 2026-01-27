@@ -237,7 +237,8 @@ async def view_unit_cmd(interaction: discord.Interaction, unit_id: str):
             data['owner'],
             data['commander'],
             data['faction'],
-            viewer_has_full_access=data['viewer_has_full_access']
+            viewer_has_full_access=data['viewer_has_full_access'],
+            naval_positions=data.get('naval_positions')
         )
         await interaction.followup.send(embed=embed)
 
@@ -396,6 +397,26 @@ async def my_units_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
+        # Collect all units and fetch naval positions for naval units
+        all_units = list(data['owned_units']) + list(data['commanded_units']) + list(data['disbanded_units'])
+        for faction, units in data.get('faction_units_list', []):
+            all_units.extend(units)
+
+        naval_positions = {}
+        for unit in all_units:
+            if unit.is_naval:
+                positions = await NavalUnitPosition.fetch_territories_by_unit(conn, unit.id, interaction.guild_id)
+                naval_positions[unit.id] = positions
+
+        # Helper function to format unit location
+        def format_unit_location(unit):
+            if unit.is_naval and unit.id in naval_positions and naval_positions[unit.id]:
+                territories = ", ".join(naval_positions[unit.id])
+                return f" (Territories: {territories})"
+            elif unit.current_territory_id is not None:
+                return f" (Territory {unit.current_territory_id})"
+            return ""
+
         # Build all unit sections as (name, items_list) tuples
         sections = []
 
@@ -403,8 +424,7 @@ async def my_units_cmd(interaction: discord.Interaction):
         owned_list = []
         for unit in data['owned_units']:
             unit_str = f"`{unit.unit_id}`: {unit.name or unit.unit_type}"
-            if unit.current_territory_id is not None:
-                unit_str += f" (Territory {unit.current_territory_id})"
+            unit_str += format_unit_location(unit)
             owned_list.append(unit_str)
         if owned_list:
             sections.append((f"Owned Units ({len(owned_list)})", owned_list))
@@ -415,8 +435,7 @@ async def my_units_cmd(interaction: discord.Interaction):
         for unit in data['commanded_units']:
             if unit.id not in owned_ids:
                 unit_str = f"`{unit.unit_id}`: {unit.name or unit.unit_type}"
-                if unit.current_territory_id is not None:
-                    unit_str += f" (Territory {unit.current_territory_id})"
+                unit_str += format_unit_location(unit)
                 commanded_list.append(unit_str)
         if commanded_list:
             sections.append((f"Commanded Units ({len(commanded_list)})", commanded_list))
@@ -427,8 +446,7 @@ async def my_units_cmd(interaction: discord.Interaction):
             faction_list = []
             for unit in faction_units:
                 unit_str = f"`{unit.unit_id}`: {unit.name or unit.unit_type}"
-                if unit.current_territory_id is not None:
-                    unit_str += f" (Territory {unit.current_territory_id})"
+                unit_str += format_unit_location(unit)
                 faction_list.append(unit_str)
             if faction_list:
                 sections.append((f"{faction.name} Units ({len(faction_list)})", faction_list))
@@ -2605,13 +2623,14 @@ async def order_assign_commander_cmd(interaction: discord.Interaction, unit_id: 
     description="Submit a one-time resource transfer order"
 )
 @app_commands.describe(
-    recipient="Character identifier to send resources to",
+    recipient="Character or faction identifier to send resources to",
     ore="Amount of ore to transfer (default: 0)",
     lumber="Amount of lumber to transfer (default: 0)",
     coal="Amount of coal to transfer (default: 0)",
     rations="Amount of rations to transfer (default: 0)",
     cloth="Amount of cloth to transfer (default: 0)",
-    platinum="Amount of platinum to transfer (default: 0)"
+    platinum="Amount of platinum to transfer (default: 0)",
+    from_faction="Faction identifier to send resources from (requires FINANCIAL permission)"
 )
 async def order_resource_transfer_cmd(
     interaction: discord.Interaction,
@@ -2621,7 +2640,8 @@ async def order_resource_transfer_cmd(
     coal: int = 0,
     rations: int = 0,
     cloth: int = 0,
-    platinum: int = 0
+    platinum: int = 0,
+    from_faction: str = None
 ):
     await interaction.response.defer()
 
@@ -2650,7 +2670,8 @@ async def order_resource_transfer_cmd(
 
         success, message = await handlers.submit_resource_transfer_order(
             conn, character, recipient, resources,
-            is_ongoing=False, term=None, guild_id=interaction.guild_id
+            is_ongoing=False, term=None, guild_id=interaction.guild_id,
+            from_faction_identifier=from_faction
         )
 
         if success:
@@ -2669,14 +2690,15 @@ async def order_resource_transfer_cmd(
     description="Submit an ongoing (recurring) resource transfer order"
 )
 @app_commands.describe(
-    recipient="Character identifier to send resources to",
+    recipient="Character or faction identifier to send resources to",
     ore="Amount of ore per turn (default: 0)",
     lumber="Amount of lumber per turn (default: 0)",
     coal="Amount of coal per turn (default: 0)",
     rations="Amount of rations per turn (default: 0)",
     cloth="Amount of cloth per turn (default: 0)",
     platinum="Amount of platinum per turn (default: 0)",
-    term="Number of turns (leave empty for indefinite)"
+    term="Number of turns (leave empty for indefinite)",
+    from_faction="Faction identifier to send resources from (requires FINANCIAL permission)"
 )
 async def order_ongoing_transfer_cmd(
     interaction: discord.Interaction,
@@ -2687,7 +2709,8 @@ async def order_ongoing_transfer_cmd(
     rations: int = 0,
     cloth: int = 0,
     platinum: int = 0,
-    term: int = None
+    term: int = None,
+    from_faction: str = None
 ):
     await interaction.response.defer()
 
@@ -2724,7 +2747,8 @@ async def order_ongoing_transfer_cmd(
 
         success, message = await handlers.submit_resource_transfer_order(
             conn, character, recipient, resources,
-            is_ongoing=True, term=term, guild_id=interaction.guild_id
+            is_ongoing=True, term=term, guild_id=interaction.guild_id,
+            from_faction_identifier=from_faction
         )
 
         if success:
@@ -2738,39 +2762,40 @@ async def order_ongoing_transfer_cmd(
         )
 
 
-@tree.command(
-    name="order-cancel-transfer",
-    description="Submit an order to cancel an ongoing resource transfer"
-)
-@app_commands.describe(
-    order_id="The order ID of the ongoing transfer to cancel (e.g., 'ORD-0001')"
-)
-async def order_cancel_transfer_cmd(interaction: discord.Interaction, order_id: str):
-    await interaction.response.defer()
-
-    async with db_pool.acquire() as conn:
-        # Get character for this user
-        character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
-        if not character:
-            await interaction.followup.send(
-                emotive_message("You don't have a character in this wargame."),
-                ephemeral=True
-            )
-            return
-
-        success, message = await handlers.submit_cancel_transfer_order(
-            conn, character, order_id, interaction.guild_id
-        )
-
-        if success:
-            logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted cancel transfer order for '{order_id}' in guild {interaction.guild_id}")
-        else:
-            logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit cancel transfer order for '{order_id}' in guild {interaction.guild_id}: {message}")
-
-        await interaction.followup.send(
-            emotive_message(message),
-            ephemeral=not success
-        )
+# DEPRECATED: order-cancel-transfer command - commented out pending redesign
+# @tree.command(
+#     name="order-cancel-transfer",
+#     description="Submit an order to cancel an ongoing resource transfer"
+# )
+# @app_commands.describe(
+#     order_id="The order ID of the ongoing transfer to cancel (e.g., 'ORD-0001')"
+# )
+# async def order_cancel_transfer_cmd(interaction: discord.Interaction, order_id: str):
+#     await interaction.response.defer()
+#
+#     async with db_pool.acquire() as conn:
+#         # Get character for this user
+#         character = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
+#         if not character:
+#             await interaction.followup.send(
+#                 emotive_message("You don't have a character in this wargame."),
+#                 ephemeral=True
+#             )
+#             return
+#
+#         success, message = await handlers.submit_cancel_transfer_order(
+#             conn, character, order_id, interaction.guild_id
+#         )
+#
+#         if success:
+#             logger.info(f"User {interaction.user.name} (ID: {interaction.user.id}) submitted cancel transfer order for '{order_id}' in guild {interaction.guild_id}")
+#         else:
+#             logger.warning(f"User {interaction.user.name} (ID: {interaction.user.id}) failed to submit cancel transfer order for '{order_id}' in guild {interaction.guild_id}: {message}")
+#
+#         await interaction.followup.send(
+#             emotive_message(message),
+#             ephemeral=not success
+#         )
 
 
 @tree.command(

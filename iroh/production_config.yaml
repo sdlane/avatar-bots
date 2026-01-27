@@ -8264,7 +8264,7 @@ unit_types:
     siege_attack: 0
     siege_defense: 0
     keywords:
-    - infiltrator
+    - scout
   cost:
     lumber: 1
     cloth: 2

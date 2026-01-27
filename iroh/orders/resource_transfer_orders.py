@@ -3,7 +3,7 @@ Resource transfer order handlers.
 """
 from order_types import OrderType, OrderStatus, TurnPhase
 from datetime import datetime
-from db import Character, PlayerResources, TurnLog, Order
+from db import Character, PlayerResources, TurnLog, Order, Faction, FactionResources, FactionPermission
 import asyncpg
 from typing import List
 
@@ -193,6 +193,12 @@ async def handle_resource_transfer_order(
     """
     Handle a single RESOURCE_TRANSFER order (one-time or ongoing).
 
+    Supports transfers between characters and/or factions:
+    - Character to character
+    - Character to faction
+    - Faction to character
+    - Faction to faction
+
     Args:
         conn: Database connection
         order: The transfer order to process
@@ -204,7 +210,6 @@ async def handle_resource_transfer_order(
     """
     try:
         # Extract order data
-        to_character_id = order.order_data.get('to_character_id')
         requested_resources = {
             'ore': order.order_data.get('ore', 0),
             'lumber': order.order_data.get('lumber', 0),
@@ -216,11 +221,24 @@ async def handle_resource_transfer_order(
         term = order.order_data.get('term')
         turns_executed = order.order_data.get('turns_executed', 0)
 
-        # Validate sender character exists
-        from_character = await Character.fetch_by_id(conn, order.character_id)
-        if not from_character:
+        # Determine sender type (backward compatibility: default to character)
+        sender_type = order.order_data.get('sender_type', 'character')
+        sender_faction_id = order.order_data.get('sender_faction_id')
+
+        # Determine recipient type (backward compatibility: check for old format)
+        recipient_type = order.order_data.get('recipient_type')
+        recipient_id = order.order_data.get('recipient_id')
+
+        # Backward compatibility: old format used to_character_id
+        if recipient_type is None and 'to_character_id' in order.order_data:
+            recipient_type = 'character'
+            recipient_id = order.order_data.get('to_character_id')
+
+        # Always fetch the submitting character (needed for affected_character_ids)
+        submitting_character = await Character.fetch_by_id(conn, order.character_id)
+        if not submitting_character:
             order.status = OrderStatus.FAILED.value
-            order.result_data = {'error': 'Sender character not found'}
+            order.result_data = {'error': 'Submitting character not found'}
             order.updated_at = datetime.now()
             order.updated_turn = turn_number
             await order.upsert(conn)
@@ -231,51 +249,119 @@ async def handle_resource_transfer_order(
                 entity_type='character',
                 entity_id=order.character_id,
                 event_data={
-                    'from_character_name': 'Unknown',
-                    'to_character_name': 'Unknown',
+                    'from_name': 'Unknown',
+                    'to_name': 'Unknown',
                     'order_id': order.order_id,
-                    'reason': 'Sender character not found',
+                    'reason': 'Submitting character not found',
                     'affected_character_ids': [order.character_id]
                 },
                 guild_id=guild_id
             )]
 
-        # Validate recipient exists
-        to_character = await Character.fetch_by_id(conn, to_character_id)
-        if not to_character:
-            order.status = OrderStatus.FAILED.value
-            order.result_data = {'error': 'Recipient character not found'}
-            order.updated_at = datetime.now()
-            order.updated_turn = turn_number
-            await order.upsert(conn)
-            return [TurnLog(
-                turn_number=turn_number,
-                phase=TurnPhase.RESOURCE_TRANSFER.value,
-                event_type='RESOURCE_TRANSFER_FAILED',
-                entity_type='character',
-                entity_id=order.character_id,
-                event_data={
-                    'from_character_name': from_character.name,
-                    'to_character_name': 'Unknown',
-                    'order_id': order.order_id,
-                    'reason': 'Recipient character not found',
-                    'affected_character_ids': [order.character_id]
-                },
-                guild_id=guild_id
-            )]
+        # Resolve sender
+        sender_name = None
+        sender_resources = None
+        sender_faction = None
 
-        # Fetch PlayerResources for both characters
-        sender_resources = await PlayerResources.fetch_by_character(conn, from_character.id, guild_id)
-        recipient_resources = await PlayerResources.fetch_by_character(conn, to_character.id, guild_id)
+        if sender_type == 'faction':
+            sender_faction = await Faction.fetch_by_id(conn, sender_faction_id)
+            if not sender_faction:
+                order.status = OrderStatus.FAILED.value
+                order.result_data = {'error': 'Sender faction not found'}
+                order.updated_at = datetime.now()
+                order.updated_turn = turn_number
+                await order.upsert(conn)
+                return [TurnLog(
+                    turn_number=turn_number,
+                    phase=TurnPhase.RESOURCE_TRANSFER.value,
+                    event_type='RESOURCE_TRANSFER_FAILED',
+                    entity_type='faction',
+                    entity_id=sender_faction_id,
+                    event_data={
+                        'from_name': 'Unknown',
+                        'to_name': 'Unknown',
+                        'order_id': order.order_id,
+                        'reason': 'Sender faction not found',
+                        'affected_character_ids': [order.character_id]
+                    },
+                    guild_id=guild_id
+                )]
+            sender_name = sender_faction.name
+            sender_resources = await FactionResources.fetch_by_faction(conn, sender_faction.id, guild_id)
+            if not sender_resources:
+                sender_resources = FactionResources(faction_id=sender_faction.id, guild_id=guild_id)
+                await sender_resources.upsert(conn)
+        else:
+            # Character sender
+            sender_name = submitting_character.name
+            sender_resources = await PlayerResources.fetch_by_character(conn, submitting_character.id, guild_id)
+            if not sender_resources:
+                sender_resources = PlayerResources(character_id=submitting_character.id, guild_id=guild_id)
+                await sender_resources.upsert(conn)
 
-        # Create PlayerResources if they don't exist
-        if not sender_resources:
-            sender_resources = PlayerResources(character_id=from_character.id, guild_id=guild_id)
-            await sender_resources.upsert(conn)
+        # Resolve recipient
+        recipient_name = None
+        recipient_resources = None
+        recipient_faction = None
+        recipient_character = None
 
-        if not recipient_resources:
-            recipient_resources = PlayerResources(character_id=to_character.id, guild_id=guild_id)
-            await recipient_resources.upsert(conn)
+        if recipient_type == 'faction':
+            recipient_faction = await Faction.fetch_by_id(conn, recipient_id)
+            if not recipient_faction:
+                order.status = OrderStatus.FAILED.value
+                order.result_data = {'error': 'Recipient faction not found'}
+                order.updated_at = datetime.now()
+                order.updated_turn = turn_number
+                await order.upsert(conn)
+                return [TurnLog(
+                    turn_number=turn_number,
+                    phase=TurnPhase.RESOURCE_TRANSFER.value,
+                    event_type='RESOURCE_TRANSFER_FAILED',
+                    entity_type='character',
+                    entity_id=order.character_id,
+                    event_data={
+                        'from_name': sender_name,
+                        'to_name': 'Unknown',
+                        'order_id': order.order_id,
+                        'reason': 'Recipient faction not found',
+                        'affected_character_ids': [order.character_id]
+                    },
+                    guild_id=guild_id
+                )]
+            recipient_name = recipient_faction.name
+            recipient_resources = await FactionResources.fetch_by_faction(conn, recipient_faction.id, guild_id)
+            if not recipient_resources:
+                recipient_resources = FactionResources(faction_id=recipient_faction.id, guild_id=guild_id)
+                await recipient_resources.upsert(conn)
+        else:
+            # Character recipient
+            recipient_character = await Character.fetch_by_id(conn, recipient_id)
+            if not recipient_character:
+                order.status = OrderStatus.FAILED.value
+                order.result_data = {'error': 'Recipient character not found'}
+                order.updated_at = datetime.now()
+                order.updated_turn = turn_number
+                await order.upsert(conn)
+                return [TurnLog(
+                    turn_number=turn_number,
+                    phase=TurnPhase.RESOURCE_TRANSFER.value,
+                    event_type='RESOURCE_TRANSFER_FAILED',
+                    entity_type='character',
+                    entity_id=order.character_id,
+                    event_data={
+                        'from_name': sender_name,
+                        'to_name': 'Unknown',
+                        'order_id': order.order_id,
+                        'reason': 'Recipient character not found',
+                        'affected_character_ids': [order.character_id]
+                    },
+                    guild_id=guild_id
+                )]
+            recipient_name = recipient_character.name
+            recipient_resources = await PlayerResources.fetch_by_character(conn, recipient_character.id, guild_id)
+            if not recipient_resources:
+                recipient_resources = PlayerResources(character_id=recipient_character.id, guild_id=guild_id)
+                await recipient_resources.upsert(conn)
 
         # Calculate what can be transferred (min of requested and available)
         transferred_resources = {}
@@ -300,12 +386,48 @@ async def handle_resource_transfer_order(
                 current_recipient = getattr(recipient_resources, resource_type)
                 setattr(recipient_resources, resource_type, current_recipient + amount)
 
-        # Update PlayerResources
+        # Update resources
         await sender_resources.upsert(conn)
         await recipient_resources.upsert(conn)
 
-        # Determine outcome and status
-        affected_character_ids = [from_character.id, to_character.id]
+        # Build affected_character_ids list
+        affected_character_ids = [submitting_character.id]
+
+        if sender_type == 'faction' and sender_faction:
+            # Include faction leader and characters with FINANCIAL permission
+            if sender_faction.leader_character_id and sender_faction.leader_character_id not in affected_character_ids:
+                affected_character_ids.append(sender_faction.leader_character_id)
+            financial_chars = await FactionPermission.fetch_characters_with_permission(
+                conn, sender_faction.id, "FINANCIAL", guild_id
+            )
+            for char_id in financial_chars:
+                if char_id not in affected_character_ids:
+                    affected_character_ids.append(char_id)
+
+        if recipient_type == 'faction' and recipient_faction:
+            # Include faction leader and characters with FINANCIAL permission
+            if recipient_faction.leader_character_id and recipient_faction.leader_character_id not in affected_character_ids:
+                affected_character_ids.append(recipient_faction.leader_character_id)
+            financial_chars = await FactionPermission.fetch_characters_with_permission(
+                conn, recipient_faction.id, "FINANCIAL", guild_id
+            )
+            for char_id in financial_chars:
+                if char_id not in affected_character_ids:
+                    affected_character_ids.append(char_id)
+
+        if recipient_type == 'character' and recipient_character:
+            if recipient_character.id not in affected_character_ids:
+                affected_character_ids.append(recipient_character.id)
+
+        # Build event_data with sender/recipient info
+        base_event_data = {
+            'from_name': sender_name,
+            'to_name': recipient_name,
+            'sender_type': sender_type,
+            'recipient_type': recipient_type,
+            'order_id': order.order_id,
+            'affected_character_ids': affected_character_ids
+        }
 
         if order.status == OrderStatus.PENDING.value:
             # One-time transfer
@@ -324,15 +446,12 @@ async def handle_resource_transfer_order(
                     turn_number=turn_number,
                     phase=TurnPhase.RESOURCE_TRANSFER.value,
                     event_type='RESOURCE_TRANSFER_SUCCESS',
-                    entity_type='character',
-                    entity_id=from_character.id,
+                    entity_type='faction' if sender_type == 'faction' else 'character',
+                    entity_id=sender_faction.id if sender_type == 'faction' else submitting_character.id,
                     event_data={
-                        'from_character_name': from_character.name,
-                        'to_character_name': to_character.name,
+                        **base_event_data,
                         'transferred_resources': transferred_resources,
-                        'order_id': order.order_id,
-                        'is_ongoing': False,
-                        'affected_character_ids': affected_character_ids
+                        'is_ongoing': False
                     },
                     guild_id=guild_id
                 )]
@@ -354,15 +473,12 @@ async def handle_resource_transfer_order(
                         turn_number=turn_number,
                         phase=TurnPhase.RESOURCE_TRANSFER.value,
                         event_type='RESOURCE_TRANSFER_FAILED',
-                        entity_type='character',
-                        entity_id=from_character.id,
+                        entity_type='faction' if sender_type == 'faction' else 'character',
+                        entity_id=sender_faction.id if sender_type == 'faction' else submitting_character.id,
                         event_data={
-                            'from_character_name': from_character.name,
-                            'to_character_name': to_character.name,
-                            'order_id': order.order_id,
+                            **base_event_data,
                             'reason': 'No resources available',
-                            'is_ongoing': False,
-                            'affected_character_ids': affected_character_ids
+                            'is_ongoing': False
                         },
                         guild_id=guild_id
                     )]
@@ -372,16 +488,13 @@ async def handle_resource_transfer_order(
                         turn_number=turn_number,
                         phase=TurnPhase.RESOURCE_TRANSFER.value,
                         event_type='RESOURCE_TRANSFER_PARTIAL',
-                        entity_type='character',
-                        entity_id=from_character.id,
+                        entity_type='faction' if sender_type == 'faction' else 'character',
+                        entity_id=sender_faction.id if sender_type == 'faction' else submitting_character.id,
                         event_data={
-                            'from_character_name': from_character.name,
-                            'to_character_name': to_character.name,
+                            **base_event_data,
                             'requested_resources': requested_resources,
                             'transferred_resources': transferred_resources,
-                            'order_id': order.order_id,
-                            'is_ongoing': False,
-                            'affected_character_ids': affected_character_ids
+                            'is_ongoing': False
                         },
                         guild_id=guild_id
                     )]
@@ -430,18 +543,15 @@ async def handle_resource_transfer_order(
                     turn_number=turn_number,
                     phase=TurnPhase.RESOURCE_TRANSFER.value,
                     event_type='RESOURCE_TRANSFER_SUCCESS',
-                    entity_type='character',
-                    entity_id=from_character.id,
+                    entity_type='faction' if sender_type == 'faction' else 'character',
+                    entity_id=sender_faction.id if sender_type == 'faction' else submitting_character.id,
                     event_data={
-                        'from_character_name': from_character.name,
-                        'to_character_name': to_character.name,
+                        **base_event_data,
                         'transferred_resources': transferred_resources,
-                        'order_id': order.order_id,
                         'is_ongoing': True,
                         'term': term,
                         'turns_remaining': turns_remaining,
-                        'term_completed': term_completed,
-                        'affected_character_ids': affected_character_ids
+                        'term_completed': term_completed
                     },
                     guild_id=guild_id
                 )]
@@ -451,19 +561,16 @@ async def handle_resource_transfer_order(
                     turn_number=turn_number,
                     phase=TurnPhase.RESOURCE_TRANSFER.value,
                     event_type='RESOURCE_TRANSFER_PARTIAL',
-                    entity_type='character',
-                    entity_id=from_character.id,
+                    entity_type='faction' if sender_type == 'faction' else 'character',
+                    entity_id=sender_faction.id if sender_type == 'faction' else submitting_character.id,
                     event_data={
-                        'from_character_name': from_character.name,
-                        'to_character_name': to_character.name,
+                        **base_event_data,
                         'requested_resources': requested_resources,
                         'transferred_resources': transferred_resources,
-                        'order_id': order.order_id,
                         'is_ongoing': True,
                         'term': term,
                         'turns_remaining': turns_remaining,
-                        'term_completed': term_completed,
-                        'affected_character_ids': affected_character_ids
+                        'term_completed': term_completed
                     },
                     guild_id=guild_id
                 )]
@@ -481,8 +588,8 @@ async def handle_resource_transfer_order(
             entity_type='character',
             entity_id=order.character_id,
             event_data={
-                'from_character_name': 'Unknown',
-                'to_character_name': 'Unknown',
+                'from_name': 'Unknown',
+                'to_name': 'Unknown',
                 'order_id': order.order_id,
                 'reason': str(e),
                 'affected_character_ids': [order.character_id]

@@ -214,7 +214,8 @@ def create_faction_embed(faction: Faction, members: List[Character], leader: Opt
 
 def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: Optional[Character] = None,
                       commander: Optional[Character] = None, faction: Optional[Faction] = None,
-                      viewer_has_full_access: bool = True) -> discord.Embed:
+                      viewer_has_full_access: bool = True,
+                      naval_positions: Optional[List[str]] = None) -> discord.Embed:
     """
     Create a rich embed displaying unit information.
 
@@ -265,7 +266,14 @@ def create_unit_embed(unit: Unit, unit_type: Optional[UnitType] = None, owner: O
 
     # Location (only for authorized viewers)
     if viewer_has_full_access:
-        if unit.current_territory_id is not None:
+        if unit.is_naval and naval_positions:
+            territories = ", ".join(naval_positions)
+            embed.add_field(
+                name="Location",
+                value=f"Territories {territories}",
+                inline=True
+            )
+        elif unit.current_territory_id is not None:
             embed.add_field(
                 name="Location",
                 value=f"Territory {unit.current_territory_id}",
