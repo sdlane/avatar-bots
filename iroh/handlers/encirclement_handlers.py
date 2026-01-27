@@ -232,7 +232,8 @@ async def is_unit_transported(
     rows = await conn.fetch(query, guild_id, unit.id)
 
     for row in rows:
-        result_data = row['result_data']
+        result_data = json.loads(row['result_data']) if row['result_data'] else None
+
         if result_data and result_data.get('transported') is True:
             return True
 
