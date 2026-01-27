@@ -2790,7 +2790,7 @@ async def my_orders_cmd(interaction: discord.Interaction):
             return
 
         success, message, orders = await handlers.view_pending_orders(
-            conn, character.name, interaction.guild_id
+            conn, character.identifier, interaction.guild_id
         )
 
         if not success:
@@ -2801,7 +2801,7 @@ async def my_orders_cmd(interaction: discord.Interaction):
             return
 
         # Create embed
-        embed = turn_embeds.create_orders_embed(character.identifier, orders)
+        embed = turn_embeds.create_orders_embed(character.name, orders)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
