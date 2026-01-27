@@ -891,14 +891,17 @@ class ConfigManager:
                 if owner_faction_id and not faction_internal_id:
                     faction_internal_id = owner_faction_id
 
-                # Get unit type to determine stats
+                # Get unit type to determine default stats
                 unit_type = await UnitType.fetch_by_type_id(conn, unit_data['type'], guild_id)
 
                 if not unit_type:
                     logger.warning(f"Unit type {unit_data['type']} not found, skipping unit {unit_data['unit_id']}")
                     continue
 
-                current_org = unit_data.get('current_organization', unit_type.organization)
+                # Get optional stats overrides from unit data, defaulting to unit type values
+                stats = unit_data.get('stats', {})
+                max_org = stats.get('organization', unit_type.organization)
+                current_org = unit_data.get('current_organization', max_org)
 
                 unit = Unit(
                     unit_id=unit_data['unit_id'],
@@ -908,24 +911,24 @@ class ConfigManager:
                     owner_faction_id=owner_faction_id,
                     commander_character_id=commander_char_id,
                     faction_id=faction_internal_id,
-                    movement=unit_type.movement,
+                    movement=stats.get('movement', unit_type.movement),
                     organization=current_org,
-                    max_organization=unit_type.organization,
-                    attack=unit_type.attack,
-                    defense=unit_type.defense,
-                    siege_attack=unit_type.siege_attack,
-                    siege_defense=unit_type.siege_defense,
-                    size=unit_type.size,
-                    capacity=unit_type.capacity,
+                    max_organization=max_org,
+                    attack=stats.get('attack', unit_type.attack),
+                    defense=stats.get('defense', unit_type.defense),
+                    siege_attack=stats.get('siege_attack', unit_type.siege_attack),
+                    siege_defense=stats.get('siege_defense', unit_type.siege_defense),
+                    size=stats.get('size', unit_type.size),
+                    capacity=stats.get('capacity', unit_type.capacity),
                     current_territory_id=str(unit_data['current_territory_id']) if unit_data.get('current_territory_id') is not None else None,
-                    is_naval=unit_type.is_naval,
+                    is_naval=stats.get('is_naval', unit_type.is_naval),
                     upkeep_ore=unit_type.upkeep_ore,
                     upkeep_lumber=unit_type.upkeep_lumber,
                     upkeep_coal=unit_type.upkeep_coal,
                     upkeep_rations=unit_type.upkeep_rations,
                     upkeep_cloth=unit_type.upkeep_cloth,
                     upkeep_platinum=unit_type.upkeep_platinum,
-                    keywords=unit_type.keywords,
+                    keywords=stats.get('keywords', unit_type.keywords),
                     guild_id=guild_id
                 )
                 await unit.upsert(conn)

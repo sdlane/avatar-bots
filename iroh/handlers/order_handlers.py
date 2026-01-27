@@ -999,7 +999,8 @@ async def view_pending_orders(
     guild_id: int
 ) -> Tuple[bool, str, Optional[List[dict]]]:
     """
-    View all pending/ongoing orders for a character and their units.
+    View all pending/ongoing orders for a character and their units,
+    plus orders for faction units where the character has COMMAND permission.
 
     Args:
         conn: Database connection
@@ -1014,11 +1015,35 @@ async def view_pending_orders(
     if not character:
         return False, f"Character '{character_identifier}' not found.", None
 
-    # Fetch pending/ongoing orders for character
+    # Fetch pending/ongoing orders issued by character
     orders = await Order.fetch_by_character(conn, character.id, guild_id)
+    seen_order_ids = {o.order_id for o in orders}
+
+    # Get factions where character has COMMAND permission
+    permissions = await FactionPermission.fetch_by_character(conn, character.id, guild_id)
+    command_faction_ids = [p.faction_id for p in permissions if p.permission_type == 'COMMAND']
+
+    # For each faction with COMMAND permission, get orders for faction units
+    for faction_id in command_faction_ids:
+        # Get all units owned by this faction
+        faction_units = await Unit.fetch_by_faction_owner(conn, faction_id, guild_id)
+        if faction_units:
+            unit_internal_ids = [u.id for u in faction_units]
+            # Fetch orders for these units
+            faction_orders = await Order.fetch_by_units(
+                conn, unit_internal_ids, ['PENDING', 'ONGOING'], guild_id
+            )
+            # Add orders not already in the list
+            for order in faction_orders:
+                if order.order_id not in seen_order_ids:
+                    orders.append(order)
+                    seen_order_ids.add(order.order_id)
 
     if not orders:
         return True, f"No pending orders for {character.name}.", []
+
+    # Sort orders by submitted_at
+    orders.sort(key=lambda o: o.submitted_at or datetime.min)
 
     # Convert to dict format for display
     orders_list = []
