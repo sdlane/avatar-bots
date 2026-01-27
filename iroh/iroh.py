@@ -2801,7 +2801,7 @@ async def my_orders_cmd(interaction: discord.Interaction):
             return
 
         # Create embed
-        embed = turn_embeds.create_orders_embed(character.name, orders)
+        embed = turn_embeds.create_orders_embed(character.identifier, orders)
         await interaction.followup.send(embed=embed, ephemeral=True)
 
 
