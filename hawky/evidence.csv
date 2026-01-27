@@ -1,84 +1,89 @@
-Analysis Number,Hint
-117,8th digit of fingerprint is triple 6th digit
-182,"only two distinct digits in the fingerprint are repeated, each in a pair"
-129,"The badge number, as a irl year, has already passed"
-160,"The badge number is a concatenation of a square number, then a prime number"
-171,"The last digit of the badge number, subtracted from the first, is one of the middle digits."
-144,The badge number has a prime factor between 200 and 300 exclusive
-148,"The strictly greatest digit of the fingerprint is the penultimate, and the strictly least is the middle digit."
-112,"The fingerprint does not contain the digits 2, 7 or 8"
-130,The badge number contains only digits strictly less than 6
-180,"The badge number, as a irl year, has already passed"
-190,The second digit of the badge number is double the last
-111,"The fingerprint contains the sequences ""14"" and ""06"""
-124,The last digit of the fingerprint is double the first.
-142,"In the badge number, the difference between the first two digits equals the difference between the last two digits."
-145,"The badge number starts with ""53"""
-153,This person is an official employee of the Earth Kingdom.
-157,The largest number of times that a digit appears in this person's fingerprint is 3.
-185,"This person's fingerprint contains every multiple of 3, including 0."
-149,The badge number contains two distinct digits
-122,The badge number is prime
-178,The even digits of the badge number are multiples of their preceding digits.
-133,The fingerprint has precisely three instances of the digit 7
-116,The final two digits of the fingerprint is a multiple of eleven
-156,"The first three digits of the fingerprint are ascending, and the next three descending."
-193, This person was an Earth Kingdom minister at the start of the summit
-137,"The digits 1,8,9 do not appear within the fingerprint"
-104,This person is a fortune teller
-176,The fingerprint contains 3 consecutive identical digits
-164,The fingerprint's final two digits are a cube number
-184,"The fingerprint does not conatin the digits 1,2 or 5"
-204,Key Phrase: Caldera Industries
-241,Key Phrase: Caldera Industries
-220,Key Phrase: Caldera Industries
-218,Key Phrase: Caldera Industries
-299,Key Phrase: Caldera Industries
-298,Key Phrase: Caldera Industries
-295,The third digit of the name badge is triple the second
-291,the difference between the last and first digit is one
-288,The digit 1 appears precisely three times in the fingerprint
-221,Only the fourth and fifth digits of the fingerprint are odd
-209,All digits in the badge number are distinct
-210,"The first digit of the badge number, subtracted from the third, is the fourth"
-277,"The sixth digit of the fingerprint is double the fourth, and also triple the third"
-215,This person is deeply connected to the Beifong Family.
-217,The final digit of the fingerprint is double the first and also antepenultimate
-225,"The fingerprint does not contain the digits 1, 9 or 7"
-200,"The fingerprint contains the sequences ""23"" and ""08"""
-,"The fingerprint does not contain the digits 1, 5 or 7"
-255,The last two digits of the badge number make a prime number
-262,This person is a reporter for the Ba Sing Se Times
-272,"The fingerprent contains the sequences ""62"" and ""64"""
-276,The fingerprint starts in a 4 and ends in an 8
-280,"The middle three digits of the fingerprint are all multiples of 3, and the final three all multiples of 4"
-290,"Only two distinct digits in the fingerprint are repeated, each in a pair"
-301,The fingerprint has four different numbers that are each repeated exactly twice.
-308,The badge number starts and ends with the same number.
-388,The last digit of the fingerprint is 0.
-392,The fifth and sixth digits of the fingerprint are the maximum digits in the fingerprint.
-318,"The first, third, and fourth digit on the badge number sum to the second digit."
-386,The badge number contains only odd numbers.
-07,"My flowers, pink and purple, bloom under the snow. My symbol is renewal, spring’s promise of hope."
-11,My leaves carry a distinctive arc. The form of the Avatar’s tools of war.
-13,I yield bounty the color of blood. Harvest silk beside my buds.
-17,"Friend of winter, flexible and strong. Rise together, reaching along."
-19,Being susceptible to the outside world erodes the soul. Wouldn’t it be nice to be evergreen.
-23,Rainbow fortune’s an imitation of the moon and the ocean.
-29,Nulla dies umquam memori vos eximet aevo.
-31,"A sacred flower awaiting bloom, roots steeped in mired gloom."
-37,"If it walks like a duck, quacks like a duck, it could be any one of several duck-related animals."
-41,Metal frame with cinnabar brow. Guardian spirit standing proud.
-43,For my hubris they struck me down. For their worship they were punished.
-47,"Seek the home of snakes that cannot be seen. Their threat is poison, not venom."
-53,"My brother, carry on our watch. I will take every blow, you won’t face a scratch."
-59,"Hide the stench that you can’t bear, if it seems the worse for wear."
-61,"Risen in morning, gone midday. On display, they don’t dismay."
-67,If only the guy selling cabbages wasn’t so eccentric. I wonder if someone more down-to-earth is selling leafy greens.
-71,"When you really need to send a message, but can’t find the words."
-73,"No one expects water demons indoors, but it’s so nice here how can you blame them?"
-79,The few here cannot have their defenses stripped from them.
-83,"You who have no sorrow, my song will drown out the sorrows of all else."
-89,"With watchful eye, I stand alone. Strength of brick, patience of stone."
-97,Those who offer repose need it all the more.
-03,"Tomorrow after tomorrow, the sun shall rise. The mind sleeps, the farm rests without light."
+Analysis Number,Hint,GM Notes
+117,8th digit of fingerprint is triple 6th digit,"Trail, Impression Evidence"
+182,"only two distinct digits in the fingerprint are repeated, each in a pair","Trail, Trace Evidence"
+129,"The badge number, as a irl year, has already passed","Trail, Character Evidence"
+160,"The badge number is a concatenation of a square number, then a prime number","Trail, Circumstantial Evidence"
+171,"The last digit of the badge number, subtracted from the first, is one of the middle digits.",Eyewitness Evidence
+144,The badge number has a prime factor between 200 and 300 exclusive,Character Evidence
+148,"The strictly greatest digit of the fingerprint is the penultimate, and the strictly least is the middle digit.",Trace Evidence
+112,"The fingerprint does not contain the digits 2, 7 or 8",Trace Evidence
+130,The badge number contains only digits strictly less than 6,Testimonial Evidence
+180,"The badge number, as a irl year, has already passed",Circumstantial Evidence
+190,The second digit of the badge number is double the last,Testimonial Evidence
+111,"The fingerprint contains the sequences ""14"" and ""06""",Physical Evidence
+124,The last digit of the fingerprint is double the first.,
+142,"In the badge number, the difference between the first two digits equals the difference between the last two digits.","Trail, Circumstantial Evidence"
+145,"The badge number starts with ""53""","Trail, Hearsay Evidence"
+153,This person is an official employee of the Earth Kingdom.,Circumstantial Evidence
+157,The largest number of times that a digit appears in this person's fingerprint is 3.,Character Evidence
+185,"This person's fingerprint contains every multiple of 3, including 0.",Trace Evidence
+149,The badge number contains two distinct digits,Physical Evidence
+122,The badge number is prime,"Trail, Testimonial Evidence"
+178,The even digits of the badge number are multiples of their preceding digits.,"Trail, Circumstantial Evidence"
+133,The fingerprint has precisely three instances of the digit 7,"Trail, Hearsay Evidence"
+116,The final two digits of the fingerprint is a multiple of eleven,Trace Evidence
+156,"The first three digits of the fingerprint are ascending, and the next three descending.",Trace Evidence
+193, This person was an Earth Kingdom minister at the start of the summit,Trace Evidence
+137,"The digits 1,8,9 do not appear within the fingerprint",Character Evidence
+104,This person is a fortune teller,Trace Evidence
+176,The fingerprint contains 3 consecutive identical digits,Hearsay Evidence
+164,The fingerprint's final two digits are a cube number,Trace Evidence
+184,"The fingerprint does not conatin the digits 1,2 or 5",Hearsay Evidence
+204,Key Phrase: Caldera Industries,Trace Evidence
+241,Key Phrase: Caldera Industries,
+220,Key Phrase: Caldera Industries,"Trail, Circumstantial Evidence"
+218,Key Phrase: Caldera Industries,"Trail, Testimonial Evidence"
+299,Key Phrase: Caldera Industries,"Trail, Circumstantial Evidence"
+298,Key Phrase: Caldera Industries,Character Evidence
+295,The third digit of the name badge is triple the second,Character Evidence
+291,the difference between the last and first digit is one,Trace Evidence
+288,The digit 1 appears precisely three times in the fingerprint,Hearsay Evidence
+221,Only the fourth and fifth digits of the fingerprint are odd,Character Evidence
+209,All digits in the badge number are distinct,Trace Evidence
+210,"The first digit of the badge number, subtracted from the third, is the fourth",
+277,"The sixth digit of the fingerprint is double the fourth, and also triple the third","Trail, Circumstantial Evidence"
+215,This person is deeply connected to the Beifong Family.,"Trail, Circumstantial Evidence"
+217,The final digit of the fingerprint is double the first and also antepenultimate,"Trail, Hearsay Evidence"
+225,"The fingerprint does not contain the digits 1, 9 or 7","Trail, Trace Evidence"
+200,"The fingerprint contains the sequences ""23"" and ""08""",Hearsay Evidence
+,"The fingerprint does not contain the digits 1, 5 or 7",Physical Evidence
+255,The last two digits of the badge number make a prime number,Trace Evidence
+262,This person is a reporter for the Ba Sing Se Times,Circumstantial Evidence
+272,"The fingerprent contains the sequences ""62"" and ""64""",
+276,The fingerprint starts in a 4 and ends in an 8,"Trail, Trace Evidence"
+280,"The middle three digits of the fingerprint are all multiples of 3, and the final three all multiples of 4","Trail, Physical Evidence"
+290,"Only two distinct digits in the fingerprint are repeated, each in a pair","Trail, Circumstantial Evidence"
+301,The fingerprint has four different numbers that are each repeated exactly twice.,"Trail, Hearsay Evidence"
+308,The badge number starts and ends with the same number.,Circumstantial Evidence
+388,The last digit of the fingerprint is 0.,Trace Evidence
+392,The fifth and sixth digits of the fingerprint are the maximum digits in the fingerprint.,Physical Evidence
+318,"The first, third, and fourth digit on the badge number sum to the second digit.",
+386,The badge number contains only odd numbers.,"Trail, Physical"
+7,"My flowers, pink and purple, bloom under the snow. My symbol is renewal, spring’s promise of hope.","Trail, Circumstantial"
+11,My leaves carry a distinctive arc. The form of the Avatar’s tools of war.,"Trail, Physical"
+13,I yield bounty the color of blood. Harvest silk beside my buds.,"Trail, Physical"
+17,"Friend of winter, flexible and strong. Rise together, reaching along.",Character
+19,Being susceptible to the outside world erodes the soul. Wouldn’t it be nice to be evergreen.,Circumstantial
+23,Rainbow fortune’s an imitation of the moon and the ocean.,
+29,Nulla dies umquam memori vos eximet aevo.,Plum Blossom Tree
+31,"A sacred flower awaiting bloom, roots steeped in mired gloom.",Ginko Tree
+37,"If it walks like a duck, quacks like a duck, it could be any one of several duck-related animals.",Mulberry tree
+41,Metal frame with cinnabar brow. Guardian spirit standing proud.,Bamboo Grove
+43,For my hubris they struck me down. For their worship they were punished.,Pine Tree
+47,"Seek the home of snakes that cannot be seen. Their threat is poison, not venom.",Koi Pond
+53,"My brother, carry on our watch. I will take every blow, you won’t face a scratch.",Memorial of unnamed Woman
+59,"Hide the stench that you can’t bear, if it seems the worse for wear.",A Lotus Pond
+61,"Risen in morning, gone midday. On display, they don’t dismay.",Turtle-duck Pond
+67,If only the guy selling cabbages wasn’t so eccentric. I wonder if someone more down-to-earth is selling leafy greens.,Ornate Shrine to Kiyoshi
+71,"When you really need to send a message, but can’t find the words.",Burnt Tower
+73,"No one expects water demons indoors, but it’s so nice here how can you blame them?",Hissing Grotto
+79,The few here cannot have their defenses stripped from them.,Defaced Lion Guardian Pair
+83,"You who have no sorrow, my song will drown out the sorrows of all else.",Tannery
+89,"With watchful eye, I stand alone. Strength of brick, patience of stone.",Cakes and Buns Store
+97,Those who offer repose need it all the more.,Lettuce Cart
+3,"Tomorrow after tomorrow, the sun shall rise. The mind sleeps, the farm rests without light.",Scribe for the Illiterate
+,,Bathhouse
+,,Open hand Dojo
+,,Opera House
+,,Guard Tower
+,,Carriage Rest Stop
