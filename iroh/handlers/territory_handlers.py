@@ -194,29 +194,24 @@ async def edit_territory_siege_defense(
     return True, f"Territory '{territory_id}' siege defense set to {siege_defense}."
 
 
-async def get_territory_counts(conn: asyncpg.Connection, guild_id: int) -> Tuple[bool, str, Optional[List[dict]]]:
+async def get_territory_counts(conn: asyncpg.Connection, guild_id: int, faction_id: str) -> Tuple[bool, str, Optional[List[dict]]]:
     """
-    Get territory counts for all factions compared to their starting counts.
+    Get territory counts for a single faction compared to its starting count.
 
     Returns:
-        (success, message, data) where data is a list of dicts with
-        'faction', 'current_count', 'starting_count' keys, sorted by current_count descending.
+        (success, message, data) where data is a single-element list with a dict containing
+        'faction', 'current_count', 'starting_count' keys.
     """
-    factions = await Faction.fetch_all(conn, guild_id)
-    if not factions:
-        return False, "No factions found.", None
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"No faction found with ID '{faction_id}'.", None
 
-    results = []
-    for faction in factions:
-        territories = await Territory.fetch_by_faction_controller(conn, faction.id, guild_id)
-        current_count = len(territories)
-        results.append({
-            'faction': faction,
-            'current_count': current_count,
-            'starting_count': faction.starting_territory_count,
-        })
-
-    # Sort by current count descending
-    results.sort(key=lambda r: r['current_count'], reverse=True)
+    territories = await Territory.fetch_by_faction_controller(conn, faction.id, guild_id)
+    current_count = len(territories)
+    results = [{
+        'faction': faction,
+        'current_count': current_count,
+        'starting_count': faction.starting_territory_count,
+    }]
 
     return True, "Territory counts retrieved.", results

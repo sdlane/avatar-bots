@@ -1289,8 +1289,12 @@ def create_edit_unit_type_embed(unit_type: UnitType) -> discord.Embed:
 
 def create_territory_counts_embed(data: List[dict]) -> discord.Embed:
     """Create embed displaying faction territory standings."""
+    if len(data) == 1:
+        title = f"Territory Standings — {data[0]['faction'].name}"
+    else:
+        title = "Territory Standings"
     embed = discord.Embed(
-        title="Territory Standings",
+        title=title,
         color=discord.Color.dark_green()
     )
 

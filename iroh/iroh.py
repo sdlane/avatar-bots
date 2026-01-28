@@ -3690,12 +3690,13 @@ async def delete_war_cmd(interaction: discord.Interaction, war_id: str):
     name="territory-counts",
     description="View territory standings for all factions"
 )
-async def territory_counts_cmd(interaction: discord.Interaction):
+@app_commands.describe(faction_id="The faction ID to view")
+async def territory_counts_cmd(interaction: discord.Interaction, faction_id: str):
     await interaction.response.defer()
 
     async with db_pool.acquire() as conn:
         success, message, data = await handlers.get_territory_counts(
-            conn, interaction.guild_id
+            conn, interaction.guild_id, faction_id
         )
 
         if not success:
