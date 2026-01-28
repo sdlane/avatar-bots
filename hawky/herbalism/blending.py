@@ -97,7 +97,7 @@ async def fetch_ruined_product(conn: asyncpg.Connection, product_type: str) -> P
         logger.error(f"fetch_ruined_product: No failed blend found for type '{product_type}'")
         return await _get_sludge(conn)
 
-    product = await Product.fetch_by_item_number(conn, failed_blend.product_item_number)
+    product = await Product.fetch_by_item_number_and_type(conn, failed_blend.product_item_number, product_type.lower())
     if product is None:
         logger.error(f"fetch_ruined_product: Product '{failed_blend.product_item_number}' not found")
         return await _get_sludge(conn)
@@ -306,7 +306,7 @@ async def calc_product(
         best_recipe = subset_recipes[0]
         logger.debug(f"calc_product: best subset recipe -> product {best_recipe.product_item_number}, "
                     f"ingredients={best_recipe.ingredients}")
-        product = await Product.fetch_by_item_number(conn, best_recipe.product_item_number)
+        product = await Product.fetch_by_item_number_and_type(conn, best_recipe.product_item_number, product_type.lower())
         if product:
             logger.debug(f"calc_product: subset match -> {product.item_number} ({product.name})")
             return (product, best_recipe.quantity_produced)
@@ -353,13 +353,13 @@ async def calc_product(
     logger.debug(f"calc_product: best constraint recipe -> product {best_recipe.product_item_number}, "
                 f"constraints: primary={best_recipe.primary_chakra}/{best_recipe.primary_is_boon}, "
                 f"secondary={best_recipe.secondary_chakra}/{best_recipe.secondary_is_boon}, tier={best_recipe.tier}")
-    product = await Product.fetch_by_item_number(conn, best_recipe.product_item_number)
+    product = await Product.fetch_by_item_number_and_type(conn, best_recipe.product_item_number, product_type.lower())
     if product:
         logger.debug(f"calc_product: constraint match -> {product.item_number} ({product.name})")
         return (product, best_recipe.quantity_produced)
     else:
         logger.error(f"calc_product: Product '{best_recipe.product_item_number}' not found")
-        ruined = await fetch_ruined_product(conn, product_type)
+        ruined = await fetch_ruined_product(conn, product_type.lower())
         return (ruined, 1)
 
 
