@@ -3711,4 +3711,30 @@ async def territory_counts_cmd(interaction: discord.Interaction, faction_id: str
         await interaction.followup.send(embed=embed)
 
 
+@tree.command(
+    name="set-starting-territory-count",
+    description="[Admin] Set a faction's starting territory count"
+)
+@app_commands.describe(
+    faction_id="The faction ID",
+    count="Starting territory count (0 or higher)"
+)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def set_starting_territory_count_cmd(interaction: discord.Interaction, faction_id: str, count: int):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message = await handlers.set_starting_territory_count(conn, faction_id, count, interaction.guild_id)
+
+        if success:
+            logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) set faction {faction_id} starting territory count to {count} in guild {interaction.guild_id}")
+        else:
+            logger.warning(f"Admin {interaction.user.name} (ID: {interaction.user.id}) failed to set faction {faction_id} starting territory count in guild {interaction.guild_id}: {message}")
+
+        await interaction.followup.send(
+            emotive_message(message),
+            ephemeral=not success
+        )
+
+
 client.run(BOT_TOKEN)

@@ -215,3 +215,23 @@ async def get_territory_counts(conn: asyncpg.Connection, guild_id: int, faction_
     }]
 
     return True, "Territory counts retrieved.", results
+
+
+async def set_starting_territory_count(
+    conn: asyncpg.Connection,
+    faction_id: str,
+    count: int,
+    guild_id: int
+) -> Tuple[bool, str]:
+    """Set a faction's starting territory count."""
+    faction = await Faction.fetch_by_faction_id(conn, faction_id, guild_id)
+    if not faction:
+        return False, f"Faction '{faction_id}' not found."
+
+    if count < 0:
+        return False, "Starting territory count cannot be negative."
+
+    faction.starting_territory_count = count
+    await faction.upsert(conn)
+
+    return True, f"Faction '{faction_id}' starting territory count set to {count}."
