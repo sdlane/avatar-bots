@@ -109,7 +109,7 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
         building_lines = []
         for b in buildings:
             status_emoji = "🏛️" if b.status == "ACTIVE" else "💀"
-            display_name = b.name or b.building_id
+            display_name = f"{b.name} [{b.building_id}]" if b.name else b.building_id
             building_lines.append(f"{status_emoji} {display_name} ({b.building_type}) - Durability: {b.durability}")
         embed.add_field(
             name="Buildings",
