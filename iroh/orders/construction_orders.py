@@ -482,6 +482,7 @@ async def handle_construction_order(
             upkeep_rations=building_type.upkeep_rations,
             upkeep_cloth=building_type.upkeep_cloth,
             upkeep_platinum=building_type.upkeep_platinum,
+            keywords=building_type.keywords.copy() if building_type.keywords else [],
             guild_id=guild_id
         )
         await building.upsert(conn)
