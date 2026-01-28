@@ -412,7 +412,7 @@ async def submit_transit_order(
     starting_territory_id = units[0].current_territory_id
 
     # Validate path starts with current territory
-    if path[0] != starting_territory_id:
+    if not u.is_naval and path[0] != starting_territory_id:
         return False, f"Path must start with the units' current territory ({starting_territory_id})."
 
     # Validate path using validate_path helper
