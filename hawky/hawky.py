@@ -343,7 +343,7 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
     Send a response to a letter. Fetches all unreplied letters from the last 8 hours.
     If multiple letters exist, shows a selection dialog.
     """
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer(ephemeral=False)
     # Get the character of the sender
     async with db_pool.acquire() as conn:
         sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
@@ -502,7 +502,7 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
             await interaction.response.send_message(
                 content=emotive_message(message_content),
                 view=view,
-                ephemeral=True)
+                ephemeral=False)
 
         await view.wait()
         interaction = view.interaction
@@ -545,8 +545,7 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
     logger.info(f"Response queued from {sender.identifier} to {selected_letter['sender_identifier']} (scheduled: {scheduled_time})")
     await interaction.response.edit_message(
         content=emotive_message(f"Response queued"),
-        view=None,
-        ephemeral=False)
+        view=None)
 
 
 @tree.command(
