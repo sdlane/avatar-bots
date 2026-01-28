@@ -2,7 +2,7 @@
 Territory management command handlers.
 """
 import asyncpg
-from typing import Optional, Tuple
+from typing import Optional, Tuple, List
 from db import Territory, Character, TerritoryAdjacency, Faction
 
 
@@ -192,3 +192,31 @@ async def edit_territory_siege_defense(
     await territory.upsert(conn)
 
     return True, f"Territory '{territory_id}' siege defense set to {siege_defense}."
+
+
+async def get_territory_counts(conn: asyncpg.Connection, guild_id: int) -> Tuple[bool, str, Optional[List[dict]]]:
+    """
+    Get territory counts for all factions compared to their starting counts.
+
+    Returns:
+        (success, message, data) where data is a list of dicts with
+        'faction', 'current_count', 'starting_count' keys, sorted by current_count descending.
+    """
+    factions = await Faction.fetch_all(conn, guild_id)
+    if not factions:
+        return False, "No factions found.", None
+
+    results = []
+    for faction in factions:
+        territories = await Territory.fetch_by_faction_controller(conn, faction.id, guild_id)
+        current_count = len(territories)
+        results.append({
+            'faction': faction,
+            'current_count': current_count,
+            'starting_count': faction.starting_territory_count,
+        })
+
+    # Sort by current count descending
+    results.sort(key=lambda r: r['current_count'], reverse=True)
+
+    return True, "Territory counts retrieved.", results

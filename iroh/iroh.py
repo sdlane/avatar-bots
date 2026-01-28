@@ -3686,4 +3686,24 @@ async def delete_war_cmd(interaction: discord.Interaction, war_id: str):
         )
 
 
+@tree.command(
+    name="territory-counts",
+    description="View territory standings for all factions"
+)
+async def territory_counts_cmd(interaction: discord.Interaction):
+    await interaction.response.defer()
+
+    async with db_pool.acquire() as conn:
+        success, message, data = await handlers.get_territory_counts(
+            conn, interaction.guild_id
+        )
+
+        if not success:
+            await interaction.followup.send(emotive_message(message))
+            return
+
+        embed = create_territory_counts_embed(data)
+        await interaction.followup.send(embed=embed)
+
+
 client.run(BOT_TOKEN)
