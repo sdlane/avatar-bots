@@ -386,6 +386,8 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
 
         # Fetch the actual message content for each letter
         letters_with_content = []
+
+        logger.debug(f"Character {sender.identifier}: has {len(sent_letter_rows)} unreplied letters.")
         for row in sent_letter_rows:
             try:
                 # Fetch the original message that was sent
@@ -426,14 +428,19 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
 
         # If there's only one letter, proceed directly to confirmation
         if len(letters_with_content) == 1:
+            logger.debug(f"Character {sender.identifier}: has {len(letters_with_content)} unreplied letters WITH content.")
             await send_response_confirmation(interaction, message, letters_with_content[0], sender, conn)
         else:
             # Multiple letters - show selection dialog
+            logger.debug(f"Other branch. Character {sender.identifier}: has {len(letters_with_content)} unreplied letters WITH content.")
             view = SelectLetterView(message, letters_with_content, send_response_selection_callback)
+            logger.debug(f"Created view in other branch.")
             await interaction.response.send_message(
                 emotive_message(f"You have {len(letters_with_content)} unreplied letters. Please select which one to respond to:"),
                 view=view,
                 ephemeral=True)
+
+            logger.debug(f"Created view in other branch.")
 
 
 async def send_response_selection_callback(interaction: discord.Interaction, message: discord.Message, selected_letter: dict):
