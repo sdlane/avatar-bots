@@ -194,7 +194,7 @@ async def send_letter_modal_callback(interaction: discord.Interaction,
         return
 
     # Defer the response to acknowledge the modal submission
-    await interaction.response.defer(ephemeral=True)
+    await interaction.response.defer(ephemeral=False)
 
     # Character exists, proceed with send_letter_callback using the character's actual identifier
     await send_letter_callback(interaction, message, sender, recipient, recipient_identifier)
@@ -274,7 +274,7 @@ async def send_letter_callback(interaction: discord.Interaction,
     # Send confirmation
     logger.info(f"Letter queued from {sender_identifier} to {recipient.identifier} (scheduled: {scheduled_time})")
     await interaction.response.edit_message(
-        content=emotive_message(f"Message queued to send to {recipient_identifier}"), view=None, ephemeral=False)
+        content=emotive_message(f"Message queued to send to {recipient_identifier}"), view=None)
 
 
 @tree.context_menu(
