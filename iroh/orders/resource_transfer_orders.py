@@ -120,10 +120,33 @@ async def handle_cancel_transfer_order(
                 guild_id=guild_id
             )]
 
-        # Get character names for event
-        from_character = await Character.fetch_by_id(conn, original_order.character_id)
-        to_character_id = original_order.order_data.get('to_character_id')
-        to_character = await Character.fetch_by_id(conn, to_character_id)
+        # Resolve sender name
+        sender_type = original_order.order_data.get('sender_type', 'character')
+        if sender_type == 'faction':
+            sender_faction_id = original_order.order_data.get('sender_faction_id')
+            sender_faction = await Faction.fetch_by_id(conn, sender_faction_id)
+            from_name = sender_faction.name if sender_faction else 'Unknown'
+        else:
+            from_character = await Character.fetch_by_id(conn, original_order.character_id)
+            from_name = from_character.name if from_character else 'Unknown'
+
+        # Resolve recipient name
+        recipient_type = original_order.order_data.get('recipient_type')
+        recipient_id = original_order.order_data.get('recipient_id')
+
+        # Backward compatibility: old format used to_character_id
+        if recipient_type is None and 'to_character_id' in original_order.order_data:
+            recipient_type = 'character'
+            recipient_id = original_order.order_data.get('to_character_id')
+
+        to_name = 'Unknown'
+        recipient_character = None
+        if recipient_type == 'faction':
+            recipient_faction = await Faction.fetch_by_id(conn, recipient_id)
+            to_name = recipient_faction.name if recipient_faction else 'Unknown'
+        elif recipient_id is not None:
+            recipient_character = await Character.fetch_by_id(conn, recipient_id)
+            to_name = recipient_character.name if recipient_character else 'Unknown'
 
         # Cancel the original order
         original_order.status = OrderStatus.CANCELLED.value
@@ -143,8 +166,8 @@ async def handle_cancel_transfer_order(
 
         # Generate TRANSFER_CANCELLED event
         affected_character_ids = [original_order.character_id]
-        if to_character:
-            affected_character_ids.append(to_character.id)
+        if recipient_type == 'character' and recipient_character:
+            affected_character_ids.append(recipient_character.id)
 
         return [TurnLog(
             turn_number=turn_number,
@@ -153,8 +176,8 @@ async def handle_cancel_transfer_order(
             entity_type='character',
             entity_id=original_order.character_id,
             event_data={
-                'from_character_name': from_character.name if from_character else 'Unknown',
-                'to_character_name': to_character.name if to_character else 'Unknown',
+                'from_name': from_name,
+                'to_name': to_name,
                 'order_id': order.order_id,
                 'original_order_id': original_order_id,
                 'affected_character_ids': affected_character_ids

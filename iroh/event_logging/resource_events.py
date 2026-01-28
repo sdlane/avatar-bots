@@ -96,84 +96,84 @@ def _format_ongoing_status(event_data: Dict[str, Any]) -> str:
 
 def resource_transfer_success_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for RESOURCE_TRANSFER_SUCCESS event."""
-    from_character_name = event_data.get('from_character_name', 'Unknown')
-    to_character_name = event_data.get('to_character_name', 'Unknown')
+    from_name = event_data.get('from_name', 'Unknown')
+    to_name = event_data.get('to_name', 'Unknown')
     transferred_resources = event_data.get('transferred_resources', {})
 
     resources_str = _format_resources(transferred_resources)
     ongoing_str = _format_ongoing_status(event_data)
-    return f"📦 Transfer successful: {from_character_name} → {to_character_name} ({resources_str}){ongoing_str}"
+    return f"📦 Transfer successful: {from_name} → {to_name} ({resources_str}){ongoing_str}"
 
 
 def resource_transfer_success_gm_line(event_data: Dict[str, Any]) -> str:
     """Generate GM report line for RESOURCE_TRANSFER_SUCCESS event."""
-    from_character_name = event_data.get('from_character_name', 'Unknown')
-    to_character_name = event_data.get('to_character_name', 'Unknown')
+    from_name = event_data.get('from_name', 'Unknown')
+    to_name = event_data.get('to_name', 'Unknown')
     transferred_resources = event_data.get('transferred_resources', {})
 
     resources_str = _format_resources(transferred_resources)
     ongoing_str = _format_ongoing_status(event_data)
-    return f"📦 Transfer: {from_character_name} → {to_character_name} ({resources_str}){ongoing_str}"
+    return f"📦 Transfer: {from_name} → {to_name} ({resources_str}){ongoing_str}"
 
 
 def resource_transfer_partial_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for RESOURCE_TRANSFER_PARTIAL event."""
-    from_character_name = event_data.get('from_character_name', 'Unknown')
-    to_character_name = event_data.get('to_character_name', 'Unknown')
+    from_name = event_data.get('from_name', 'Unknown')
+    to_name = event_data.get('to_name', 'Unknown')
     requested_resources = event_data.get('requested_resources', {})
     transferred_resources = event_data.get('transferred_resources', {})
 
     requested_str = _format_resources(requested_resources)
     transferred_str = _format_resources(transferred_resources)
     ongoing_str = _format_ongoing_status(event_data)
-    return f"⚠️ Transfer partially complete: {from_character_name} → {to_character_name} (requested: {requested_str}, transferred: {transferred_str}){ongoing_str}"
+    return f"⚠️ Transfer partially complete: {from_name} → {to_name} (requested: {requested_str}, transferred: {transferred_str}){ongoing_str}"
 
 
 def resource_transfer_partial_gm_line(event_data: Dict[str, Any]) -> str:
     """Generate GM report line for RESOURCE_TRANSFER_PARTIAL event."""
-    from_character_name = event_data.get('from_character_name', 'Unknown')
-    to_character_name = event_data.get('to_character_name', 'Unknown')
+    from_name = event_data.get('from_name', 'Unknown')
+    to_name = event_data.get('to_name', 'Unknown')
     requested_resources = event_data.get('requested_resources', {})
     transferred_resources = event_data.get('transferred_resources', {})
 
     requested_str = _format_resources(requested_resources)
     transferred_str = _format_resources(transferred_resources)
     ongoing_str = _format_ongoing_status(event_data)
-    return f"⚠️ Partial transfer: {from_character_name} → {to_character_name} (requested: {requested_str}, sent: {transferred_str}){ongoing_str}"
+    return f"⚠️ Partial transfer: {from_name} → {to_name} (requested: {requested_str}, sent: {transferred_str}){ongoing_str}"
 
 
 def resource_transfer_failed_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for RESOURCE_TRANSFER_FAILED event."""
-    from_character_name = event_data.get('from_character_name', 'Unknown')
-    to_character_name = event_data.get('to_character_name', 'Unknown')
+    from_name = event_data.get('from_name', 'Unknown')
+    to_name = event_data.get('to_name', 'Unknown')
     reason = event_data.get('reason', 'Unknown reason')
 
-    return f"❌ Transfer failed: {from_character_name} → {to_character_name} ({reason})"
+    return f"❌ Transfer failed: {from_name} → {to_name} ({reason})"
 
 
 def resource_transfer_failed_gm_line(event_data: Dict[str, Any]) -> str:
     """Generate GM report line for RESOURCE_TRANSFER_FAILED event."""
-    from_character_name = event_data.get('from_character_name', 'Unknown')
-    to_character_name = event_data.get('to_character_name', 'Unknown')
+    from_name = event_data.get('from_name', 'Unknown')
+    to_name = event_data.get('to_name', 'Unknown')
     reason = event_data.get('reason', 'Unknown reason')
 
-    return f"❌ Transfer failed: {from_character_name} → {to_character_name} ({reason})"
+    return f"❌ Transfer failed: {from_name} → {to_name} ({reason})"
 
 
 def transfer_cancelled_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:
     """Generate character report line for TRANSFER_CANCELLED event."""
-    from_character_name = event_data.get('from_character_name', 'Unknown')
-    to_character_name = event_data.get('to_character_name', 'Unknown')
+    from_name = event_data.get('from_name', 'Unknown')
+    to_name = event_data.get('to_name', 'Unknown')
 
-    return f"🚫 Transfer cancelled: {from_character_name} → {to_character_name}"
+    return f"🚫 Transfer cancelled: {from_name} → {to_name}"
 
 
 def transfer_cancelled_gm_line(event_data: Dict[str, Any]) -> str:
     """Generate GM report line for TRANSFER_CANCELLED event."""
-    from_character_name = event_data.get('from_character_name', 'Unknown')
-    to_character_name = event_data.get('to_character_name', 'Unknown')
+    from_name = event_data.get('from_name', 'Unknown')
+    to_name = event_data.get('to_name', 'Unknown')
 
-    return f"🚫 Transfer cancelled: {from_character_name} → {to_character_name}"
+    return f"🚫 Transfer cancelled: {from_name} → {to_name}"
 
 
 def faction_territory_production_character_line(event_data: Dict[str, Any], character_id: Optional[int] = None) -> str:

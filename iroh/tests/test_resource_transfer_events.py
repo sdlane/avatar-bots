@@ -18,8 +18,8 @@ from event_logging.resource_events import (
 def test_resource_transfer_success_character_line_full_resources():
     """Test success event with multiple resources."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'transferred_resources': {
             'ore': 10,
             'lumber': 5,
@@ -41,8 +41,8 @@ def test_resource_transfer_success_character_line_full_resources():
 def test_resource_transfer_success_character_line_single_resource():
     """Test success event with single resource."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'transferred_resources': {
             'ore': 100
         }
@@ -56,8 +56,8 @@ def test_resource_transfer_success_character_line_single_resource():
 def test_resource_transfer_success_character_line_zero_resources():
     """Test success event with zero resources."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'transferred_resources': {}
     }
     result = resource_transfer_success_character_line(event_data)
@@ -69,8 +69,8 @@ def test_resource_transfer_success_character_line_zero_resources():
 def test_resource_transfer_success_gm_line():
     """Test GM line for success event."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'transferred_resources': {
             'ore': 10,
             'lumber': 5
@@ -87,8 +87,8 @@ def test_resource_transfer_success_gm_line():
 def test_resource_transfer_partial_character_line():
     """Test partial transfer showing requested vs transferred."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'requested_resources': {
             'ore': 100,
             'lumber': 50
@@ -110,8 +110,8 @@ def test_resource_transfer_partial_character_line():
 def test_resource_transfer_partial_gm_line():
     """Test GM line for partial transfer."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'requested_resources': {
             'ore': 100
         },
@@ -129,8 +129,8 @@ def test_resource_transfer_partial_gm_line():
 def test_resource_transfer_partial_no_resources_transferred():
     """Test partial event when no resources were transferred."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'requested_resources': {
             'ore': 100
         },
@@ -146,8 +146,8 @@ def test_resource_transfer_partial_no_resources_transferred():
 def test_resource_transfer_failed_character_line():
     """Test failed transfer with reason."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'reason': 'Sender character not found'
     }
     result = resource_transfer_failed_character_line(event_data)
@@ -160,8 +160,8 @@ def test_resource_transfer_failed_character_line():
 def test_resource_transfer_failed_gm_line():
     """Test GM line for failed transfer."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'reason': 'Recipient character not found'
     }
     result = resource_transfer_failed_gm_line(event_data)
@@ -174,8 +174,8 @@ def test_resource_transfer_failed_gm_line():
 def test_resource_transfer_failed_no_reason():
     """Test failed event with missing reason."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob'
+        'from_name': 'Alice',
+        'to_name': 'Bob'
     }
     result = resource_transfer_failed_character_line(event_data)
     assert "Alice" in result
@@ -187,8 +187,8 @@ def test_resource_transfer_failed_no_reason():
 def test_transfer_cancelled_character_line():
     """Test cancelled transfer event."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob'
+        'from_name': 'Alice',
+        'to_name': 'Bob'
     }
     result = transfer_cancelled_character_line(event_data)
     assert "Alice" in result
@@ -199,8 +199,8 @@ def test_transfer_cancelled_character_line():
 def test_transfer_cancelled_gm_line():
     """Test GM line for cancelled transfer."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob'
+        'from_name': 'Alice',
+        'to_name': 'Bob'
     }
     result = transfer_cancelled_gm_line(event_data)
     assert "Alice" in result
@@ -219,8 +219,8 @@ def test_transfer_cancelled_missing_names():
 def test_character_vs_gm_line_format_difference():
     """Test that character and GM lines have different formatting."""
     event_data = {
-        'from_character_name': 'Alice',
-        'to_character_name': 'Bob',
+        'from_name': 'Alice',
+        'to_name': 'Bob',
         'transferred_resources': {
             'ore': 10
         }
