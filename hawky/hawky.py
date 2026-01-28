@@ -343,25 +343,26 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
     Send a response to a letter. Fetches all unreplied letters from the last 8 hours.
     If multiple letters exist, shows a selection dialog.
     """
+    await interaction.response.defer(ephemeral=True)
     # Get the character of the sender
     async with db_pool.acquire() as conn:
         sender = await Character.fetch_by_user(conn, interaction.user.id, interaction.guild_id)
 
         if sender is None:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 emotive_message("You don't have a character assigned!"),
                 ephemeral=True)
             return
 
         # Check that the message was sent by the user in their own character channel
         if message.author.id != interaction.user.id:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 emotive_message("You can only send your own messages as responses!"),
                 ephemeral=True)
             return
 
         if message.channel.id != sender.channel_id:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 emotive_message("You can only send responses from your character's channel!"),
                 ephemeral=True)
             return
@@ -379,7 +380,7 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
         """, sender.identifier, interaction.guild_id, window_start)
 
         if not sent_letter_rows:
-            await interaction.response.send_message(
+            await interaction.followup.send(
                 emotive_message("No unreplied letters found for your character in the last 24 hours!"),
                 ephemeral=True)
             return
@@ -435,10 +436,9 @@ async def send_response(interaction: discord.Interaction, message: discord.Messa
             logger.debug(f"Other branch. Character {sender.identifier}: has {len(letters_with_content)} unreplied letters WITH content.")
             view = SelectLetterView(message, letters_with_content, send_response_selection_callback)
             logger.debug(f"Created view in other branch.")
-            await interaction.response.send_message(
-                emotive_message(f"You have {len(letters_with_content)} unreplied letters. Please select which one to respond to:"),
-                view=view,
-                ephemeral=True)
+            await interaction.edit_original_response(
+                content=emotive_message(f"You have {len(letters_with_content)} unreplied letters. Please select which one to respond to:"),
+                view=view)
 
             logger.debug(f"Created view in other branch.")
 
