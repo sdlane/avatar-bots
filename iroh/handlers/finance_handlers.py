@@ -79,9 +79,11 @@ async def get_character_finances(
         - unit_count: Number of ACTIVE units
         - building_upkeep: ResourceTotals from buildings in controlled territories
         - building_count: Number of ACTIVE buildings
-        - outgoing_transfers: ResourceTotals from ONGOING resource transfer orders
+        - outgoing_transfers: ResourceTotals from ONGOING resource transfer orders (character-sender only)
         - transfer_count: Number of outgoing transfers
-        - net_resources: ResourceTotals (production - expenses)
+        - incoming_transfers: ResourceTotals from ONGOING transfers targeting this character
+        - incoming_transfer_count: Number of incoming transfers
+        - net_resources: ResourceTotals (production + incoming - expenses)
     """
     character = await Character.fetch_by_id(conn, character_id)
     if not character:
@@ -166,13 +168,18 @@ async def get_character_finances(
             building_upkeep.cloth += b.upkeep_cloth
             building_upkeep.platinum += b.upkeep_platinum
 
-    # Outgoing resource transfers (ONGOING orders)
+    # Outgoing resource transfers (ONGOING orders, excluding faction-sender orders)
     transfer_orders = await Order.fetch_by_character_and_type(
         conn, character_id, guild_id, 'RESOURCE_TRANSFER', 'ONGOING'
     )
     outgoing_transfers = ResourceTotals()
+    outgoing_transfer_count = 0
     for order in transfer_orders:
         order_data = order.order_data or {}
+        # Skip faction-sender transfers — those are faction expenses, not character expenses
+        if order_data.get('sender_type') == 'faction':
+            continue
+        outgoing_transfer_count += 1
         outgoing_transfers.ore += order_data.get('ore', 0)
         outgoing_transfers.lumber += order_data.get('lumber', 0)
         outgoing_transfers.coal += order_data.get('coal', 0)
@@ -180,8 +187,22 @@ async def get_character_finances(
         outgoing_transfers.cloth += order_data.get('cloth', 0)
         outgoing_transfers.platinum += order_data.get('platinum', 0)
 
+    # Incoming resource transfers (ONGOING orders targeting this character)
+    incoming_transfer_orders = await Order.fetch_incoming_transfers_for_character(
+        conn, character_id, guild_id
+    )
+    incoming_transfers = ResourceTotals()
+    for order in incoming_transfer_orders:
+        order_data = order.order_data or {}
+        incoming_transfers.ore += order_data.get('ore', 0)
+        incoming_transfers.lumber += order_data.get('lumber', 0)
+        incoming_transfers.coal += order_data.get('coal', 0)
+        incoming_transfers.rations += order_data.get('rations', 0)
+        incoming_transfers.cloth += order_data.get('cloth', 0)
+        incoming_transfers.platinum += order_data.get('platinum', 0)
+
     # Calculate total production and expenses
-    total_production = personal_production.add(territory_production).add(building_production)
+    total_production = personal_production.add(territory_production).add(building_production).add(incoming_transfers)
     total_expenses = unit_upkeep.add(building_upkeep).add(outgoing_transfers)
     net_resources = total_production.subtract(total_expenses)
 
@@ -197,7 +218,9 @@ async def get_character_finances(
         'building_upkeep': building_upkeep,
         'building_count': building_count,
         'outgoing_transfers': outgoing_transfers,
-        'transfer_count': len(transfer_orders),
+        'transfer_count': outgoing_transfer_count,
+        'incoming_transfers': incoming_transfers,
+        'incoming_transfer_count': len(incoming_transfer_orders),
         'net_resources': net_resources
     }
 
@@ -221,7 +244,11 @@ async def get_faction_finances(
         - building_upkeep: ResourceTotals from buildings in faction territories
         - building_count: Number of ACTIVE buildings
         - spending_targets: ResourceTotals from faction spending configuration
-        - net_resources: ResourceTotals (production - expenses)
+        - outgoing_transfers: ResourceTotals from ONGOING transfers sent from this faction
+        - outgoing_transfer_count: Number of outgoing transfers
+        - incoming_transfers: ResourceTotals from ONGOING transfers targeting this faction
+        - incoming_transfer_count: Number of incoming transfers
+        - net_resources: ResourceTotals (production + incoming - expenses)
     """
     faction = await Faction.fetch_by_id(conn, faction_id)
     if not faction:
@@ -306,9 +333,37 @@ async def get_faction_finances(
         platinum=faction.platinum_spending
     )
 
+    # Outgoing resource transfers (ONGOING orders sent from this faction)
+    outgoing_transfer_orders = await Order.fetch_outgoing_transfers_for_faction(
+        conn, faction_id, guild_id
+    )
+    outgoing_transfers = ResourceTotals()
+    for order in outgoing_transfer_orders:
+        order_data = order.order_data or {}
+        outgoing_transfers.ore += order_data.get('ore', 0)
+        outgoing_transfers.lumber += order_data.get('lumber', 0)
+        outgoing_transfers.coal += order_data.get('coal', 0)
+        outgoing_transfers.rations += order_data.get('rations', 0)
+        outgoing_transfers.cloth += order_data.get('cloth', 0)
+        outgoing_transfers.platinum += order_data.get('platinum', 0)
+
+    # Incoming resource transfers (ONGOING orders targeting this faction)
+    incoming_transfer_orders = await Order.fetch_incoming_transfers_for_faction(
+        conn, faction_id, guild_id
+    )
+    incoming_transfers = ResourceTotals()
+    for order in incoming_transfer_orders:
+        order_data = order.order_data or {}
+        incoming_transfers.ore += order_data.get('ore', 0)
+        incoming_transfers.lumber += order_data.get('lumber', 0)
+        incoming_transfers.coal += order_data.get('coal', 0)
+        incoming_transfers.rations += order_data.get('rations', 0)
+        incoming_transfers.cloth += order_data.get('cloth', 0)
+        incoming_transfers.platinum += order_data.get('platinum', 0)
+
     # Calculate net resources
-    total_production = territory_production.add(building_production)
-    total_expenses = unit_upkeep.add(building_upkeep).add(spending_targets)
+    total_production = territory_production.add(building_production).add(incoming_transfers)
+    total_expenses = unit_upkeep.add(building_upkeep).add(spending_targets).add(outgoing_transfers)
     net_resources = total_production.subtract(total_expenses)
 
     return True, "", {
@@ -322,6 +377,10 @@ async def get_faction_finances(
         'building_upkeep': building_upkeep,
         'building_count': building_count,
         'spending_targets': spending_targets,
+        'outgoing_transfers': outgoing_transfers,
+        'outgoing_transfer_count': len(outgoing_transfer_orders),
+        'incoming_transfers': incoming_transfers,
+        'incoming_transfer_count': len(incoming_transfer_orders),
         'net_resources': net_resources
     }
 

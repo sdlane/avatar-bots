@@ -343,6 +343,87 @@ class Order:
         return result
 
     @classmethod
+    async def fetch_incoming_transfers_for_character(
+        cls, conn: asyncpg.Connection, character_id: int, guild_id: int
+    ) -> List["Order"]:
+        """
+        Fetch ONGOING RESOURCE_TRANSFER orders where the recipient is the given character.
+        Handles both new format (recipient_type/recipient_id) and old format (to_character_id).
+        """
+        rows = await conn.fetch("""
+            SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
+                   phase, priority, status, order_data, result_data,
+                   submitted_at, updated_at, updated_turn, guild_id
+            FROM WargameOrder
+            WHERE guild_id = $1
+            AND order_type = 'RESOURCE_TRANSFER'
+            AND status = 'ONGOING'
+            AND (
+                (order_data->>'recipient_type' = 'character' AND order_data->>'recipient_id' = $2)
+                OR (order_data->>'recipient_type' IS NULL AND order_data->>'to_character_id' = $2)
+            );
+        """, guild_id, str(character_id))
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['order_data'] = json.loads(data['order_data']) if data['order_data'] else {}
+            data['result_data'] = json.loads(data['result_data']) if data['result_data'] else None
+            result.append(cls(**data))
+        return result
+
+    @classmethod
+    async def fetch_outgoing_transfers_for_faction(
+        cls, conn: asyncpg.Connection, faction_id: int, guild_id: int
+    ) -> List["Order"]:
+        """
+        Fetch ONGOING RESOURCE_TRANSFER orders where the sender is the given faction.
+        """
+        rows = await conn.fetch("""
+            SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
+                   phase, priority, status, order_data, result_data,
+                   submitted_at, updated_at, updated_turn, guild_id
+            FROM WargameOrder
+            WHERE guild_id = $1
+            AND order_type = 'RESOURCE_TRANSFER'
+            AND status = 'ONGOING'
+            AND order_data->>'sender_type' = 'faction'
+            AND order_data->>'sender_faction_id' = $2;
+        """, guild_id, str(faction_id))
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['order_data'] = json.loads(data['order_data']) if data['order_data'] else {}
+            data['result_data'] = json.loads(data['result_data']) if data['result_data'] else None
+            result.append(cls(**data))
+        return result
+
+    @classmethod
+    async def fetch_incoming_transfers_for_faction(
+        cls, conn: asyncpg.Connection, faction_id: int, guild_id: int
+    ) -> List["Order"]:
+        """
+        Fetch ONGOING RESOURCE_TRANSFER orders where the recipient is the given faction.
+        """
+        rows = await conn.fetch("""
+            SELECT id, order_id, order_type, unit_ids, character_id, turn_number,
+                   phase, priority, status, order_data, result_data,
+                   submitted_at, updated_at, updated_turn, guild_id
+            FROM WargameOrder
+            WHERE guild_id = $1
+            AND order_type = 'RESOURCE_TRANSFER'
+            AND status = 'ONGOING'
+            AND order_data->>'recipient_type' = 'faction'
+            AND order_data->>'recipient_id' = $2;
+        """, guild_id, str(faction_id))
+        result = []
+        for row in rows:
+            data = dict(row)
+            data['order_data'] = json.loads(data['order_data']) if data['order_data'] else {}
+            data['result_data'] = json.loads(data['result_data']) if data['result_data'] else None
+            result.append(cls(**data))
+        return result
+
+    @classmethod
     async def delete(cls, conn: asyncpg.Connection, order_id: str, guild_id: int) -> bool:
         """
         Delete an Order by order_id and guild_id.

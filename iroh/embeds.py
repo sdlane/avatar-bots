@@ -1082,6 +1082,16 @@ def create_character_finances_embed(data: dict) -> discord.Embed:
             inline=False
         )
 
+    # Incoming Transfers
+    incoming = data.get('incoming_transfers')
+    incoming_count = data.get('incoming_transfer_count', 0)
+    if incoming_count > 0:
+        embed.add_field(
+            name=f"Incoming Transfers ({incoming_count} {'transfer' if incoming_count == 1 else 'transfers'})",
+            value=format_resource_totals(incoming),
+            inline=False
+        )
+
     # Net Resources (emphasized)
     net = data['net_resources']
     embed.add_field(
@@ -1180,6 +1190,26 @@ def create_faction_finances_embed(data: dict) -> discord.Embed:
         embed.add_field(
             name="Public Works Spending",
             value="None configured",
+            inline=False
+        )
+
+    # Outgoing Transfers
+    outgoing = data.get('outgoing_transfers')
+    outgoing_count = data.get('outgoing_transfer_count', 0)
+    if outgoing_count > 0:
+        embed.add_field(
+            name=f"Outgoing Transfers ({outgoing_count} {'transfer' if outgoing_count == 1 else 'transfers'})",
+            value=format_resource_totals(outgoing),
+            inline=False
+        )
+
+    # Incoming Transfers
+    incoming = data.get('incoming_transfers')
+    incoming_count = data.get('incoming_transfer_count', 0)
+    if incoming_count > 0:
+        embed.add_field(
+            name=f"Incoming Transfers ({incoming_count} {'transfer' if incoming_count == 1 else 'transfers'})",
+            value=format_resource_totals(incoming),
             inline=False
         )
 
