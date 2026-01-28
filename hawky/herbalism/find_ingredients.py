@@ -23,98 +23,14 @@ from typing import List, Optional
 _script_dir = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, _script_dir)
 
-# Try to import from blending.py for consistency with actual blending logic.
-# Fall back to local implementations if asyncpg is not available.
-try:
-    from blending import (
-        calculate_chakras,
-        ChakraResult,
-        all_have_property,
-        has_property,
-        count_property,
-        VALID_PRODUCT_TYPES,
-    )
-    _USING_BLENDING_MODULE = True
-except ImportError:
-    _USING_BLENDING_MODULE = False
-    # Local implementations below - MUST BE KEPT IN SYNC WITH blending.py
-    from dataclasses import dataclass as _dataclass
-
-    VALID_PRODUCT_TYPES = {"tea", "salve", "tincture", "decoction", "bath", "incense"}
-
-    @_dataclass
-    class ChakraResult:
-        """Result of chakra calculation."""
-        primary_chakra: Optional[str] = None
-        primary_magnitude: int = 0
-        primary_is_boon: Optional[str] = None
-        secondary_chakra: Optional[str] = None
-        secondary_magnitude: int = 0
-        secondary_is_boon: Optional[str] = None
-        tier: int = 0
-
-    def all_have_property(ingredients, property_name: str) -> bool:
-        if not ingredients:
-            return False
-        return all(ing.has_property(property_name) for ing in ingredients)
-
-    def has_property(ingredients, property_name: str) -> bool:
-        if not ingredients:
-            return False
-        return any(ing.has_property(property_name) for ing in ingredients)
-
-    def count_property(ingredients, property_name: str) -> int:
-        return sum(1 for ing in ingredients if ing.has_property(property_name))
-
-    def calculate_chakras(ingredients) -> ChakraResult:
-        """Calculate chakras - LOCAL FALLBACK. Keep in sync with blending.py!"""
-        if not ingredients:
-            return ChakraResult()
-
-        chakra_totals: dict = {}
-        for ing in ingredients:
-            if ing.primary_chakra and ing.primary_chakra_strength is not None:
-                chakra = ing.primary_chakra.lower()
-                chakra_totals[chakra] = chakra_totals.get(chakra, 0) + ing.primary_chakra_strength
-            if ing.secondary_chakra and ing.secondary_chakra_strength is not None:
-                chakra = ing.secondary_chakra.lower()
-                chakra_totals[chakra] = chakra_totals.get(chakra, 0) + ing.secondary_chakra_strength
-
-        if not chakra_totals:
-            return ChakraResult()
-
-        sorted_chakras = sorted(chakra_totals.items(), key=lambda x: abs(x[1]), reverse=True)
-        result = ChakraResult()
-
-        if len(sorted_chakras) >= 1:
-            result.primary_chakra = sorted_chakras[0][0]
-            result.primary_magnitude = sorted_chakras[0][1]
-            result.primary_is_boon = "boon" if sorted_chakras[0][1] > 0 else "bane"
-
-        if len(sorted_chakras) >= 2:
-            result.secondary_chakra = sorted_chakras[1][0]
-            result.secondary_magnitude = sorted_chakras[1][1]
-            result.secondary_is_boon = "boon" if sorted_chakras[1][1] > 0 else "bane"
-
-        primary_abs = abs(result.primary_magnitude)
-        secondary_abs = abs(result.secondary_magnitude) if result.secondary_chakra else 0
-        diff = primary_abs - secondary_abs
-
-        if diff > 10:
-            result.tier = 3
-        elif 8 <= diff <= 10:
-            result.tier = 2
-        elif 4 <= diff <= 7:
-            result.tier = 1
-        else:
-            result.tier = 0
-
-        if result.secondary_chakra is None and result.tier >= 1:
-            result.tier += 1
-
-        return result
-
-    print("Warning: Using local fallback functions (asyncpg not available)", file=sys.stderr)
+from blending import (
+    calculate_chakras,
+    ChakraResult,
+    all_have_property,
+    has_property,
+    count_property,
+    VALID_PRODUCT_TYPES,
+)
 
 # --- Configuration ---
 INGREDIENTS_FILE = "production_data/herbal_ingredients.csv"
@@ -512,7 +428,7 @@ def find_combinations_for_constraint(
                     required_ingredients.append(ing)
                     break
 
-    for combo_size in range(1, 7):
+    for combo_size in range(2, 7):
         if len(results) >= max_results:
             break
 
@@ -548,6 +464,36 @@ def find_combinations_for_constraint(
 
             if matches_constraint_recipe(recipe, combo_list_ing, chakra_result):
                 results.append(combo_list_ing)
+
+    # Fallback: if no results found and filtering was applied, try wider search
+    # where the first ingredient comes from filtered list and others from wider pool
+    if not results and core_ingredients != type_filtered:
+        for combo_size in range(2, 7):
+            if len(results) >= max_results:
+                break
+
+            # For each ingredient in the filtered list, combine with wider pool
+            for anchor in core_ingredients:
+                if len(results) >= max_results:
+                    break
+
+                # Get other ingredients from wider pool (excluding the anchor)
+                other_pool = [i for i in type_filtered if i != anchor]
+
+                for others in combinations(other_pool, combo_size - 1):
+                    if len(results) >= max_results:
+                        break
+
+                    combo_list_ing = [anchor] + list(others)
+
+                    actual_type = get_product_type(combo_list_ing)
+                    if actual_type != target_type:
+                        continue
+
+                    chakra_result = calculate_chakras(combo_list_ing)
+
+                    if matches_constraint_recipe(recipe, combo_list_ing, chakra_result):
+                        results.append(combo_list_ing)
 
     return results
 

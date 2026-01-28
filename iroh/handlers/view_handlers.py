@@ -5,7 +5,8 @@ import asyncpg
 from typing import Optional, Tuple, List, Any
 from db import (
     Territory, Faction, FactionMember, Unit, UnitType, BuildingType, Building,
-    PlayerResources, Character, TerritoryAdjacency, Order, FactionPermission
+    PlayerResources, Character, TerritoryAdjacency, Order, FactionPermission,
+    NavalUnitPosition
 )
 from order_types import OrderType, OrderStatus
 
@@ -236,13 +237,19 @@ async def view_unit(
     if unit.faction_id:
         faction = await Faction.fetch_by_id(conn, unit.faction_id)
 
+    # Fetch naval positions for naval units (if viewer has full access)
+    naval_positions = []
+    if unit.is_naval and viewer_has_full_access:
+        naval_positions = await NavalUnitPosition.fetch_territories_by_unit(conn, unit.id, guild_id)
+
     return True, "", {
         'unit': unit,
         'unit_type': unit_type,
         'owner': owner,
         'commander': commander,
         'faction': faction,
-        'viewer_has_full_access': viewer_has_full_access
+        'viewer_has_full_access': viewer_has_full_access,
+        'naval_positions': naval_positions
     }
 
 

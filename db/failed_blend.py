@@ -39,7 +39,7 @@ class FailedBlend:
             SELECT id, product_item_number, product_type
             FROM FailedBlend
             WHERE product_type = $1;
-        """, product_type)
+        """, product_type.lower())
         if not row:
             return None
         return cls(**dict(row))
