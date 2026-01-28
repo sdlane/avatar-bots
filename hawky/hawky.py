@@ -274,7 +274,7 @@ async def send_letter_callback(interaction: discord.Interaction,
     # Send confirmation
     logger.info(f"Letter queued from {sender_identifier} to {recipient.identifier} (scheduled: {scheduled_time})")
     await interaction.response.edit_message(
-        content=emotive_message(f"Message queued to send to {recipient_identifier}"), view=None)
+        content=emotive_message(f"Message queued to send to {recipient_identifier}"), view=None, ephemeral=False)
 
 
 @tree.context_menu(
@@ -545,7 +545,8 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
     logger.info(f"Response queued from {sender.identifier} to {selected_letter['sender_identifier']} (scheduled: {scheduled_time})")
     await interaction.response.edit_message(
         content=emotive_message(f"Response queued"),
-        view=None)
+        view=None,
+        ephemeral=False)
 
 
 @tree.command(
@@ -769,7 +770,7 @@ async def analyze_evidence(interaction: discord.Interaction, analysis_number: st
     if is_admin:
         embed.add_field(name="GM Notes", value=evidence.gm_notes or "No GM notes available", inline=False)
 
-    await interaction.response.send_message(embed=embed, ephemeral=True)
+    await interaction.response.send_message(embed=embed, ephemeral=False)
 
 
 @tree.command(
