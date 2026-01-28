@@ -145,7 +145,8 @@ async def view_territory_cmd(interaction: discord.Interaction, territory_id: str
             data['territory'],
             data['adjacent_ids'],
             data['controller_name'],
-            data.get('buildings')
+            data.get('buildings'),
+            data.get('building_production')
         )
         await interaction.followup.send(embed=embed)
 

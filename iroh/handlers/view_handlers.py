@@ -9,6 +9,7 @@ from db import (
     NavalUnitPosition
 )
 from order_types import OrderType, OrderStatus
+from handlers.turn_handlers import calculate_building_production_bonus
 
 
 async def _get_unit_viewer_access(
@@ -119,11 +120,15 @@ async def view_territory(conn: asyncpg.Connection, territory_id: str, guild_id: 
     # Fetch buildings in this territory
     buildings = await Building.fetch_by_territory(conn, territory_id, guild_id)
 
+    # Calculate building production bonus
+    building_production = await calculate_building_production_bonus(conn, territory, guild_id)
+
     return True, "", {
         'territory': territory,
         'adjacent_ids': adjacent_ids,
         'controller_name': controller_name,
-        'buildings': buildings
+        'buildings': buildings,
+        'building_production': building_production
     }
 
 

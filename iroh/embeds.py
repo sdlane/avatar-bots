@@ -2,7 +2,7 @@
 Helper functions for creating rich Discord embeds for wargame data display.
 """
 import discord
-from typing import List, Optional, Tuple
+from typing import Dict, List, Optional, Tuple
 from db import (
     Territory, Faction, Unit, UnitType, BuildingType, Building, PlayerResources,
     WargameConfig, Character, FactionMember
@@ -10,7 +10,8 @@ from db import (
 
 
 def create_territory_embed(territory: Territory, adjacent_ids: List[int], controller_name: Optional[str] = None,
-                           buildings: Optional[List[Building]] = None) -> discord.Embed:
+                           buildings: Optional[List[Building]] = None,
+                           building_production: Optional[Dict[str, int]] = None) -> discord.Embed:
     """Create a rich embed displaying territory information."""
     embed = discord.Embed(
         title=f"🗺️ Territory {territory.territory_id}: {territory.name or 'Unnamed'}",
@@ -50,6 +51,13 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
             inline=True
         )
 
+    if territory.siege_defense:
+        embed.add_field(
+            name="Siege Defense",
+            value=str(territory.siege_defense),
+            inline=True
+        )
+
     # Production
     production_lines = []
     if territory.ore_production > 0:
@@ -77,6 +85,24 @@ def create_territory_embed(territory: Territory, adjacent_ids: List[int], contro
             value="None",
             inline=False
         )
+
+    # Building production bonus
+    if building_production:
+        resource_emojis = {
+            'ore': '⛏️', 'lumber': '🪵', 'coal': '⚫',
+            'rations': '🍖', 'cloth': '🧵', 'platinum': '🪙'
+        }
+        bonus_lines = []
+        for resource, amount in building_production.items():
+            if amount > 0:
+                emoji = resource_emojis.get(resource, '')
+                bonus_lines.append(f"{emoji} {resource.capitalize()}: +{amount}")
+        if bonus_lines:
+            embed.add_field(
+                name="Building Production (per turn)",
+                value="\n".join(bonus_lines),
+                inline=False
+            )
 
     # Buildings
     if buildings:
