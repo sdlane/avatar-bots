@@ -1294,37 +1294,23 @@ def create_edit_unit_type_embed(unit_type: UnitType) -> discord.Embed:
 
 def create_territory_counts_embed(data: List[dict]) -> discord.Embed:
     """Create embed displaying faction territory standings."""
-    if len(data) == 1:
-        title = f"Territory Standings — {data[0]['faction'].name}"
+    entry = data[0]
+    faction = entry['faction']
+    current = entry['current_count']
+    starting = entry['starting_count']
+    delta = current - starting
+    if delta > 0:
+        delta_str = f"+{delta}"
+    elif delta == 0:
+        delta_str = "0"
     else:
-        title = "Territory Standings"
+        delta_str = str(delta)
+
     embed = discord.Embed(
-        title=title,
+        title=f"Territory Standings — {faction.name}",
         color=discord.Color.dark_green()
     )
-
-    # Build monospace table
-    lines = []
-    lines.append(f"{'Faction':<20} {'Now':>4} {'Start':>6} {'Delta':>6}")
-    lines.append("-" * 38)
-
-    for entry in data:
-        faction = entry['faction']
-        current = entry['current_count']
-        starting = entry['starting_count']
-        delta = current - starting
-        if delta > 0:
-            delta_str = f"+{delta}"
-        elif delta == 0:
-            delta_str = "0"
-        else:
-            delta_str = str(delta)
-
-        name = faction.name
-        if len(name) > 20:
-            name = name[:17] + "..."
-        lines.append(f"{name:<20} {current:>4} {starting:>6} {delta_str:>6}")
-
-    embed.description = "```\n" + "\n".join(lines) + "\n```"
-
+    embed.add_field(name="Current", value=str(current), inline=False)
+    embed.add_field(name="Starting", value=str(starting), inline=False)
+    embed.add_field(name="Delta", value=delta_str, inline=False)
     return embed
