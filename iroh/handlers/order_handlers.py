@@ -3,7 +3,7 @@ Order management command handlers.
 """
 import asyncpg
 from typing import Tuple, List, Optional
-from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog, Alliance, FactionPermission, UnitType, BuildingType
+from db import Order, Unit, Character, Faction, FactionMember, Territory, TurnLog, Alliance, FactionPermission, UnitType, BuildingType, NavalUnitPosition
 from order_types import OrderType, ORDER_PHASE_MAP, ORDER_PRIORITY_MAP, OrderStatus, TurnPhase
 from datetime import datetime
 
@@ -655,10 +655,28 @@ async def submit_unit_order(
     if unauthorized_units:
         return False, f"You are not authorized to issue orders for these units: {', '.join(unauthorized_units)}. Ask a GM for clarification.", None
 
-    # Validate all units in same starting territory
-    starting_territories = set(u.current_territory_id for u in units)
-    if len(starting_territories) > 1:
-        return False, f"All units must be in the same territory. Units are in: {starting_territories}", None
+    # Validate all units share a common starting territory
+    if is_naval_action:
+        # Naval units occupy multiple territories; check that their position sets overlap
+        territory_sets = {}
+        for unit in units:
+            positions = await NavalUnitPosition.fetch_territories_by_unit(conn, unit.id, guild_id)
+            if positions:
+                territory_sets[unit.unit_id] = set(positions)
+            else:
+                # Fall back to current_territory_id if no NavalUnitPosition entries yet
+                territory_sets[unit.unit_id] = {unit.current_territory_id}
+
+        if len(territory_sets) > 1:
+            common = set.intersection(*territory_sets.values())
+            if not common:
+                details = ", ".join(f"{uid}: {sorted(ts)}" for uid, ts in territory_sets.items())
+                return False, f"Naval units must share at least one common territory. Positions: {details}", None
+    else:
+        # Land units must all be in the same territory
+        starting_territories = set(u.current_territory_id for u in units)
+        if len(starting_territories) > 1:
+            return False, f"All units must be in the same territory. Units are in: {starting_territories}", None
 
     starting_territory_id = units[0].current_territory_id
 

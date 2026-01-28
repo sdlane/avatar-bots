@@ -4,7 +4,7 @@ Tests for unit order submission (submit_unit_order handler).
 import pytest
 import json
 from datetime import datetime
-from db import Character, Territory, TerritoryAdjacency, Unit, UnitType, Order, Faction, FactionMember, FactionPermission, WargameConfig
+from db import Character, Territory, TerritoryAdjacency, Unit, UnitType, Order, Faction, FactionMember, FactionPermission, WargameConfig, NavalUnitPosition
 from handlers.order_handlers import submit_unit_order, VALID_LAND_ACTIONS, VALID_NAVAL_ACTIONS, VALID_UNIT_ACTIONS
 from order_types import OrderType, OrderStatus, TurnPhase
 
@@ -94,6 +94,7 @@ async def cleanup_orders(db_conn):
 async def full_cleanup(db_conn):
     """Full cleanup of test data."""
     await db_conn.execute('DELETE FROM WargameOrder WHERE guild_id = $1;', TEST_GUILD_ID)
+    await db_conn.execute("DELETE FROM NavalUnitPosition WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM Unit WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM UnitType WHERE guild_id = $1;", TEST_GUILD_ID)
     await db_conn.execute("DELETE FROM TerritoryAdjacency WHERE guild_id = $1;", TEST_GUILD_ID)
@@ -816,5 +817,76 @@ async def test_nonexistent_unit_fails(db_conn, test_server):
 
     assert success is False
     assert "not found" in message.lower()
+
+    await full_cleanup(db_conn)
+
+
+# ============================================================
+# Naval unit grouping (path overlap) tests
+# ============================================================
+
+@pytest.mark.asyncio
+async def test_naval_units_overlapping_positions_succeed(db_conn, test_server):
+    """Two naval units with overlapping position sets can be grouped."""
+    char = await create_test_character(db_conn)
+    await create_test_territories(db_conn, ["O1", "O2", "O3", "O4"], terrain_type="ocean")
+    await create_adjacencies(db_conn, [("O1", "O2"), ("O2", "O3"), ("O3", "O4")])
+    unit1 = await create_test_unit(db_conn, "NAV-001", char.id, "O1", is_naval=True)
+    unit2 = await create_test_unit(db_conn, "NAV-002", char.id, "O2", is_naval=True)
+    await create_wargame_config(db_conn)
+
+    # Unit 1 occupies O1, O2; Unit 2 occupies O2, O3 → overlap at O2
+    await NavalUnitPosition.set_positions(db_conn, unit1.id, ["O1", "O2"], TEST_GUILD_ID)
+    await NavalUnitPosition.set_positions(db_conn, unit2.id, ["O2", "O3"], TEST_GUILD_ID)
+
+    success, message, extra = await submit_unit_order(
+        db_conn, ["NAV-001", "NAV-002"], "naval_transit", ["O2", "O3", "O4"], TEST_GUILD_ID, char.id
+    )
+
+    assert success is True, f"Expected success but got: {message}"
+
+    await full_cleanup(db_conn)
+
+
+@pytest.mark.asyncio
+async def test_naval_units_no_overlap_fail(db_conn, test_server):
+    """Two naval units with disjoint position sets are rejected."""
+    char = await create_test_character(db_conn)
+    await create_test_territories(db_conn, ["O1", "O2", "O3", "O4"], terrain_type="ocean")
+    await create_adjacencies(db_conn, [("O1", "O2"), ("O2", "O3"), ("O3", "O4")])
+    unit1 = await create_test_unit(db_conn, "NAV-001", char.id, "O1", is_naval=True)
+    unit2 = await create_test_unit(db_conn, "NAV-002", char.id, "O3", is_naval=True)
+    await create_wargame_config(db_conn)
+
+    # Unit 1 occupies O1, O2; Unit 2 occupies O3, O4 → no overlap
+    await NavalUnitPosition.set_positions(db_conn, unit1.id, ["O1", "O2"], TEST_GUILD_ID)
+    await NavalUnitPosition.set_positions(db_conn, unit2.id, ["O3", "O4"], TEST_GUILD_ID)
+
+    success, message, extra = await submit_unit_order(
+        db_conn, ["NAV-001", "NAV-002"], "naval_transit", ["O1", "O2", "O3"], TEST_GUILD_ID, char.id
+    )
+
+    assert success is False
+    assert "common territory" in message.lower()
+
+    await full_cleanup(db_conn)
+
+
+@pytest.mark.asyncio
+async def test_single_naval_unit_passes_grouping(db_conn, test_server):
+    """A single naval unit always passes the grouping check."""
+    char = await create_test_character(db_conn)
+    await create_test_territories(db_conn, ["O1", "O2", "O3"], terrain_type="ocean")
+    await create_adjacencies(db_conn, [("O1", "O2"), ("O2", "O3")])
+    unit1 = await create_test_unit(db_conn, "NAV-001", char.id, "O1", is_naval=True)
+    await create_wargame_config(db_conn)
+
+    await NavalUnitPosition.set_positions(db_conn, unit1.id, ["O1", "O2"], TEST_GUILD_ID)
+
+    success, message, extra = await submit_unit_order(
+        db_conn, ["NAV-001"], "naval_transit", ["O1", "O2", "O3"], TEST_GUILD_ID, char.id
+    )
+
+    assert success is True, f"Expected success but got: {message}"
 
     await full_cleanup(db_conn)
