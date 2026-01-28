@@ -232,7 +232,7 @@ async def send_letter_callback(interaction: discord.Interaction,
         await interaction.followup.send(
             emotive_message(message_content),
             view=view,
-            ephemeral=True)
+            ephemeral=False)
         await view.wait()
         interaction = view.interaction
 
