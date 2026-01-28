@@ -499,10 +499,9 @@ async def send_response_confirmation(interaction: discord.Interaction, message: 
                 content=emotive_message(message_content),
                 view=view)
         else:
-            await interaction.response.send_message(
+            await interaction.response.edit_message(
                 content=emotive_message(message_content),
-                view=view,
-                ephemeral=False)
+                view=view)
 
         await view.wait()
         interaction = view.interaction
