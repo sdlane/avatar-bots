@@ -348,42 +348,47 @@ async def view_faction_finances(
     conn: asyncpg.Connection,
     user_id: int,
     guild_id: int
-) -> Tuple[bool, str, Optional[dict]]:
+) -> Tuple[bool, str, Optional[List[dict]]]:
     """
-    View financial report for the user's represented faction.
-    Requires FINANCIAL permission or being the faction leader.
+    View financial reports for all factions where the user has access.
+    Access is granted by being a faction leader or having FINANCIAL permission.
 
     Returns:
-        (success, message, data) - data from get_faction_finances()
+        (success, message, data_list) - list of data dicts from get_faction_finances()
     """
     character = await Character.fetch_by_user(conn, user_id, guild_id)
     if not character:
         return False, "You don't have a character assigned. Ask a GM to assign you one using hawky.", None
 
-    # Check for represented faction first
-    faction = None
-    if character.represented_faction_id:
-        faction = await Faction.fetch_by_id(conn, character.represented_faction_id)
+    # Collect all faction IDs the character has financial access to
+    privileged_faction_ids = set()
 
-    # Fall back to faction membership
-    if not faction:
-        faction_member = await FactionMember.fetch_by_character(conn, character.id, guild_id)
-        if faction_member:
-            faction = await Faction.fetch_by_id(conn, faction_member.faction_id)
+    # 1. Factions where character has FINANCIAL permission
+    permissions = await FactionPermission.fetch_by_character(conn, character.id, guild_id)
+    for perm in permissions:
+        if perm.permission_type == 'FINANCIAL':
+            privileged_faction_ids.add(perm.faction_id)
 
-    if not faction:
-        return False, f"{character.name} is not a member of any faction.", None
+    # 2. Factions where character is the leader
+    all_factions = await Faction.fetch_all(conn, guild_id)
+    for faction in all_factions:
+        if faction.leader_character_id == character.id:
+            privileged_faction_ids.add(faction.id)
 
-    # Check if user is faction leader or has FINANCIAL permission
-    is_leader = faction.leader_character_id == character.id
-    has_financial = await FactionPermission.has_permission(
-        conn, faction.id, character.id, 'FINANCIAL', guild_id
-    )
+    if not privileged_faction_ids:
+        return False, f"{character.name} does not have permission to view any faction's finances. You need to be a faction leader or have FINANCIAL permission.", None
 
-    if not is_leader and not has_financial:
-        return False, f"{character.name} does not have permission to view {faction.name}'s finances. You need to be the faction leader or have FINANCIAL permission.", None
+    # Fetch finances for each privileged faction
+    results = []
+    for faction_id in sorted(privileged_faction_ids):
+        success, message, data = await get_faction_finances(conn, faction_id, guild_id)
+        if success:
+            results.append(data)
 
-    return await get_faction_finances(conn, faction.id, guild_id)
+    if not results:
+        return False, "Could not retrieve financial data for any faction.", None
+
+    return True, "", results
 
 
 async def admin_view_finances(

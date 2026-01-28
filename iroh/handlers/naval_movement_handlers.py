@@ -686,7 +686,8 @@ async def validate_naval_order(
 
     # Check territory count for convoy/patrol
     window_size = calculate_naval_window_size(units, action)
-    valid, error = validate_territory_count(territory_path, window_size, action)
+    if action in ["naval_patrol", "naval_convoy"]:
+        valid, error = validate_territory_count(territory_path, window_size, action)
     if not valid:
         return False, error
 

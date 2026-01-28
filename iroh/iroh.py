@@ -737,8 +737,8 @@ async def my_faction_finances_cmd(interaction: discord.Interaction):
             await interaction.followup.send(emotive_message(message), ephemeral=True)
             return
 
-        embed = create_faction_finances_embed(data)
-        await interaction.followup.send(embed=embed, ephemeral=True)
+        embeds = [create_faction_finances_embed(d) for d in data]
+        await interaction.followup.send(embeds=embeds, ephemeral=True)
 
 
 # Admin Commands
