@@ -3,7 +3,7 @@ Discord UI components (modals, views, buttons) for Iroh wargame bot.
 """
 import discord
 from typing import Optional
-from db import Territory, UnitType, BuildingType, PlayerResources, Character, WargameConfig, Unit, Faction, FactionMember
+from db import Territory, UnitType, BuildingType, PlayerResources, Character, WargameConfig, Unit, Faction, FactionMember, NavalUnitPosition
 import logging
 
 logger = logging.getLogger(__name__)
@@ -1173,14 +1173,14 @@ class EditUnitBasicModal(discord.ui.Modal, title="Edit Basic Info"):
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit basic info for '{self.unit.unit_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
 class EditUnitLocationModal(discord.ui.Modal, title="Edit Location"):
     """Modal for editing unit location."""
 
-    def __init__(self, unit: Unit, db_pool, parent_view):
+    def __init__(self, unit: Unit, db_pool, parent_view, naval_positions_str: str = ""):
         super().__init__()
         self.unit = unit
         self.db_pool = db_pool
@@ -1193,6 +1193,18 @@ class EditUnitLocationModal(discord.ui.Modal, title="Edit Location"):
             max_length=100
         )
         self.add_item(self.territory_input)
+
+        self.naval_positions_input = None
+        if unit.is_naval:
+            self.naval_positions_input = discord.ui.TextInput(
+                label="Naval Positions (comma-separated)",
+                style=discord.TextStyle.long,
+                default=naval_positions_str,
+                placeholder="e.g. ocean-1, ocean-2, ocean-3",
+                required=False,
+                max_length=1000
+            )
+            self.add_item(self.naval_positions_input)
 
     async def on_submit(self, interaction: discord.Interaction):
         from helpers import emotive_message
@@ -1215,9 +1227,39 @@ class EditUnitLocationModal(discord.ui.Modal, title="Edit Location"):
             self.unit.current_territory_id = territory_id
             await self.unit.upsert(conn)
 
+            # Handle naval positions if this is a naval unit
+            if self.unit.is_naval and self.naval_positions_input is not None:
+                raw = self.naval_positions_input.value.strip()
+                if raw:
+                    # Parse, deduplicate while preserving order
+                    seen = set()
+                    parsed_ids = []
+                    for tid in raw.split(","):
+                        tid = tid.strip()
+                        if tid and tid not in seen:
+                            seen.add(tid)
+                            parsed_ids.append(tid)
+
+                    # Validate each territory exists
+                    for tid in parsed_ids:
+                        t = await Territory.fetch_by_territory_id(conn, tid, interaction.guild_id)
+                        if not t:
+                            await interaction.response.send_message(
+                                emotive_message(f"Naval position territory '{tid}' not found."),
+                                ephemeral=True
+                            )
+                            return
+
+                    await NavalUnitPosition.set_positions(conn, self.unit.id, parsed_ids, interaction.guild_id)
+                    self.parent_view.naval_positions = parsed_ids
+                else:
+                    # Empty input clears all naval positions
+                    await NavalUnitPosition.set_positions(conn, self.unit.id, [], interaction.guild_id)
+                    self.parent_view.naval_positions = []
+
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit location for '{self.unit.unit_id}' to '{territory_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
@@ -1313,7 +1355,7 @@ class EditUnitOwnershipModal(discord.ui.Modal, title="Edit Ownership"):
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit ownership for '{self.unit.unit_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
@@ -1369,7 +1411,7 @@ class EditUnitCommanderModal(discord.ui.Modal, title="Edit Commander"):
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit commander for '{self.unit.unit_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
@@ -1453,7 +1495,7 @@ class EditUnitCombatModal(discord.ui.Modal, title="Edit Combat Stats"):
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit combat stats for '{self.unit.unit_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
@@ -1546,7 +1588,7 @@ class EditUnitSizeModal(discord.ui.Modal, title="Edit Size/Siege Stats"):
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit size/siege stats for '{self.unit.unit_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
@@ -1612,7 +1654,7 @@ class EditUnitUpkeep1Modal(discord.ui.Modal, title="Edit Upkeep (1/2)"):
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit upkeep (ore/lumber/coal) for '{self.unit.unit_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
@@ -1678,7 +1720,7 @@ class EditUnitUpkeep2Modal(discord.ui.Modal, title="Edit Upkeep (2/2)"):
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit upkeep (rations/cloth/platinum) for '{self.unit.unit_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
@@ -1718,17 +1760,18 @@ class EditUnitKeywordsModal(discord.ui.Modal, title="Edit Keywords"):
 
         logger.info(f"Admin {interaction.user.name} (ID: {interaction.user.id}) edited unit keywords for '{self.unit.unit_id}' in guild {interaction.guild_id}")
 
-        new_embed = create_edit_unit_embed(self.unit)
+        new_embed = create_edit_unit_embed(self.unit, naval_positions=self.parent_view.naval_positions)
         await interaction.response.edit_message(embed=new_embed, view=self.parent_view)
 
 
 class EditUnitView(discord.ui.View):
     """View with buttons to edit unit field categories."""
 
-    def __init__(self, unit: Unit, db_pool):
+    def __init__(self, unit: Unit, db_pool, naval_positions=None):
         super().__init__(timeout=300)  # 5 minute timeout
         self.unit = unit
         self.db_pool = db_pool
+        self.naval_positions = naval_positions
 
     @discord.ui.button(label="Basic Info", style=discord.ButtonStyle.primary, row=0)
     async def basic_info(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -1737,7 +1780,12 @@ class EditUnitView(discord.ui.View):
 
     @discord.ui.button(label="Location", style=discord.ButtonStyle.secondary, row=0)
     async def location(self, interaction: discord.Interaction, button: discord.ui.Button):
-        modal = EditUnitLocationModal(self.unit, self.db_pool, self)
+        naval_positions_str = ""
+        if self.unit.is_naval:
+            async with self.db_pool.acquire() as conn:
+                territories = await NavalUnitPosition.fetch_territories_by_unit(conn, self.unit.id, interaction.guild_id)
+                naval_positions_str = ", ".join(territories)
+        modal = EditUnitLocationModal(self.unit, self.db_pool, self, naval_positions_str)
         await interaction.response.send_modal(modal)
 
     @discord.ui.button(label="Ownership", style=discord.ButtonStyle.secondary, row=0)

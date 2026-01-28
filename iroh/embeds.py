@@ -833,7 +833,7 @@ def create_victory_points_embed(data: dict) -> discord.Embed:
     return embed
 
 
-def create_edit_unit_embed(unit: Unit) -> discord.Embed:
+def create_edit_unit_embed(unit: Unit, naval_positions: list = None) -> discord.Embed:
     """Create embed for editing unit via button interface."""
     embed = discord.Embed(
         title=f"Edit Unit: {unit.name or unit.unit_id}",
@@ -872,6 +872,11 @@ def create_edit_unit_embed(unit: Unit) -> discord.Embed:
     # Keywords
     keywords = ", ".join(unit.keywords) if unit.keywords else "None"
     embed.add_field(name="Keywords", value=keywords, inline=False)
+
+    # Naval positions (only for naval units)
+    if unit.is_naval and naval_positions is not None:
+        positions_str = ", ".join(naval_positions) if naval_positions else "None"
+        embed.add_field(name="Naval Positions", value=positions_str, inline=False)
 
     embed.set_footer(text="Click a button to modify fields")
     return embed

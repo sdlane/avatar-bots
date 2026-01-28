@@ -2059,8 +2059,12 @@ async def edit_unit_cmd(interaction: discord.Interaction, unit_id: str):
             )
             return
 
-        embed = create_edit_unit_embed(unit)
-        view = EditUnitView(unit, db_pool)
+        naval_positions = None
+        if unit.is_naval:
+            naval_positions = await NavalUnitPosition.fetch_territories_by_unit(conn, unit.id, interaction.guild_id)
+
+        embed = create_edit_unit_embed(unit, naval_positions=naval_positions)
+        view = EditUnitView(unit, db_pool, naval_positions=naval_positions)
         await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
 
 
