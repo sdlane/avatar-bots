@@ -65,6 +65,7 @@ INGREDIENTS_FILE = "production_data/herbal_ingredients.csv"
 PRODUCTS_FILE = "production_data/herbal_products.csv"
 SUBSET_RECIPES_FILE = "production_data/subset_recipes.csv"
 CONSTRAINT_RECIPES_FILES: List[str] = [
+    "production_data/spirit_products.csv",
     "production_data/healing.csv",
     "production_data/two_chakra.csv",
     "production_data/one_chakra.csv"
