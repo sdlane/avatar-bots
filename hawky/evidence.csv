@@ -1,11 +1,11 @@
 Analysis Number,Hint
 117,8th digit of fingerprint is triple 6th digit
 182,"only two distinct digits in the fingerprint are repeated, each in a pair"
-129,"The badge number, as a irl year, has already passed"
+129,The badge number contains a 3 digit prime factor
 160,"The badge number is a concatenation of a square number, then a prime number"
 171,"The last digit of the badge number, subtracted from the first, is one of the middle digits."
 144,The badge number has a prime factor between 200 and 300 exclusive
-148,"The strictly greatest digit of the fingerprint is the penultimate, and the strictly least is the middle digit."
+148,This tells you nothing. (GM Oops)
 112,"The fingerprint does not contain the digits 2, 7 or 8"
 130,The badge number contains only digits strictly less than 6
 180,"The badge number, as a irl year, has already passed"
